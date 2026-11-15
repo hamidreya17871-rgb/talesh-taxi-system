@@ -3,7 +3,7 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/staff';
 
-export type SessionStatus = 'loading' | 'signed-out' | 'ready' | 'pending' | 'inactive' | 'error';
+export type SessionStatus = 'loading' | 'signed-out' | 'ready' | 'pending' | 'rejected' | 'inactive' | 'error';
 
 export function useSession() {
   const [status, setStatus] = useState<SessionStatus>('loading');
@@ -36,7 +36,13 @@ export function useSession() {
         setStatus('inactive');
         return;
       }
-      if (data.approval_status === 'pending') {
+      if (data.approval_status === 'rejected') {
+        readyUserIdRef.current = null;
+        setProfile(null);
+        setStatus('rejected');
+        return;
+      }
+      if (data.approval_status !== 'approved') {
         readyUserIdRef.current = null;
         setProfile(null);
         setStatus('pending');
