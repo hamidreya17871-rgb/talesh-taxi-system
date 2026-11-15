@@ -235,6 +235,16 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
 
                 {letter.body && <p className="line-clamp-2 text-sm text-ink-600">{letter.body}</p>}
 
+                {(letter.expert_reviewed_at || letter.manager_signed_at || letter.manager_order_note || letter.sent_at) && (
+                  <div className="rounded-lg border border-ink-100 p-3 text-xs text-ink-600 flex flex-col gap-1">
+                    {letter.expert_reviewed_at && <p>بررسی کارشناس: {new Date(letter.expert_reviewed_at).toLocaleString('fa-IR')}</p>}
+                    {letter.manager_signed_at && <p>تأیید مدیر: {new Date(letter.manager_signed_at).toLocaleString('fa-IR')}</p>}
+                    {letter.manager_order_note && <p>دستور مدیر: {letter.manager_order_note}</p>}
+                    {letter.sent_at && <p>تاریخ ارسال: {new Date(letter.sent_at).toLocaleString('fa-IR')} {letter.sent_method ? `· ${letter.sent_method}` : ''}</p>}
+                    {letter.delivery_receipt_path && <p>مسیر رسید تحویل: {letter.delivery_receipt_path}</p>}
+                  </div>
+                )}
+
                 <OutgoingLetterWorkflowActions letter={letter} profile={profile} onSaved={() => void load()} onNotify={onNotify} />
 
                 {letterReferrals.length > 0 && (
