@@ -17,7 +17,7 @@ type Report = {
   created_at: string;
 };
 
-const STATUSES = ['ارسال‌شده', 'دریافت توسط بازرس سازمان', 'در حال بررسی', 'ارجاع به مدیریت', 'مختومه'];
+const STATUSES = ['ارسال‌شده', 'دریافت توسط بازرس سازمان', 'در حال بررسی', 'سازش انجام شد', 'ارجاع به کمیته انضباطی', 'مختومه'];
 
 export default function LineInspectorReports({ profile, mode }: { profile: Profile; mode: 'driver' | 'staff' }) {
   const [reports, setReports] = useState<Report[]>([]);
@@ -65,9 +65,27 @@ export default function LineInspectorReports({ profile, mode }: { profile: Profi
   }
 
   async function updateStatus(report: Report, status: string) {
-    const { error: updateError } = await supabase.from('line_violation_reports').update({
+    let settlementNote: string | undefined;
+    if (status === 'ارجاع به کمیته انضباطی' || status === 'سازش انجام شد') {
+      const promptText = status === 'ارجاع به کمیته انضباطی'
+        ? 'نتیجه تلاش برای سازش و علت عدم حصول سازش را ثبت کنید:'
+        : 'شرح نتیجه سازش را ثبت کنید:';
+      const entered = window.prompt(promptText);
+      if (!entered || entered.trim().length < 5) {
+        setError('برای ثبت نتیجه سازش، توضیح حداقل ۵ نویسه‌ای لازم است.');
+        return;
+      }
+      settlementNote = entered.trim();
+    }
+    const payload: Record<string, unknown> = {
       status, reviewed_by: profile.user_id, reviewed_at: new Date().toISOString(),
-    }).eq('id', report.id);
+    };
+    if (settlementNote) {
+      payload.settlement_note = settlementNote;
+      payload.settlement_attempted_at = new Date().toISOString();
+    }
+    if (status === 'ارجاع به کمیته انضباطی') payload.committee_referred_at = new Date().toISOString();
+    const { error: updateError } = await supabase.from('line_violation_reports').update(payload).eq('id', report.id);
     if (updateError) { setError('به‌روزرسانی وضعیت انجام نشد.'); return; }
     await load();
   }
@@ -125,6 +143,7 @@ export default function LineInspectorReports({ profile, mode }: { profile: Profi
             {mode === 'staff' && <p className="text-xs text-ink-600">بازرس خط: {report.reporter_name} · تماس: {report.reporter_phone || 'ثبت نشده'}</p>}
             <p className="text-xs text-ink-600">راننده مورد گزارش: {report.accused_driver_name || 'نامشخص'} · محل: {report.location}</p>
             <p className="whitespace-pre-wrap text-sm leading-6">{report.description}</p>
+            {report.settlement_note && <p className="rounded-lg bg-ink-50 p-2 text-xs text-ink-600">نتیجه تلاش برای سازش: {report.settlement_note}</p>}
             {mode === 'staff' && (
               <label className="flex flex-wrap items-center gap-2 text-xs text-ink-600">وضعیت رسیدگی
                 <select value={report.status} onChange={e => void updateStatus(report, e.target.value)} className="field-input min-w-[200px]">
