@@ -1,4 +1,6 @@
-import { LogOut, Menu } from 'lucide-react';
+import { KeyRound, LogOut, Menu } from 'lucide-react';
+import { useState } from 'react';
+import PasswordChangeModal from '@/components/PasswordChangeModal';
 import { ROLE_LABELS, type Profile } from '@/lib/staff';
 
 type TopBarProps = {
@@ -9,6 +11,7 @@ type TopBarProps = {
 };
 
 export default function TopBar({ title, profile, onSignOut, onMenuClick }: TopBarProps) {
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   return (
     <header className="flex h-[75px] items-center justify-between gap-3 border-b border-ink-200 bg-white px-7 max-[650px]:h-16 max-[650px]:px-4">
       <div>
@@ -27,11 +30,16 @@ export default function TopBar({ title, profile, onSignOut, onMenuClick }: TopBa
           <p className="font-bold">{profile.full_name}</p>
           <p className="text-xs text-ink-600">{ROLE_LABELS[profile.role]}</p>
         </div>
+        <button type="button" className="btn-tiny" onClick={() => setPasswordModalOpen(true)} aria-label="تغییر رمز عبور">
+          <KeyRound size={13} />
+          رمز
+        </button>
         <button type="button" className="btn-tiny" onClick={onSignOut} aria-label="خروج از حساب">
           <LogOut size={13} />
           خروج
         </button>
       </div>
+      {passwordModalOpen && <PasswordChangeModal onClose={() => setPasswordModalOpen(false)} />}
     </header>
   );
 }
