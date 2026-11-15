@@ -118,6 +118,20 @@ async function requireStaff(req: Request, allowedRoles: string[]): Promise<strin
   return userData.user.id;
 }
 
+async function requireOrganizationStaff(req: Request): Promise<string> {
+  const userId = await requireOrganizationStaff(req);
+  const { data: profile, error } = await admin
+    .from("profiles")
+    .select("is_disciplinary_committee")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  if (profile?.is_disciplinary_committee) {
+    throw new RequestError("این حساب فقط به کارتابل کمیته انضباطی دسترسی دارد.", 403);
+  }
+  return userId;
+}
+
 async function createAuthUser(email: string, password: string): Promise<string> {
   const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
   if (error) {
