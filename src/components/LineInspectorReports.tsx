@@ -14,6 +14,8 @@ type Report = {
   occurred_at: string | null;
   description: string;
   status: string;
+  settlement_note?: string | null;
+  committee_referred_at?: string | null;
   created_at: string;
 };
 
