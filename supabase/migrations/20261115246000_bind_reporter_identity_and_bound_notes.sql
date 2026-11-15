@@ -30,17 +30,17 @@ ALTER TABLE public.line_violation_reports
 
 ALTER TABLE public.line_violation_reports
   ADD CONSTRAINT line_violation_reports_settlement_note_length_check
-    CHECK (settlement_note IS NULL OR char_length(settlement_note) <= 3000),
+    CHECK (settlement_note IS NULL OR char_length(settlement_note) <= 3000) NOT VALID,
   ADD CONSTRAINT line_violation_reports_review_note_length_check
-    CHECK (review_note IS NULL OR char_length(review_note) <= 3000),
+    CHECK (review_note IS NULL OR char_length(review_note) <= 3000) NOT VALID,
   ADD CONSTRAINT line_violation_reports_committee_note_length_check
-    CHECK (committee_note IS NULL OR char_length(committee_note) <= 3000),
+    CHECK (committee_note IS NULL OR char_length(committee_note) <= 3000) NOT VALID,
   ADD CONSTRAINT line_violation_reports_settlement_order_note_length_check
-    CHECK (settlement_order_note IS NULL OR char_length(settlement_order_note) <= 3000),
+    CHECK (settlement_order_note IS NULL OR char_length(settlement_order_note) <= 3000) NOT VALID,
   ADD CONSTRAINT line_violation_reports_referral_order_note_length_check
-    CHECK (referral_order_note IS NULL OR char_length(referral_order_note) <= 3000),
+    CHECK (referral_order_note IS NULL OR char_length(referral_order_note) <= 3000) NOT VALID,
   ADD CONSTRAINT line_violation_reports_verdict_order_note_length_check
-    CHECK (verdict_order_note IS NULL OR char_length(verdict_order_note) <= 3000);
+    CHECK (verdict_order_note IS NULL OR char_length(verdict_order_note) <= 3000) NOT VALID;
 
 CREATE OR REPLACE FUNCTION public.require_committee_referral_timestamp()
 RETURNS trigger
