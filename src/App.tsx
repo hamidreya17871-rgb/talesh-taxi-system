@@ -189,7 +189,7 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
       showToast('فایل پشتیبان معتبر نیست', 'error');
       return;
     }
-    if (!window.confirm('اطلاعات فعلی جایگزین شود؟')) return;
+    if (!window.confirm('فقط ردیف‌های جدید از فایل به سامانه اضافه می‌شوند؛ ردیف‌های فعلی نه بازنویسی و نه حذف خواهند شد. ادامه می‌دهید؟')) return;
     try {
       await restoreBackup(backup);
       showToast('بازیابی انجام شد');
