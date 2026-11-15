@@ -28,7 +28,6 @@ type Report = {
   line_violation_report_evidence?: Evidence[];
 };
 
-const STATUSES = ['ارسال‌شده', 'دریافت توسط بازرس سازمان', 'در حال بررسی', 'در انتظار تأیید سازش توسط مدیر', 'در انتظار دستور مدیر برای ارجاع'];
 const EVIDENCE_BUCKET = 'line-report-evidence';
 const MAX_FILES = 6;
 const MAX_IMAGE_SIZE = 8 * 1024 * 1024;
