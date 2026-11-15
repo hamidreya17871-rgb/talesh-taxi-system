@@ -247,7 +247,7 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
     if (page === 'archive') return <ArchivePage profile={profile} onNotify={showToast} />;
     if (page === 'messages') {
       return profile.role === 'driver' ? (
-        <DriverMessagesPage />
+        <DriverMessagesPage driverId={profile.driver_id} />
       ) : (
         <StaffMessagesPage drivers={data.drivers} canDelete={profile.role === 'manager'} onNotify={showToast} />
       );
@@ -278,7 +278,7 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
     <div className="flex min-h-screen">
       <Sidebar items={items} page={page} onNavigate={setPage} />
       <main className="flex min-w-0 flex-1 flex-col">
-        <TopBar title={pageLabel} profile={profile} onSignOut={onSignOut} onMenuClick={() => setDrawerOpen(true)} />
+        <TopBar title={pageLabel} profile={profile} onSignOut={onSignOut} onMenuClick={() => setDrawerOpen(true)} onMessagesClick={() => setPage('messages')} />
         <div className="mx-auto w-full max-w-[1500px] flex-1 p-[26px] max-[1000px]:p-[18px] max-[650px]:px-3 max-[650px]:pb-[85px] max-[650px]:pt-[15px]">
           {renderPage()}
         </div>
