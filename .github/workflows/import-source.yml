@@ -31,6 +31,7 @@ jobs:
           touch .gitignore
           grep -qxF '.env*' .gitignore || printf '\n.env*\n' >> .gitignore
           grep -qxF '!.env.example' .gitignore || printf '!.env.example\n' >> .gitignore
+          sed -i '/^!.env.production$/d' .gitignore
           git status --short
 
       - name: Commit imported source
