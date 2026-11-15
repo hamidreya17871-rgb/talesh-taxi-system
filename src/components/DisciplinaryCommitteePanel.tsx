@@ -77,7 +77,7 @@ export default function DisciplinaryCommitteePanel({ profile }: { profile: Profi
           <p className="text-xs text-ink-600">راننده مورد گزارش: {item.accused_driver_name || 'نامشخص'} · محل وقوع: {item.location}</p>
           <p className="whitespace-pre-wrap text-sm leading-6">{item.description}</p>
           <div className="rounded-lg bg-ink-50 p-3 text-sm">
-            **گزارش کارشناس بازرسی درباره سازش:**
+            <strong>گزارش کارشناس بازرسی درباره سازش:</strong>
             <p className="mt-1 whitespace-pre-wrap text-ink-600">{item.settlement_note || 'نتیجه سازش ثبت نشده'}</p>
           </div>
           <label className="flex flex-col gap-1 text-xs text-ink-600">رأی کمیته
