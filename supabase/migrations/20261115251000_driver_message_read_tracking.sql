@@ -78,4 +78,13 @@ BEGIN
      ) THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.driver_messages;
   END IF;
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime')
+     AND NOT EXISTS (
+       SELECT 1 FROM pg_publication_tables
+       WHERE pubname = 'supabase_realtime'
+         AND schemaname = 'public'
+         AND tablename = 'driver_message_reads'
+     ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.driver_message_reads;
+  END IF;
 END $$;
