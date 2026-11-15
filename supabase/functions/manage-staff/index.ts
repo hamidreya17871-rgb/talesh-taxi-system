@@ -119,7 +119,7 @@ async function requireStaff(req: Request, allowedRoles: string[]): Promise<strin
 }
 
 async function requireOrganizationStaff(req: Request): Promise<string> {
-  const userId = await requireOrganizationStaff(req);
+  const userId = await requireStaff(req, ["manager", "expert"]);
   const { data: profile, error } = await admin
     .from("profiles")
     .select("is_disciplinary_committee")
@@ -368,7 +368,7 @@ async function handleRegisterDriver(body: Record<string, unknown>): Promise<Resp
 }
 
 async function handleListStaff(req: Request): Promise<Response> {
-  await requireStaff(req, ["manager", "expert"]);
+  await requireOrganizationStaff(req);
   const { data, error } = await admin
     .from("profiles")
     .select("user_id, full_name")
@@ -381,7 +381,7 @@ async function handleListStaff(req: Request): Promise<Response> {
 }
 
 async function handleListRegistrations(req: Request): Promise<Response> {
-  await requireStaff(req, ["manager", "expert"]);
+  await requireOrganizationStaff(req);
   const { data: profiles, error } = await admin
     .from("profiles")
     .select("user_id, phone, full_name, driver_id, created_at")
@@ -417,7 +417,7 @@ async function handleListRegistrations(req: Request): Promise<Response> {
 }
 
 async function handleReviewRegistration(req: Request, body: Record<string, unknown>): Promise<Response> {
-  await requireStaff(req, ["manager", "expert"]);
+  await requireOrganizationStaff(req);
   const userId = body.user_id;
   if (typeof userId !== "string" || !UUID_PATTERN.test(userId)) throw invalid();
   const decision = body.decision;
