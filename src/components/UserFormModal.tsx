@@ -26,6 +26,7 @@ export default function UserFormModal({ user, drivers, onSaved, onClose, onNotif
   const [driverId, setDriverId] = useState(user?.driver_id ?? '');
   const [isActive, setIsActive] = useState(user?.is_active ?? true);
   const [isLineInspector, setIsLineInspector] = useState(user?.is_line_inspector ?? false);
+  const [isDisciplinaryCommittee, setIsDisciplinaryCommittee] = useState(user?.is_disciplinary_committee ?? false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -66,6 +67,10 @@ export default function UserFormModal({ user, drivers, onSaved, onClose, onNotif
           .update({ is_line_inspector: role === 'driver' && isLineInspector })
           .eq('user_id', user.user_id);
         if (inspectorError) throw new Error('تغییر نقش بازرس خط ذخیره نشد.');
+        const { error: committeeError } = await supabase.from('profiles')
+          .update({ is_disciplinary_committee: role === 'expert' && isDisciplinaryCommittee })
+          .eq('user_id', user.user_id);
+        if (committeeError) throw new Error('تغییر عضویت کمیته انضباطی ذخیره نشد.');
       } else {
         await callStaffApi('create', {
           full_name: fullName,
@@ -141,6 +146,13 @@ export default function UserFormModal({ user, drivers, onSaved, onClose, onNotif
                 ))}
               </select>
             </div>
+          )}
+
+          {isEdit && role === 'expert' && (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={isDisciplinaryCommittee} onChange={e => setIsDisciplinaryCommittee(e.target.checked)} />
+              عضو کمیته انضباطی (دسترسی به پرونده‌های ارجاع‌شده و ثبت رأی)
+            </label>
           )}
 
           {isEdit && role === 'driver' && (
