@@ -126,7 +126,8 @@ BEGIN
       RAISE EXCEPTION 'Dispatch details can only be recorded by a manager when a signed letter is issued';
     END IF;
   ELSIF v_receipt_only_change THEN
-    IF v_role <> 'manager' OR NEW.status <> 'صادر شده' OR OLD.status <> 'صادر شده' THEN
+    IF v_role <> 'manager' OR NEW.status <> 'صادر شده' OR OLD.status <> 'صادر شده'
+       OR NEW.delivery_receipt_path IS NULL THEN
       RAISE EXCEPTION 'A delivery receipt can only be attached to an issued letter by a manager';
     END IF;
   END IF;
