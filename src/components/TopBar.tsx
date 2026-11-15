@@ -23,19 +23,9 @@ export default function TopBar({ title, profile, onSignOut, onMenuClick, onMessa
     }
     let active = true;
     const loadUnread = async () => {
-      const [messagesResult, readsResult] = await Promise.all([
-        supabase
-          .from('driver_messages')
-          .select('id')
-          .or(`recipient_driver_id.is.null,recipient_driver_id.eq.${profile.driver_id}`),
-        supabase
-          .from('driver_message_reads')
-          .select('message_id')
-          .eq('driver_id', profile.driver_id),
-      ]);
-      if (!active || messagesResult.error || readsResult.error) return;
-      const readIds = new Set((readsResult.data ?? []).map(row => row.message_id));
-      setUnreadMessages((messagesResult.data ?? []).filter(row => !readIds.has(row.id)).length);
+      const { data, error } = await supabase.rpc('get_unread_driver_message_count');
+      if (!active || error || typeof data !== 'number') return;
+      setUnreadMessages(data);
     };
     void loadUnread();
     const channel = supabase
