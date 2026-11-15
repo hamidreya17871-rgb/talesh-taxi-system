@@ -144,7 +144,7 @@ export default function LineInspectorReports({ profile, mode }: { profile: Profi
             <p className="text-xs text-ink-600">راننده مورد گزارش: {report.accused_driver_name || 'نامشخص'} · محل: {report.location}</p>
             <p className="whitespace-pre-wrap text-sm leading-6">{report.description}</p>
             {report.settlement_note && <p className="rounded-lg bg-ink-50 p-2 text-xs text-ink-600">نتیجه تلاش برای سازش: {report.settlement_note}</p>}
-            {mode === 'staff' && (
+            {mode === 'staff' && !['ارجاع به کمیته انضباطی', 'رأی صادر شد - در انتظار تأیید مدیر', 'تأیید نهایی رأی'].includes(report.status) && (
               <label className="flex flex-wrap items-center gap-2 text-xs text-ink-600">وضعیت رسیدگی
                 <select value={report.status} onChange={e => void updateStatus(report, e.target.value)} className="field-input min-w-[200px]">
                   {STATUSES.map(status => <option key={status}>{status}</option>)}
