@@ -76,7 +76,30 @@ CREATE POLICY staff_insert_driver_messages ON public.driver_messages
     )
   );
 
-DO $$
+CREATE OR REPLACE FUNCTION public.get_unread_driver_message_count()
+RETURNS bigint
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = ''
+AS $
+  SELECT count(*)
+  FROM public.driver_messages m
+  WHERE public.current_app_role() = 'driver'
+    AND public.current_driver_id() IS NOT NULL
+    AND (m.recipient_driver_id IS NULL OR m.recipient_driver_id = public.current_driver_id())
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.driver_message_reads r
+      WHERE r.message_id = m.id
+        AND r.driver_id = public.current_driver_id()
+    )
+$;
+
+REVOKE ALL ON FUNCTION public.get_unread_driver_message_count() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_unread_driver_message_count() TO authenticated;
+
+DO $
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime')
      AND NOT EXISTS (
