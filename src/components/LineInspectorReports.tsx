@@ -222,7 +222,9 @@ export default function LineInspectorReports({ profile, mode }: { profile: Profi
               ? ['در حال بررسی']
               : report.status === 'در حال بررسی'
                 ? ['در انتظار تأیید سازش توسط مدیر', 'در انتظار دستور مدیر برای ارجاع']
-                : [];
+                : report.status === 'ارجاع به مدیریت' && profile.role === 'manager'
+                  ? ['در حال بررسی']
+                  : [];
           return (
             <article key={report.id} className="flex flex-col gap-2 border-t border-ink-100 pt-3 first:border-0 first:pt-0">
               <div className="flex flex-wrap items-center justify-between gap-2">
