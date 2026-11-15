@@ -244,7 +244,7 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
     if (page === 'users') return <UsersPage onNotify={showToast} />;
     if (page === 'leave') return <LeavePage profile={profile} onNotify={showToast} />;
     if (page === 'secretariat') return <SecretariatPage profile={profile} onNotify={showToast} />;
-    if (page === 'archive') return <ArchivePage onNotify={showToast} />;
+    if (page === 'archive') return <ArchivePage profile={profile} onNotify={showToast} />;
     if (page === 'messages') {
       return profile.role === 'driver' ? (
         <DriverMessagesPage />
