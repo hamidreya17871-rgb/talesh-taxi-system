@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRightLeft, Pencil, Plus, Printer, RefreshCw, Trash2 } from 'lucide-react';
+import { ArrowRightLeft, Pencil, Plus, Printer, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { callStaffApi } from '@/lib/staffApi';
 import LetterFormModal, { letterDateText, type LetterRecord } from '@/components/LetterFormModal';
@@ -38,6 +38,8 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
   const [referralLetter, setReferralLetter] = useState<LetterRecord | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'incoming' | 'outgoing'>('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [search, setSearch] = useState('');
 
   const isManager = profile.role === 'manager';
 
@@ -88,7 +90,23 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
     void load();
   }
 
-  const visible = (letters ?? []).filter(l => filter === 'all' || l.direction === filter);
+  const normalizeSearch = (value: string) =>
+    value
+      .replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
+      .replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+      .trim()
+      .toLocaleLowerCase('fa');
+  const query = normalizeSearch(search);
+  const visible = (letters ?? []).filter(l => {
+    const directionMatches = filter === 'all' || l.direction === filter;
+    const statusMatches = statusFilter === 'all' || l.status === statusFilter;
+    const searchable = normalizeSearch([l.letter_no, l.subject, l.body, l.correspondent].filter(Boolean).join(' '));
+    return directionMatches && statusMatches && (!query || searchable.includes(query));
+  });
+  const pendingCount = (letters ?? []).filter(l =>
+    ['ثبت شده', 'در حال بررسی', 'ارجاع شده', 'در انتظار بررسی کارشناس', 'در انتظار تأیید مدیر', 'در انتظار امضا', 'در انتظار پاسخ'].includes(l.status)
+  ).length;
+  const statusOptions = [...new Set((letters ?? []).map(l => l.status).filter(Boolean))];
 
   return (
     <section className="flex flex-col gap-5">
@@ -109,7 +127,22 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
         </div>
       </header>
 
-      <div className="flex gap-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="panel">
+          <p className="text-xs text-ink-600">کل مکاتبات</p>
+          <p className="mt-1 text-2xl font-bold">{letters?.length ?? '—'}</p>
+        </div>
+        <div className="panel">
+          <p className="text-xs text-ink-600">نامه‌های وارده</p>
+          <p className="mt-1 text-2xl font-bold">{(letters ?? []).filter(l => l.direction === 'incoming').length}</p>
+        </div>
+        <div className="panel">
+          <p className="text-xs text-ink-600">در جریان اقدام</p>
+          <p className="mt-1 text-2xl font-bold">{pendingCount}</p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
         {(['all', 'incoming', 'outgoing'] as const).map(f => (
           <button
             key={f}
@@ -120,6 +153,29 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
             {f === 'all' ? 'همه' : f === 'incoming' ? 'ورودی' : 'خروجی'}
           </button>
         ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_220px]">
+        <label className="relative block">
+          <Search size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-500" />
+          <input
+            type="search"
+            value={search}
+            onChange={event => setSearch(event.target.value)}
+            placeholder="جست‌وجو در شماره، موضوع، فرستنده، گیرنده و متن نامه"
+            className="field-input pr-9"
+            aria-label="جست‌وجوی مکاتبات"
+          />
+        </label>
+        <select
+          value={statusFilter}
+          onChange={event => setStatusFilter(event.target.value)}
+          className="field-input"
+          aria-label="فیلتر وضعیت نامه"
+        >
+          <option value="all">همه وضعیت‌ها</option>
+          {statusOptions.map(status => <option key={status} value={status}>{status}</option>)}
+        </select>
       </div>
 
       {letters === null && !loadError && <p className="py-16 text-center text-ink-600">در حال بارگذاری…</p>}
@@ -133,7 +189,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
         </div>
       )}
 
-      {letters && visible.length === 0 && <p className="py-16 text-center text-ink-600">نامه‌ای ثبت نشده است.</p>}
+      {letters && visible.length === 0 && <p className="py-16 text-center text-ink-600">برای این فیلتر یا عبارت جست‌وجو، نامه‌ای پیدا نشد.</p>}
 
       {letters && visible.length > 0 && (
         <div className="flex flex-col gap-4">
