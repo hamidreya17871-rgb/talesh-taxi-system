@@ -65,6 +65,9 @@ AS $$
 DECLARE
   v_within_allowance boolean;
 BEGIN
+  -- Serialize allowance checks per driver to prevent concurrent requests exceeding the quota.
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(NEW.driver_id::text, 0));
+
   IF NEW.end_date < NEW.start_date THEN
     RAISE EXCEPTION 'Leave end date cannot be earlier than start date';
   END IF;
@@ -87,7 +90,7 @@ BEGIN
       NEW.start_date::timestamp,
       NEW.end_date::timestamp,
       interval '1 day'
-    ) AS day_value
+    ) AS days(day_value)
     GROUP BY public.jalali_month_key(day_value::date)
   ),
   used_days AS (
@@ -98,7 +101,7 @@ BEGIN
       lr.start_date::timestamp,
       lr.end_date::timestamp,
       interval '1 day'
-    ) AS day_value
+    ) AS days(day_value)
     WHERE lr.driver_id = NEW.driver_id
       AND lr.status <> 'rejected'
     GROUP BY public.jalali_month_key(day_value::date)
