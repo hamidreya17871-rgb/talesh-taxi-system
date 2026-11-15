@@ -109,14 +109,20 @@ function AccountMessage({ title, detail, onSignOut }: { title: string; detail: s
 }
 
 function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => void }) {
-  const [page, setPage] = useState<PageKey>(() => defaultPageForRole());
+  const [page, setPage] = useState<PageKey>(() => profile.is_disciplinary_committee ? 'secretariat' : defaultPageForRole());
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [objectionReview, setObjectionReview] = useState<FleetRecord | null>(null);
   const { data, status, reload, saveRecord, removeRecord, restoreBackup } = useFleetData();
   const { toast, showToast } = useToast();
 
-  const items = navItemsForRole(profile.role);
+  const roleItems = navItemsForRole(profile.role);
+  const items = profile.is_disciplinary_committee
+    ? roleItems.filter(item => item.key === 'secretariat' || item.key === 'archive')
+    : roleItems;
+  const mobileKeys: PageKey[] = profile.is_disciplinary_committee
+    ? ['secretariat', 'archive']
+    : mobileNavKeysForRole(profile.role);
   const pageLabel = navItems.find(item => item.key === page)?.label ?? '';
   const readOnly = profile.role === 'driver';
 
@@ -280,7 +286,7 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
           سامانه مدیریت حمل‌ونقل و تاکسیرانی تالش
         </footer>
       </main>
-      <MobileNav items={items} keys={mobileNavKeysForRole(profile.role)} page={page} onNavigate={setPage} />
+      <MobileNav items={items} keys={mobileKeys} page={page} onNavigate={setPage} />
       <MobileDrawer items={items} page={page} open={drawerOpen} onNavigate={setPage} onClose={() => setDrawerOpen(false)} />
       {editor && (
         <RecordFormModal
