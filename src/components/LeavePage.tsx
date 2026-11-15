@@ -46,13 +46,17 @@ export default function LeavePage({ profile, onNotify }: Props) {
 
   async function review(request: LeaveRequest, status: Exclude<LeaveStatus, 'pending'>) {
     setBusyId(request.id);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('leave_requests')
       .update({ status, reviewed_by: profile.user_id, reviewed_at: new Date().toISOString() })
-      .eq('id', request.id);
+      .eq('id', request.id)
+      .eq('status', 'pending')
+      .select('id')
+      .maybeSingle();
     setBusyId(null);
-    if (error) {
-      onNotify(ACTION_ERROR, 'error');
+    if (error || !data) {
+      onNotify(data ? ACTION_ERROR : 'این درخواست قبلاً بررسی شده است؛ فهرست به‌روزرسانی شد.', 'error');
+      void load();
       return;
     }
     onNotify(status === 'approved' ? 'درخواست تأیید شد' : 'درخواست رد شد');
