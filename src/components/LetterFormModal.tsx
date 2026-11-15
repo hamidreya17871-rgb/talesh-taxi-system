@@ -36,7 +36,6 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
   const [letterDate, setLetterDate] = useState(letter?.letter_date ?? todayIso());
   const [letterNo, setLetterNo] = useState(letter ? String(letter.letter_no) : '');
   const [attachment, setAttachment] = useState(letter?.attachment_path ?? '');
-  const [status, setStatus] = useState(letter?.status ?? 'ثبت شده');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,7 +48,6 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
       setLetterDate(letter.letter_date ?? todayIso());
       setLetterNo(String(letter.letter_no));
       setAttachment(letter.attachment_path ?? '');
-      setStatus(letter.status);
     }
   }, [letter]);
 
@@ -75,7 +73,6 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
       correspondent: correspondent.trim() || null,
       letter_date: letterDate || null,
       attachment_path: attachment.trim() || null,
-      status,
     };
     const { error: saveError } = isEdit
       ? await supabase.from('letters').update(payload).eq('id', letter!.id)
@@ -132,24 +129,12 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-[7px]">
-              <label htmlFor="letter-direction" className="text-xs text-ink-600">نوع نامه</label>
-              <select id="letter-direction" value={direction} onChange={e => setDirection(e.target.value as 'incoming' | 'outgoing')} className="field-input">
-                <option value="outgoing">نامه خروجی</option>
-                <option value="incoming">نامه ورودی</option>
-              </select>
-            </div>
-            <div className="flex flex-col gap-[7px]">
-              <label htmlFor="letter-status" className="text-xs text-ink-600">وضعیت</label>
-              <select id="letter-status" value={status} onChange={e => setStatus(e.target.value)} className="field-input">
-                <option value="ثبت شده">ثبت شده</option>
-                <option value="در حال بررسی">در حال بررسی</option>
-                <option value="ارجاع شده">ارجاع شده</option>
-                <option value="امضا شده">امضا شده</option>
-                <option value="مختومه">مختومه</option>
-              </select>
-            </div>
+          <div className="flex flex-col gap-[7px]">
+            <label htmlFor="letter-direction" className="text-xs text-ink-600">نوع نامه</label>
+            <select id="letter-direction" value={direction} onChange={e => setDirection(e.target.value as 'incoming' | 'outgoing')} className="field-input">
+              <option value="outgoing">نامه خروجی</option>
+              <option value="incoming">نامه ورودی</option>
+            </select>
           </div>
 
           <div className="flex flex-col gap-[7px]">
