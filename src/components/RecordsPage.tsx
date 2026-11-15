@@ -22,11 +22,30 @@ export default function RecordsPage({ entity, records, readOnly = false, onCreat
   const dateKeys = new Set(config.fields.filter(field => field.type === 'date').map(field => field.key));
   const [query, setQuery] = useState('');
   const normalizedQuery = query.trim().toLowerCase();
+  const orderedRecords = entity === 'vehicles'
+    ? [...records].sort((a, b) => {
+        const toRowNumber = (value: unknown): number | null => {
+          const normalized = String(value ?? '')
+            .replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
+            .replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+            .trim();
+          if (!normalized) return null;
+          const match = normalized.match(/\\d+/);
+          return match ? Number(match[0]) : null;
+        };
+        const left = toRowNumber(a.taxi_row_no);
+        const right = toRowNumber(b.taxi_row_no);
+        if (left === null && right === null) return 0;
+        if (left === null) return 1;
+        if (right === null) return -1;
+        return left - right;
+      })
+    : records;
   const visible = normalizedQuery
-    ? records.filter(record =>
+    ? orderedRecords.filter(record =>
         config.fields.some(field => String(record[field.key] ?? '').toLowerCase().includes(normalizedQuery))
       )
-    : records;
+    : orderedRecords;
 
   return (
     <>
