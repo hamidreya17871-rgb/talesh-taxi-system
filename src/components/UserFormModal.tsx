@@ -62,6 +62,10 @@ export default function UserFormModal({ user, drivers, onSaved, onClose, onNotif
           is_active: isActive,
           ...(password ? { password } : {}),
         });
+        const { error: inspectorError } = await supabase.from('profiles')
+          .update({ is_line_inspector: role === 'driver' && isLineInspector })
+          .eq('user_id', user.user_id);
+        if (inspectorError) throw new Error('تغییر نقش بازرس خط ذخیره نشد.');
       } else {
         await callStaffApi('create', {
           full_name: fullName,
