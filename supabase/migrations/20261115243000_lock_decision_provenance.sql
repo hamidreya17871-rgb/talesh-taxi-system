@@ -116,6 +116,12 @@ BEGIN
        OR NEW.referral_order_note IS DISTINCT FROM OLD.referral_order_note THEN
       RAISE EXCEPTION 'Manager cannot alter the committee verdict; a separate manager order is required';
     END IF;
+  ELSIF OLD.status = 'ارجاع به مدیریت'
+     AND NEW.status = 'در حال بررسی'
+     AND v_role = 'manager' THEN
+    IF NEW.reviewed_by IS DISTINCT FROM auth.uid() OR NEW.reviewed_at IS NULL THEN
+      RAISE EXCEPTION 'A manager must explicitly reopen this legacy referral into inspection';
+    END IF;
   ELSE
     RAISE EXCEPTION 'Invalid or unauthorized report status transition: % -> %', OLD.status, NEW.status;
   END IF;
