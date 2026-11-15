@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ExternalLink, FileText, Plus, Printer, RefreshCw, Trash2 } from 'lucide-react';
+import { Download, ExternalLink, FileText, Plus, Printer, RefreshCw, Trash2 } from 'lucide-react';
 import ArchiveUploadModal, { type ArchiveOwnerOption } from '@/components/ArchiveUploadModal';
 import {
   ARCHIVE_BUCKET,
@@ -97,6 +97,25 @@ export default function ArchivePage({ onNotify }: Props) {
     if (mode === 'print') {
       win.addEventListener('load', () => win.print(), { once: true });
     }
+  }
+
+  async function downloadFile(doc: ArchiveDocument) {
+    setBusyId(doc.id);
+    const { data, error } = await supabase.storage
+      .from(ARCHIVE_BUCKET)
+      .createSignedUrl(doc.file_path, SIGNED_URL_SECONDS, { download: doc.file_name });
+    setBusyId(null);
+    if (error || !data?.signedUrl) {
+      onNotify(FILE_ERROR, 'error');
+      return;
+    }
+    const anchor = document.createElement('a');
+    anchor.href = data.signedUrl;
+    anchor.download = doc.file_name;
+    anchor.rel = 'noopener';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
   }
 
   async function removeDocument(doc: ArchiveDocument) {
@@ -197,6 +216,10 @@ export default function ArchivePage({ onNotify }: Props) {
                 <button type="button" className="btn-tiny" disabled={busyId === doc.id} onClick={() => void openFile(doc, 'view')}>
                   <ExternalLink size={13} />
                   مشاهده
+                </button>
+                <button type="button" className="btn-tiny" disabled={busyId === doc.id} onClick={() => void downloadFile(doc)}>
+                  <Download size={13} />
+                  ذخیره فایل
                 </button>
                 <button type="button" className="btn-tiny" disabled={busyId === doc.id} onClick={() => void openFile(doc, 'print')}>
                   <Printer size={13} />
