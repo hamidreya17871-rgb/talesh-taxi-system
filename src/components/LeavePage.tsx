@@ -54,8 +54,12 @@ export default function LeavePage({ profile, onNotify }: Props) {
       .select('id')
       .maybeSingle();
     setBusyId(null);
-    if (error || !data) {
-      onNotify(data ? ACTION_ERROR : 'این درخواست قبلاً بررسی شده است؛ فهرست به‌روزرسانی شد.', 'error');
+    if (error) {
+      onNotify(ACTION_ERROR, 'error');
+      return;
+    }
+    if (!data) {
+      onNotify('این درخواست قبلاً بررسی شده است؛ فهرست به‌روزرسانی شد.', 'error');
       void load();
       return;
     }
