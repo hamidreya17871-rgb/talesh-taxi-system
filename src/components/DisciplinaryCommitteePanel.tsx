@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { RefreshCw, Gavel } from 'lucide-react';
+import { RefreshCw, Gavel, ExternalLink, FileImage, FileVideo } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/staff';
+
+type Evidence = { id: string; file_path: string; file_name: string; mime_type: string; file_size: number };
 
 type CommitteeCase = {
   id: string;
@@ -15,6 +17,7 @@ type CommitteeCase = {
   description: string;
   settlement_note: string | null;
   created_at: string;
+  line_violation_report_evidence?: Evidence[];
 };
 
 const DECISIONS = ['عدم احراز تخلف', 'تذکر کتبی', 'اخطار رسمی', 'تعلیق موقت فعالیت', 'پیشنهاد لغو پروانه فعالیت', 'تکمیل تحقیقات و ارائه مستندات'];
@@ -28,7 +31,7 @@ export default function DisciplinaryCommitteePanel({ profile }: { profile: Profi
 
   const load = useCallback(async () => {
     const { data, error: queryError } = await supabase.from('line_violation_reports')
-      .select('*').eq('status', 'ارجاع به کمیته انضباطی')
+      .select('*, line_violation_report_evidence(id,file_path,file_name,mime_type,file_size)').eq('status', 'ارجاع به کمیته انضباطی')
       .order('committee_referred_at', { ascending: true });
     if (queryError) { setError('دریافت پرونده‌های کمیته انضباطی انجام نشد.'); return; }
     setError('');
@@ -36,6 +39,17 @@ export default function DisciplinaryCommitteePanel({ profile }: { profile: Profi
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  async function openEvidence(file: Evidence) {
+    const { data, error: urlError } = await supabase.storage
+      .from('line-report-evidence')
+      .createSignedUrl(file.file_path, 180);
+    if (urlError || !data?.signedUrl) {
+      setError('باز کردن مستند پرونده انجام نشد.');
+      return;
+    }
+    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+  }
 
   async function issueVerdict(item: CommitteeCase) {
     const decision = decisions[item.id];
@@ -76,6 +90,17 @@ export default function DisciplinaryCommitteePanel({ profile }: { profile: Profi
           <p className="text-xs text-ink-600">بازرس خط: {item.reporter_name} · تماس: {item.reporter_phone || 'ثبت نشده'}</p>
           <p className="text-xs text-ink-600">راننده مورد گزارش: {item.accused_driver_name || 'نامشخص'} · محل وقوع: {item.location}</p>
           <p className="whitespace-pre-wrap text-sm leading-6">{item.description}</p>
+          {(item.line_violation_report_evidence ?? []).length > 0 && (
+            <div className="flex flex-col gap-2 rounded-lg bg-ink-50 p-3">
+              <strong className="text-xs">مستندات پیوست‌شده به گزارش</strong>
+              {(item.line_violation_report_evidence ?? []).map(file => (
+                <button key={file.id} type="button" onClick={() => void openEvidence(file)} className="flex items-center gap-2 text-right text-xs text-brand-700 underline">
+                  {file.mime_type.startsWith('video/') ? <FileVideo size={15} /> : <FileImage size={15} />}
+                  {file.file_name} · {(file.file_size / (1024 * 1024)).toFixed(1)} مگابایت <ExternalLink size={13} />
+                </button>
+              ))}
+            </div>
+          )}
           <div className="rounded-lg bg-ink-50 p-3 text-sm">
             <strong>گزارش کارشناس بازرسی درباره سازش:</strong>
             <p className="mt-1 whitespace-pre-wrap text-ink-600">{item.settlement_note || 'نتیجه سازش ثبت نشده'}</p>
