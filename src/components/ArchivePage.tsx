@@ -10,8 +10,10 @@ import {
 } from '@/lib/archive';
 import { formatPersianDate } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
+import type { Profile } from '@/lib/staff';
 
 type Props = {
+  profile: Profile;
   onNotify: (message: string, kind?: 'success' | 'error') => void;
 };
 
@@ -30,8 +32,10 @@ function ownerLabel(doc: ArchiveDocument): string {
   return '—';
 }
 
-export default function ArchivePage({ onNotify }: Props) {
-  const [category, setCategory] = useState<ArchiveCategory>('driver');
+export default function ArchivePage({ profile, onNotify }: Props) {
+  const committeeOnly = profile.role === 'expert' && Boolean(profile.is_disciplinary_committee);
+  const allowedCategories = committeeOnly ? (['committee'] as ArchiveCategory[]) : [...ARCHIVE_CATEGORIES];
+  const [category, setCategory] = useState<ArchiveCategory>(committeeOnly ? 'committee' : 'driver');
   const [ownerFilter, setOwnerFilter] = useState('');
   const [documents, setDocuments] = useState<ArchiveDocument[] | null>(null);
   const [drivers, setDrivers] = useState<DriverOwner[]>([]);
@@ -44,8 +48,8 @@ export default function ArchivePage({ onNotify }: Props) {
     setLoadError(null);
     const [documentResult, driverResult, vehicleResult] = await Promise.all([
       supabase.from('archive_documents').select('*, drivers(name), vehicles(plate, model)').is('archived_at', null).order('created_at', { ascending: false }),
-      supabase.from('drivers').select('id, name').order('name'),
-      supabase.from('vehicles').select('id, plate, model').order('plate'),
+      committeeOnly ? Promise.resolve({ data: [] as DriverOwner[], error: null }) : supabase.from('drivers').select('id, name').order('name'),
+      committeeOnly ? Promise.resolve({ data: [] as VehicleOwner[], error: null }) : supabase.from('vehicles').select('id, plate, model').order('plate'),
     ]);
     if (documentResult.error || driverResult.error || vehicleResult.error) {
       setLoadError(LOAD_ERROR);
@@ -54,7 +58,7 @@ export default function ArchivePage({ onNotify }: Props) {
     setDocuments(documentResult.data as ArchiveDocument[]);
     setDrivers(driverResult.data as DriverOwner[]);
     setVehicles(vehicleResult.data as VehicleOwner[]);
-  }, []);
+  }, [committeeOnly]);
 
   useEffect(() => {
     void load();
@@ -152,7 +156,7 @@ export default function ArchivePage({ onNotify }: Props) {
       </header>
 
       <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="بخش‌های بایگانی">
-        {ARCHIVE_CATEGORIES.map(item => (
+        {allowedCategories.map(item => (
           <button
             key={item}
             type="button"
@@ -237,6 +241,7 @@ export default function ArchivePage({ onNotify }: Props) {
       {uploading && (
         <ArchiveUploadModal
           defaultCategory={category}
+          allowedCategories={allowedCategories}
           drivers={driverOptions}
           vehicles={vehicleOptions}
           onClose={() => setUploading(false)}
