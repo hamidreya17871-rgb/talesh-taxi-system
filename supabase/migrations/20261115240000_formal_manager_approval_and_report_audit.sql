@@ -24,6 +24,7 @@ ALTER TABLE public.line_violation_reports
     'ارسال‌شده',
     'دریافت توسط بازرس سازمان',
     'در حال بررسی',
+    'ارجاع به مدیریت', -- legacy status retained for existing reports
     'سازش انجام شد',
     'در انتظار تأیید سازش توسط مدیر',
     'در انتظار دستور مدیر برای ارجاع',
