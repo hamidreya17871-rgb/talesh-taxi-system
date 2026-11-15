@@ -7,6 +7,7 @@ import ReferralModal from '@/components/ReferralModal';
 import { printLetter } from '@/lib/letterhead';
 import type { Profile } from '@/lib/staff';
 import CitizenReportsPanel from '@/components/CitizenReportsPanel';
+import LineInspectorReports from '@/components/LineInspectorReports';
 
 type Props = {
   profile: Profile;
@@ -112,6 +113,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
   return (
     <section className="flex flex-col gap-5">
       <CitizenReportsPanel profile={profile} />
+      <LineInspectorReports profile={profile} mode="staff" />
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold">دبیرخانه</h2>
