@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Save, X } from 'lucide-react';
 import { callStaffApi } from '@/lib/staffApi';
+import { supabase } from '@/lib/supabase';
 import { isValidPhone, normalizePhone } from '@/lib/phone';
 import { ROLE_LABELS, ROLE_OPTIONS, type Profile, type StaffRole } from '@/lib/staff';
 
@@ -24,6 +25,7 @@ export default function UserFormModal({ user, drivers, onSaved, onClose, onNotif
   const [role, setRole] = useState<StaffRole>(user?.role ?? 'expert');
   const [driverId, setDriverId] = useState(user?.driver_id ?? '');
   const [isActive, setIsActive] = useState(user?.is_active ?? true);
+  const [isLineInspector, setIsLineInspector] = useState(user?.is_line_inspector ?? false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -135,6 +137,13 @@ export default function UserFormModal({ user, drivers, onSaved, onClose, onNotif
                 ))}
               </select>
             </div>
+          )}
+
+          {isEdit && role === 'driver' && (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={isLineInspector} onChange={e => setIsLineInspector(e.target.checked)} />
+              بازرس خط (هم‌زمان با حفظ نقش رانندگی)
+            </label>
           )}
 
           {isEdit && (
