@@ -45,7 +45,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
     setLoadError(null);
     try {
       const [lettersResult, referralsResult, staffResult] = await Promise.all([
-        supabase.from('letters').select('*').order('created_at', { ascending: false }),
+        supabase.from('letters').select('*').is('deleted_at', null).order('created_at', { ascending: false }),
         supabase
           .from('letter_referrals')
           .select('id, letter_id, referred_to, action, note, status, created_at, reviewer:referred_to(full_name)')
@@ -76,15 +76,15 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
   }, [load]);
 
   async function remove(letter: LetterRecord) {
-    if (!window.confirm('این نامه حذف شود؟')) return;
+    if (!window.confirm('این نامه از فهرست فعال خارج و به بایگانی منتقل شود؟ سابقه و ارجاع‌ها حفظ می‌شوند.')) return;
     setBusyId(letter.id);
-    const { error } = await supabase.from('letters').delete().eq('id', letter.id);
+    const { error } = await supabase.from('letters').update({ deleted_at: new Date().toISOString(), deleted_by: profile.user_id }).eq('id', letter.id);
     setBusyId(null);
     if (error) {
       onNotify(ACTION_ERROR, 'error');
       return;
     }
-    onNotify('نامه حذف شد');
+    onNotify('نامه به بایگانی منتقل شد؛ سوابق و ارجاع‌ها محفوظ است');
     void load();
   }
 
@@ -212,7 +212,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                   {isManager && (
                     <button type="button" className="btn-tiny btn-tiny-danger" disabled={busyId === letter.id} onClick={() => void remove(letter)}>
                       <Trash2 size={13} />
-                      حذف
+                      بایگانی نامه
                     </button>
                   )}
                 </div>
