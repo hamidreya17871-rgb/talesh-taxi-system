@@ -26,7 +26,7 @@ CREATE INDEX IF NOT EXISTS letters_outgoing_approval_queue_idx
   ON public.letters (created_at DESC)
   WHERE direction = 'outgoing'
     AND deleted_at IS NULL
-    AND status IN ('در انتظار بررسی کارشناس', 'در انتظار تأیید مدیر', 'امضا شده');
+    AND status IN ('ثبت شده', 'در حال بررسی', 'در انتظار بررسی کارشناس', 'در انتظار تأیید مدیر', 'امضا شده');
 
 CREATE OR REPLACE FUNCTION public.guard_outgoing_letter_workflow()
 RETURNS trigger
@@ -37,15 +37,27 @@ AS $$
 DECLARE
   v_role text := public.current_app_role();
   v_content_changed boolean;
+  v_receipt_only_change boolean;
 BEGIN
-  IF NEW.direction <> 'outgoing' THEN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.direction <> 'outgoing' THEN
+      RETURN NEW;
+    END IF;
+    IF NEW.status <> 'ثبت شده'
+       OR NEW.expert_reviewed_by IS NOT NULL OR NEW.expert_reviewed_at IS NOT NULL
+       OR NEW.manager_signed_by IS NOT NULL OR NEW.manager_signed_at IS NOT NULL
+       OR NEW.manager_order_note IS NOT NULL
+       OR NEW.sent_at IS NOT NULL OR NEW.sent_method IS NOT NULL
+       OR NEW.delivery_receipt_path IS NOT NULL THEN
+      RAISE EXCEPTION 'New outgoing letters must start as unapproved drafts without approval or dispatch metadata';
+    END IF;
     RETURN NEW;
   END IF;
 
-  IF TG_OP = 'INSERT' THEN
-    IF NEW.status <> 'ثبت شده' THEN
-      RAISE EXCEPTION 'New outgoing letters must start as registered and enter review through the controlled workflow';
-    END IF;
+  IF NEW.direction IS DISTINCT FROM OLD.direction THEN
+    RAISE EXCEPTION 'Letter direction is immutable after registration';
+  END IF;
+  IF NEW.direction <> 'outgoing' THEN
     RETURN NEW;
   END IF;
 
@@ -57,8 +69,22 @@ BEGIN
     OR NEW.attachment_path IS DISTINCT FROM OLD.attachment_path
     OR NEW.letter_no IS DISTINCT FROM OLD.letter_no;
 
-  IF OLD.status IN ('امضا شده', 'صادر شده', 'مختومه') AND v_content_changed THEN
-    RAISE EXCEPTION 'Signed outgoing letters are immutable; issue a corrected version instead';
+  IF (OLD.manager_signed_at IS NOT NULL OR OLD.status IN ('امضا شده', 'صادر شده', 'مختومه'))
+     AND v_content_changed THEN
+    RAISE EXCEPTION 'Signed outgoing letters are immutable; create a corrected version instead';
+  END IF;
+
+  IF OLD.expert_reviewed_by IS NOT NULL
+     AND (NEW.expert_reviewed_by IS DISTINCT FROM OLD.expert_reviewed_by
+       OR NEW.expert_reviewed_at IS DISTINCT FROM OLD.expert_reviewed_at) THEN
+    RAISE EXCEPTION 'Expert review provenance cannot be changed once recorded';
+  END IF;
+
+  IF OLD.manager_signed_at IS NOT NULL
+     AND (NEW.manager_signed_by IS DISTINCT FROM OLD.manager_signed_by
+       OR NEW.manager_signed_at IS DISTINCT FROM OLD.manager_signed_at
+       OR NEW.manager_order_note IS DISTINCT FROM OLD.manager_order_note) THEN
+    RAISE EXCEPTION 'Manager approval provenance cannot be changed once recorded';
   END IF;
 
   IF NEW.expert_reviewed_by IS DISTINCT FROM OLD.expert_reviewed_by
@@ -67,8 +93,8 @@ BEGIN
        OR NEW.expert_reviewed_by IS DISTINCT FROM auth.uid()
        OR NEW.expert_reviewed_at IS NULL
        OR NEW.status <> 'در انتظار تأیید مدیر'
-       OR OLD.status = 'در انتظار تأیید مدیر' THEN
-      RAISE EXCEPTION 'Expert review must be recorded by the authenticated expert during submission to manager';
+       OR OLD.status NOT IN ('ثبت شده', 'در حال بررسی', 'در انتظار بررسی کارشناس', 'در انتظار امضا') THEN
+      RAISE EXCEPTION 'Expert review must be recorded by the authenticated expert when submitting the letter to the manager';
     END IF;
   END IF;
 
@@ -85,9 +111,13 @@ BEGIN
     END IF;
   END IF;
 
+  v_receipt_only_change :=
+    NEW.delivery_receipt_path IS DISTINCT FROM OLD.delivery_receipt_path
+    AND NEW.sent_at IS NOT DISTINCT FROM OLD.sent_at
+    AND NEW.sent_method IS NOT DISTINCT FROM OLD.sent_method;
+
   IF NEW.sent_at IS DISTINCT FROM OLD.sent_at
-     OR NEW.sent_method IS DISTINCT FROM OLD.sent_method
-     OR NEW.delivery_receipt_path IS DISTINCT FROM OLD.delivery_receipt_path THEN
+     OR NEW.sent_method IS DISTINCT FROM OLD.sent_method THEN
     IF v_role <> 'manager'
        OR NEW.status <> 'صادر شده'
        OR OLD.status <> 'امضا شده'
@@ -95,19 +125,26 @@ BEGIN
        OR NULLIF(btrim(NEW.sent_method), '') IS NULL THEN
       RAISE EXCEPTION 'Dispatch details can only be recorded by a manager when a signed letter is issued';
     END IF;
+  ELSIF v_receipt_only_change THEN
+    IF v_role <> 'manager' OR NEW.status <> 'صادر شده' OR OLD.status <> 'صادر شده' THEN
+      RAISE EXCEPTION 'A delivery receipt can only be attached to an issued letter by a manager';
+    END IF;
   END IF;
 
   IF NEW.status IS DISTINCT FROM OLD.status THEN
-    IF NEW.status NOT IN (
-      'ثبت شده', 'در حال بررسی', 'ارجاع شده',
-      'در انتظار بررسی کارشناس', 'در انتظار تأیید مدیر',
-      'امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'
-    ) THEN
-      RAISE EXCEPTION 'Unsupported outgoing letter status';
-    END IF;
-
-    IF NEW.status = 'در انتظار تأیید مدیر' THEN
+    IF NEW.status = 'در حال بررسی' THEN
+      IF v_role NOT IN ('manager', 'expert')
+         OR OLD.status NOT IN ('ثبت شده', 'در انتظار بررسی کارشناس', 'ارجاع شده') THEN
+        RAISE EXCEPTION 'Invalid transition to review';
+      END IF;
+    ELSIF NEW.status = 'در انتظار بررسی کارشناس' THEN
+      IF v_role NOT IN ('manager', 'expert')
+         OR OLD.status NOT IN ('ثبت شده', 'در حال بررسی', 'ارجاع شده') THEN
+        RAISE EXCEPTION 'Invalid transition to expert review';
+      END IF;
+    ELSIF NEW.status = 'در انتظار تأیید مدیر' THEN
       IF v_role <> 'expert'
+         OR OLD.status NOT IN ('ثبت شده', 'در حال بررسی', 'در انتظار بررسی کارشناس', 'در انتظار امضا')
          OR NEW.expert_reviewed_by IS DISTINCT FROM auth.uid()
          OR NEW.expert_reviewed_at IS NULL THEN
         RAISE EXCEPTION 'Only an expert can submit a reviewed letter to the manager';
@@ -127,12 +164,16 @@ BEGIN
          OR NULLIF(btrim(NEW.sent_method), '') IS NULL THEN
         RAISE EXCEPTION 'Only a signed letter can be issued with dispatch details';
       END IF;
-    ELSIF NEW.status = 'مختومه' THEN
+    ELSIF NEW.status = 'در انتظار پاسخ' THEN
       IF v_role <> 'manager' OR OLD.status <> 'صادر شده' THEN
-        RAISE EXCEPTION 'Only the manager can close a dispatched outgoing letter';
+        RAISE EXCEPTION 'Only a manager can mark an issued letter as awaiting response';
       END IF;
-    ELSIF v_role NOT IN ('manager', 'expert') THEN
-      RAISE EXCEPTION 'Only authorized administrative staff can change outgoing letter status';
+    ELSIF NEW.status = 'مختومه' THEN
+      IF v_role <> 'manager' OR OLD.status NOT IN ('صادر شده', 'در انتظار پاسخ') THEN
+        RAISE EXCEPTION 'Only the manager can close an issued outgoing letter';
+      END IF;
+    ELSE
+      RAISE EXCEPTION 'Unsupported outgoing letter status transition';
     END IF;
   END IF;
 
