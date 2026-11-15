@@ -6,6 +6,7 @@ import DriverViolationsPage from '@/components/DriverViolationsPage';
 import ObjectionReviewModal from '@/components/ObjectionReviewModal';
 import LoginPage from '@/components/LoginPage';
 import MobileNav from '@/components/MobileNav';
+import MobileDrawer from '@/components/MobileDrawer';
 import RecordFormModal from '@/components/RecordFormModal';
 import RecordsPage from '@/components/RecordsPage';
 import RegistrationsPage from '@/components/RegistrationsPage';
@@ -100,6 +101,7 @@ function AccountMessage({ title, detail, onSignOut }: { title: string; detail: s
 
 function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => void }) {
   const [page, setPage] = useState<PageKey>(() => defaultPageForRole());
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [objectionReview, setObjectionReview] = useState<FleetRecord | null>(null);
   const { data, status, reload, saveRecord, removeRecord, restoreBackup, clearAll } = useFleetData();
@@ -271,7 +273,7 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
     <div className="flex min-h-screen">
       <Sidebar items={items} page={page} onNavigate={setPage} />
       <main className="flex min-w-0 flex-1 flex-col">
-        <TopBar title={pageLabel} profile={profile} onSignOut={onSignOut} />
+        <TopBar title={pageLabel} profile={profile} onSignOut={onSignOut} onMenuClick={() => setDrawerOpen(true)} />
         <div className="mx-auto w-full max-w-[1500px] flex-1 p-[26px] max-[1000px]:p-[18px] max-[650px]:px-3 max-[650px]:pb-[85px] max-[650px]:pt-[15px]">
           {renderPage()}
         </div>
@@ -280,6 +282,7 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
         </footer>
       </main>
       <MobileNav items={items} keys={mobileNavKeysForRole(profile.role)} page={page} onNavigate={setPage} />
+      <MobileDrawer items={items} page={page} open={drawerOpen} onNavigate={setPage} onClose={() => setDrawerOpen(false)} />
       {editor && (
         <RecordFormModal
           entity={editor.entity}
