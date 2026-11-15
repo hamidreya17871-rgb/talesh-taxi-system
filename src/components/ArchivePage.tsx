@@ -43,7 +43,7 @@ export default function ArchivePage({ onNotify }: Props) {
   const load = useCallback(async () => {
     setLoadError(null);
     const [documentResult, driverResult, vehicleResult] = await Promise.all([
-      supabase.from('archive_documents').select('*, drivers(name), vehicles(plate, model)').order('created_at', { ascending: false }),
+      supabase.from('archive_documents').select('*, drivers(name), vehicles(plate, model)').is('archived_at', null).order('created_at', { ascending: false }),
       supabase.from('drivers').select('id, name').order('name'),
       supabase.from('vehicles').select('id, plate, model').order('plate'),
     ]);
@@ -119,17 +119,16 @@ export default function ArchivePage({ onNotify }: Props) {
   }
 
   async function removeDocument(doc: ArchiveDocument) {
-    if (!window.confirm(`مدرک «${doc.title}» حذف شود؟`)) return;
+    if (!window.confirm(`مدرک «${doc.title}» به بایگانی غیرفعال منتقل شود؟ فایل اصلی حفظ خواهد شد.`)) return;
     setBusyId(doc.id);
-    const { error } = await supabase.from('archive_documents').delete().eq('id', doc.id);
+    const { error } = await supabase.from('archive_documents').update({ archived_at: new Date().toISOString(), archived_by: (await supabase.auth.getUser()).data.user?.id ?? null }).eq('id', doc.id);
     if (error) {
       setBusyId(null);
       onNotify(DELETE_ERROR, 'error');
       return;
     }
-    await supabase.storage.from(ARCHIVE_BUCKET).remove([doc.file_path]);
     setBusyId(null);
-    onNotify('مدرک حذف شد');
+    onNotify('مدرک بایگانی شد؛ فایل اصلی محفوظ است');
     void load();
   }
 
@@ -227,7 +226,7 @@ export default function ArchivePage({ onNotify }: Props) {
                 </button>
                 <button type="button" className="btn-tiny btn-tiny-danger" disabled={busyId === doc.id} onClick={() => void removeDocument(doc)}>
                   <Trash2 size={13} />
-                  حذف
+                  انتقال به بایگانی
                 </button>
               </div>
             </li>
