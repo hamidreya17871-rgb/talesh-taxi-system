@@ -10,14 +10,24 @@ export function leaveMonthKey(isoDate: string): string | null {
 }
 
 export function freeLeaveDaysUsed(
-  requests: Pick<LeaveRequest, 'start_date' | 'days' | 'status'>[],
+  requests: Pick<LeaveRequest, 'start_date' | 'end_date' | 'status'>[],
   referenceIso: string,
 ): number {
   const monthKey = leaveMonthKey(referenceIso);
   if (!monthKey) return 0;
-  return requests
-    .filter(request => request.status !== 'rejected' && leaveMonthKey(request.start_date) === monthKey)
-    .reduce((sum, request) => sum + request.days, 0);
+
+  let usedDays = 0;
+  for (const request of requests) {
+    if (request.status === 'rejected') continue;
+    const cursor = new Date(`${request.start_date}T00:00:00Z`);
+    const end = new Date(`${request.end_date}T00:00:00Z`);
+    if (Number.isNaN(cursor.getTime()) || Number.isNaN(end.getTime())) continue;
+    while (cursor <= end) {
+      if (leaveMonthKey(cursor.toISOString().slice(0, 10)) === monthKey) usedDays += 1;
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+  }
+  return usedDays;
 }
 
 export type LeaveStatus = 'pending' | 'approved' | 'rejected';
