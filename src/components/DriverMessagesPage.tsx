@@ -17,7 +17,7 @@ export default function DriverMessagesPage({ driverId }: Props) {
   const load = useCallback(async () => {
     setLoadError(null);
     if (!driverId) {
-      setMessages([]);
+      setMessages(null);
       setLoadError('پرونده راننده به حساب کاربری متصل نیست؛ با مدیر سازمان تماس بگیرید.');
       return;
     }
@@ -112,10 +112,16 @@ export default function DriverMessagesPage({ driverId }: Props) {
               {message.isExpanded ? (
                 <>
                   <p className="whitespace-pre-line text-sm leading-[1.7]">{message.body}</p>
-                  <div className="flex items-center gap-2 text-xs text-brand-700">
-                    <Check size={14} />
-                    پیام مشاهده شد
-                  </div>
+                  {message.isRead ? (
+                    <div className="flex items-center gap-2 text-xs text-brand-700">
+                      <Check size={14} />
+                      پیام مشاهده شد
+                    </div>
+                  ) : (
+                    <button type="button" className="btn-tiny self-start" disabled={busyId === message.id} onClick={() => void openMessage(message)}>
+                      {busyId === message.id ? 'در حال ثبت مشاهده…' : 'ثبت مشاهده پیام'}
+                    </button>
+                  )}
                   <button type="button" className="btn-tiny self-start" onClick={() => setMessages(current => current?.map(item => item.id === message.id ? { ...item, isExpanded: false } : item) ?? null)}>
                     بستن پیام
                   </button>
