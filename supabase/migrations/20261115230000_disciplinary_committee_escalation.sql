@@ -44,14 +44,20 @@ GRANT UPDATE (committee_decision, committee_note, committee_decided_by, committe
 DROP POLICY IF EXISTS organization_inspector_update_reports ON public.line_violation_reports;
 CREATE POLICY organization_inspector_update_reports
   ON public.line_violation_reports FOR UPDATE TO authenticated
-  USING (public.current_app_role() IN ('manager', 'expert'))
+  USING (
+    public.current_app_role() IN ('manager', 'expert')
+    AND status <> 'ارجاع به کمیته انضباطی'
+  )
   WITH CHECK (
     public.current_app_role() IN ('manager', 'expert')
-    AND status IN ('ارسال‌شده','دریافت توسط بازرس سازمان','در حال بررسی','سازش انجام شد','ارجاع به کمیته انضباطی','رأی صادر شد - در انتظار تأیید مدیر','تأیید نهایی رأی','مختومه')
+    AND status IN ('ارسال‌شده','دریافت توسط بازرس سازمان','در حال بررسی','سازش انجام شد','ارجاع به کمیته انضباطی','مختومه')
     AND (
       status <> 'ارجاع به کمیته انضباطی'
       OR (settlement_attempted_at IS NOT NULL AND length(trim(coalesce(settlement_note,''))) >= 5 AND committee_referred_at IS NOT NULL)
     )
+    AND committee_decision IS NULL
+    AND committee_decided_by IS NULL
+    AND committee_decided_at IS NULL
   );
 
 DROP POLICY IF EXISTS disciplinary_committee_read_referred ON public.line_violation_reports;
