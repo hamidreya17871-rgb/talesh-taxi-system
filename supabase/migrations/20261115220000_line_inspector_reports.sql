@@ -29,8 +29,7 @@ CREATE TABLE IF NOT EXISTS public.line_violation_reports (
   created_at timestamptz NOT NULL DEFAULT now(),
   reviewed_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   reviewed_at timestamptz,
-  review_note text,
-  CHECK (reporter_user_id = auth.uid() OR reporter_user_id IS NOT NULL)
+  review_note text
 );
 
 ALTER TABLE public.line_violation_reports ENABLE ROW LEVEL SECURITY;
