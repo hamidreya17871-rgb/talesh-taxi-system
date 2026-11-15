@@ -45,7 +45,9 @@ export default function LeaveRequestModal({ driverId, onSaved, onClose, onNotify
       .select('status')
       .single();
     if (insertError || !saved) {
-      setError(GENERIC_ERROR);
+      setError(insertError?.message.includes('overlaps')
+        ? 'این بازه با درخواست مرخصی ثبت‌شده و ردنشده دیگری هم‌پوشانی دارد.'
+        : GENERIC_ERROR);
       setBusy(false);
       return;
     }
