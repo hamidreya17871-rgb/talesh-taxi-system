@@ -28,6 +28,7 @@ ALTER TABLE public.line_violation_reports
     'ارسال‌شده',
     'دریافت توسط بازرس سازمان',
     'در حال بررسی',
+    'ارجاع به مدیریت', -- legacy status retained for existing reports
     'سازش انجام شد',
     'ارجاع به کمیته انضباطی',
     'رأی صادر شد - در انتظار تأیید مدیر',
