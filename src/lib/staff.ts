@@ -9,6 +9,7 @@ export type Profile = {
   driver_id: string | null;
   is_active: boolean;
   is_line_inspector?: boolean;
+  is_disciplinary_committee?: boolean;
   approval_status: 'pending' | 'approved' | 'rejected';
   created_at: string;
 };
