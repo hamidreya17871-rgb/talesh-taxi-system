@@ -217,6 +217,13 @@ export default function LineInspectorReports({ profile, mode }: { profile: Profi
         {reports.length === 0 && <p className="text-sm text-ink-600">گزارشی ثبت نشده است.</p>}
         {reports.map(report => {
           const evidence = report.line_violation_report_evidence ?? [];
+          const nextStatuses = report.status === 'ارسال‌شده'
+            ? ['دریافت توسط بازرس سازمان']
+            : report.status === 'دریافت توسط بازرس سازمان'
+              ? ['در حال بررسی']
+              : report.status === 'در حال بررسی'
+                ? ['در انتظار تأیید سازش توسط مدیر', 'در انتظار دستور مدیر برای ارجاع']
+                : [];
           return (
             <article key={report.id} className="flex flex-col gap-2 border-t border-ink-100 pt-3 first:border-0 first:pt-0">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -238,10 +245,11 @@ export default function LineInspectorReports({ profile, mode }: { profile: Profi
                 </div>
               )}
               {report.settlement_note && <p className="rounded-lg bg-ink-50 p-2 text-xs text-ink-600">نتیجه تلاش برای سازش: {report.settlement_note}</p>}
-              {mode === 'staff' && !['ارجاع به کمیته انضباطی', 'رأی صادر شد - در انتظار تأیید مدیر', 'تأیید نهایی رأی'].includes(report.status) && (
-                <label className="flex flex-wrap items-center gap-2 text-xs text-ink-600">وضعیت رسیدگی
-                  <select value={report.status} onChange={e => void updateStatus(report, e.target.value)} className="field-input min-w-[200px]">
-                    {STATUSES.map(status => <option key={status}>{status}</option>)}
+              {mode === 'staff' && nextStatuses.length > 0 && (
+                <label className="flex flex-wrap items-center gap-2 text-xs text-ink-600">مرحله بعدی رسیدگی
+                  <select value="" onChange={e => void updateStatus(report, e.target.value)} className="field-input min-w-[200px]">
+                    <option value="">انتخاب مرحله بعدی</option>
+                    {nextStatuses.map(status => <option key={status}>{status}</option>)}
                   </select>
                 </label>
               )}
