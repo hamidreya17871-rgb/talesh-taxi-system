@@ -1,4 +1,4 @@
-import { Bell, BadgeCheck, Car, CalendarDays, FileText, Flag, FolderOpen, TriangleAlert, Users, type LucideIcon } from 'lucide-react';
+import { Bell, BadgeCheck, Car, CalendarDays, Flag, FolderOpen, TriangleAlert, Users, type LucideIcon } from 'lucide-react';
 import type { DashboardStat } from '@/lib/fleetStats';
 import { formatNumber } from '@/lib/format';
 
