@@ -97,7 +97,9 @@ async function hasManager(): Promise<boolean> {
   const { count, error } = await admin
     .from("profiles")
     .select("user_id", { count: "exact", head: true })
-    .eq("role", "manager");
+    .eq("role", "manager")
+    .eq("is_active", true)
+    .eq("approval_status", "approved");
   if (error) throw error;
   return (count ?? 0) > 0;
 }
