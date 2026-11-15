@@ -28,7 +28,7 @@ type DriverOwner = { id: string; name: string | null };
 
 function ownerLabel(doc: ArchiveDocument): string {
   if (doc.category === 'driver') return doc.drivers?.name ?? 'راننده';
-  if (doc.category === 'vehicle') return [doc.vehicles?.plate, doc.vehicles?.model].filter(Boolean).join(' · ') || 'خودرو';
+  if (doc.category === 'vehicle' || doc.category === 'ownership_transfer') return [doc.vehicles?.plate, doc.vehicles?.model].filter(Boolean).join(' · ') || 'خودرو';
   return '—';
 }
 
@@ -83,7 +83,7 @@ export default function ArchivePage({ profile, onNotify }: Props) {
     });
   }, [documents, category, ownerFilter]);
 
-  const showOwnerFilter = category === 'driver' || category === 'vehicle';
+  const showOwnerFilter = category === 'driver' || category === 'vehicle' || category === 'ownership_transfer';
 
   async function openFile(doc: ArchiveDocument, mode: 'view' | 'print') {
     setBusyId(doc.id);
