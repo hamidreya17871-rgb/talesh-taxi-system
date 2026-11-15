@@ -12,6 +12,15 @@ CREATE TABLE IF NOT EXISTS public.driver_message_reads (
 CREATE INDEX IF NOT EXISTS driver_message_reads_driver_idx
   ON public.driver_message_reads (driver_id, read_at DESC);
 
+-- Treat pre-existing message history as already seen at rollout.
+-- Only messages created after this migration generate new unread alerts.
+INSERT INTO public.driver_message_reads (message_id, driver_id)
+SELECT m.id, d.id
+FROM public.driver_messages m
+JOIN public.drivers d
+  ON m.recipient_driver_id IS NULL OR m.recipient_driver_id = d.id
+ON CONFLICT (message_id, driver_id) DO NOTHING;
+
 ALTER TABLE public.driver_message_reads ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.driver_message_reads FROM anon, PUBLIC;
 GRANT SELECT, INSERT ON public.driver_message_reads TO authenticated;
