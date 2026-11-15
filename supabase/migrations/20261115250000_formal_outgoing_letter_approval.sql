@@ -66,7 +66,8 @@ BEGIN
     IF v_role <> 'expert'
        OR NEW.expert_reviewed_by IS DISTINCT FROM auth.uid()
        OR NEW.expert_reviewed_at IS NULL
-       OR NEW.status <> 'در انتظار تأیید مدیر' THEN
+       OR NEW.status <> 'در انتظار تأیید مدیر'
+       OR OLD.status = 'در انتظار تأیید مدیر' THEN
       RAISE EXCEPTION 'Expert review must be recorded by the authenticated expert during submission to manager';
     END IF;
   END IF;
