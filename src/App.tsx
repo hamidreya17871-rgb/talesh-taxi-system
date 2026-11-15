@@ -59,6 +59,15 @@ export default function App() {
       />
     );
   }
+  if (sessionStatus === 'rejected') {
+    return (
+      <AccountMessage
+        title="درخواست دسترسی تأیید نشده است"
+        detail="درخواست حساب شما رد شده است. برای بررسی علت و پیگیری، با مدیر سازمان تماس بگیرید."
+        onSignOut={() => void signOut()}
+      />
+    );
+  }
   if (sessionStatus === 'inactive') {
     return (
       <AccountMessage
