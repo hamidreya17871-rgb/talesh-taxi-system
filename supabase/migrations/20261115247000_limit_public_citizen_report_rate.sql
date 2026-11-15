@@ -1,4 +1,6 @@
 -- Reduce public report abuse and prevent anonymous callers from backdating submissions.
+CREATE INDEX IF NOT EXISTS citizen_violation_reports_phone_created_at_idx
+  ON public.citizen_violation_reports(phone, created_at DESC);
 REVOKE INSERT ON public.citizen_violation_reports FROM anon;
 GRANT INSERT (
   full_name, phone, violation_type, taxi_identifier, location, description
