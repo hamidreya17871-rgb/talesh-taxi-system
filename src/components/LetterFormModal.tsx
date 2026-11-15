@@ -15,6 +15,12 @@ export type LetterRecord = {
   letter_date: string | null;
   attachment_path: string | null;
   status: string;
+  expert_reviewed_at?: string | null;
+  manager_signed_at?: string | null;
+  manager_order_note?: string | null;
+  sent_at?: string | null;
+  sent_method?: string | null;
+  delivery_receipt_path?: string | null;
   created_at: string;
 };
 
