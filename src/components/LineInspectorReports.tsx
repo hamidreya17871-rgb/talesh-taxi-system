@@ -28,7 +28,7 @@ type Report = {
   line_violation_report_evidence?: Evidence[];
 };
 
-const STATUSES = ['ارسال‌شده', 'دریافت توسط بازرس سازمان', 'در حال بررسی', 'سازش انجام شد', 'ارجاع به کمیته انضباطی', 'مختومه'];
+const STATUSES = ['ارسال‌شده', 'دریافت توسط بازرس سازمان', 'در حال بررسی', 'در انتظار تأیید سازش توسط مدیر', 'در انتظار دستور مدیر برای ارجاع'];
 const EVIDENCE_BUCKET = 'line-report-evidence';
 const MAX_FILES = 6;
 const MAX_IMAGE_SIZE = 8 * 1024 * 1024;
@@ -135,10 +135,10 @@ export default function LineInspectorReports({ profile, mode }: { profile: Profi
 
   async function updateStatus(report: Report, status: string) {
     let settlementNote: string | undefined;
-    if (status === 'ارجاع به کمیته انضباطی' || status === 'سازش انجام شد') {
-      const promptText = status === 'ارجاع به کمیته انضباطی'
+    if (status === 'در انتظار دستور مدیر برای ارجاع' || status === 'در انتظار تأیید سازش توسط مدیر') {
+      const promptText = status === 'در انتظار دستور مدیر برای ارجاع'
         ? 'نتیجه تلاش برای سازش و علت عدم حصول سازش را ثبت کنید:'
-        : 'شرح نتیجه سازش را ثبت کنید:';
+        : 'شرح سازش انجام‌شده و توافق طرفین را ثبت کنید:';
       const entered = window.prompt(promptText);
       if (!entered || entered.trim().length < 5) {
         setError('برای ثبت نتیجه سازش، توضیح حداقل ۵ نویسه‌ای لازم است.');
@@ -146,16 +146,17 @@ export default function LineInspectorReports({ profile, mode }: { profile: Profi
       }
       settlementNote = entered.trim();
     }
+    const now = new Date().toISOString();
     const payload: Record<string, unknown> = {
-      status, reviewed_by: profile.user_id, reviewed_at: new Date().toISOString(),
+      status, reviewed_by: profile.user_id, reviewed_at: now,
     };
     if (settlementNote) {
       payload.settlement_note = settlementNote;
-      payload.settlement_attempted_at = new Date().toISOString();
+      payload.settlement_attempted_at = now;
     }
-    if (status === 'ارجاع به کمیته انضباطی') payload.committee_referred_at = new Date().toISOString();
-    const { error: updateError } = await supabase.from('line_violation_reports').update(payload).eq('id', report.id);
-    if (updateError) { setError('به‌روزرسانی وضعیت انجام نشد.'); return; }
+    const { data, error: updateError } = await supabase.from('line_violation_reports')
+      .update(payload).eq('id', report.id).eq('status', report.status).select('id').maybeSingle();
+    if (updateError || !data) { setError('به‌روزرسانی انجام نشد؛ ممکن است پرونده هم‌زمان تغییر کرده باشد یا مجوز کافی نداشته باشید.'); return; }
     await load();
   }
 
