@@ -6,8 +6,7 @@ SECURITY INVOKER
 SET search_path = ''
 AS $$
 BEGIN
-  IF public.current_app_role() IS DISTINCT FROM 'manager'
-     AND (
+  IF (
        NEW.settlement_approved_by IS DISTINCT FROM OLD.settlement_approved_by
        OR NEW.settlement_approved_at IS DISTINCT FROM OLD.settlement_approved_at
        OR NEW.settlement_order_note IS DISTINCT FROM OLD.settlement_order_note
@@ -18,7 +17,12 @@ BEGIN
        OR NEW.verdict_approved_at IS DISTINCT FROM OLD.verdict_approved_at
        OR NEW.verdict_order_note IS DISTINCT FROM OLD.verdict_order_note
      ) THEN
-    RAISE EXCEPTION 'Only the organization manager may write manager order metadata';
+    IF public.current_app_role() IS DISTINCT FROM 'manager' THEN
+      RAISE EXCEPTION 'Only the organization manager may write manager order metadata';
+    END IF;
+    IF NEW.status IS NOT DISTINCT FROM OLD.status THEN
+      RAISE EXCEPTION 'Manager order metadata must be written with its approved status transition';
+    END IF;
   END IF;
   RETURN NEW;
 END;
