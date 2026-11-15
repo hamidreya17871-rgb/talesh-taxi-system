@@ -10,6 +10,7 @@ import CitizenReportsPanel from '@/components/CitizenReportsPanel';
 import LineInspectorReports from '@/components/LineInspectorReports';
 import DisciplinaryCommitteePanel from '@/components/DisciplinaryCommitteePanel';
 import DisciplinaryManagerApprovalPanel from '@/components/DisciplinaryManagerApprovalPanel';
+import OutgoingLetterWorkflowActions from '@/components/OutgoingLetterWorkflowActions';
 
 type Props = {
   profile: Profile;
@@ -234,6 +235,8 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
 
                 {letter.body && <p className="line-clamp-2 text-sm text-ink-600">{letter.body}</p>}
 
+                <OutgoingLetterWorkflowActions letter={letter} profile={profile} onSaved={() => void load()} onNotify={onNotify} />
+
                 {letterReferrals.length > 0 && (
                   <div className="flex flex-col gap-1.5 border-t border-ink-100 pt-2">
                     <p className="text-xs font-bold text-ink-600">ارجاع‌ها:</p>
@@ -257,10 +260,10 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                 )}
 
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className="btn-tiny" onClick={() => setEditor(letter)}>
+                  {!(letter.direction === 'outgoing' && ['امضا شده', 'صادر شده', 'مختومه'].includes(letter.status)) && <button type="button" className="btn-tiny" onClick={() => setEditor(letter)}>
                     <Pencil size={13} />
                     ویرایش
-                  </button>
+                  </button>}
                   <button
                     type="button"
                     className="btn-tiny"
