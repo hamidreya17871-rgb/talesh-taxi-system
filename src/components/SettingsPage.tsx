@@ -50,7 +50,6 @@ export default function SettingsPage({ onBackup, onRestore }: SettingsPageProps)
           <h3 className="mb-2 text-base font-bold">وضعیت سامانه</h3>
           <Notice title="ذخیره‌سازی ابری" detail="اطلاعات روی سرور ذخیره می‌شوند و از هر دستگاهی در دسترس است." />
           <Notice title="پشتیبان‌گیری دوره‌ای" detail="بهتر است هفته‌ای یک بار فایل پشتیبان دریافت و نگهداری کنید." />
->
         </section>
       </div>
     </>
