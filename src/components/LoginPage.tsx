@@ -158,6 +158,7 @@ export default function LoginPage() {
               <LogIn size={16} />
               {busy ? 'لطفاً صبر کنید…' : mode === 'setup' ? 'ایجاد حساب و ورود' : 'ورود'}
             </button>
+            {mode === 'login' && <p className="text-center text-xs leading-6 text-ink-600">اگر رمز عبور را فراموش کرده‌اید، مدیر سازمان می‌تواند از بخش کاربران برایتان رمز تازه تنظیم کند.</p>}
             {mode === 'login' && (
               <button type="button" className="text-sm text-brand-700 underline-offset-4 hover:underline" onClick={() => switchMode('register')}>
                 راننده هستید؟ ثبت‌نام کنید
