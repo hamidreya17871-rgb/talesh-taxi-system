@@ -46,8 +46,10 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
   const [search, setSearch] = useState('');
 
   const isManager = profile.role === 'manager';
+  const isCommitteeOnly = profile.role === 'expert' && Boolean(profile.is_disciplinary_committee);
 
   const load = useCallback(async () => {
+    if (isCommitteeOnly) return;
     setLoadError(null);
     try {
       const [lettersResult, referralsResult, staffResult] = await Promise.all([
@@ -75,11 +77,19 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
     } catch {
       setLoadError(LOAD_ERROR);
     }
-  }, []);
+  }, [isCommitteeOnly]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  if (isCommitteeOnly) {
+    return (
+      <section className="flex flex-col gap-5">
+        <DisciplinaryCommitteePanel profile={profile} />
+      </section>
+    );
+  }
 
   async function remove(letter: LetterRecord) {
     if (!window.confirm('این نامه از فهرست فعال خارج و به بایگانی منتقل شود؟ سابقه و ارجاع‌ها حفظ می‌شوند.')) return;
