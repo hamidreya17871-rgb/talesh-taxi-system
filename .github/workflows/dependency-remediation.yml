@@ -4,6 +4,10 @@ on:
   push:
     branches: [feature/administrative-workflows]
 
+concurrency:
+  group: dependency-remediation-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
