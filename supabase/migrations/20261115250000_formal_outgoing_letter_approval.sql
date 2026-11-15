@@ -43,8 +43,8 @@ BEGIN
   END IF;
 
   IF TG_OP = 'INSERT' THEN
-    IF NEW.status NOT IN ('ثبت شده', 'در انتظار بررسی کارشناس') THEN
-      RAISE EXCEPTION 'Outgoing letters must enter the approval workflow before signing or dispatch';
+    IF NEW.status <> 'ثبت شده' THEN
+      RAISE EXCEPTION 'New outgoing letters must start as registered and enter review through the controlled workflow';
     END IF;
     RETURN NEW;
   END IF;
