@@ -1,0 +1,480 @@
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+};
+
+const ROLES = ["manager", "expert", "driver"];
+const STAFF_SIGNUP_ROLES = ["manager", "expert"];
+const STAFF_REGISTRATION_CODE = Deno.env.get("STAFF_REGISTRATION_CODE") ?? "";
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PHONE_PATTERN = /^09\d{9}$/;
+const NATIONAL_CODE_PATTERN = /^\d{10}$/;
+const PLATE_PATTERN = /^ایران [۰-۹]{2} - [۰-۹]{3} (الف|ب|پ|ت|ث|ج|د|ژ|س|ش|ص|ط|ع|ل|م|ن|و|ه|ی) [۰-۹]{2}$/;
+const DISABLED_BAN = "876000h";
+const PENDING_DRIVER_STATUS = "در انتظار بررسی";
+const ACTIVE_DRIVER_STATUS = "فعال";
+const INACTIVE_DRIVER_STATUS = "غیرفعال";
+const GENERIC_ERROR = "عملیات انجام نشد. لطفاً دوباره تلاش کنید.";
+
+class RequestError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+const admin: SupabaseClient = createClient(
+  Deno.env.get("SUPABASE_URL") ?? "",
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+  { auth: { autoRefreshToken: false, persistSession: false } },
+);
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function invalid(): RequestError {
+  return new RequestError("اطلاعات واردشده معتبر نیست.", 400);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readText(body: Record<string, unknown>, key: string, max: number): string {
+  const value = body[key];
+  if (typeof value !== "string") throw invalid();
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > max) throw invalid();
+  return trimmed;
+}
+
+function readPhone(body: Record<string, unknown>): string {
+  const phone = readText(body, "phone", 11);
+  if (!PHONE_PATTERN.test(phone)) {
+    throw new RequestError("شماره موبایل معتبر نیست. نمونه: ۰۹۱۲۳۴۵۶۷۸۹", 400);
+  }
+  return phone;
+}
+
+function phoneToAccountEmail(phone: string): string {
+  return `${phone}@phone.talesh.app`;
+}
+
+function readPassword(value: unknown): string {
+  if (typeof value !== "string" || value.length < 8 || value.length > 72) {
+    throw new RequestError("رمز عبور باید بین ۸ تا ۷۲ نویسه باشد.", 400);
+  }
+  return value;
+}
+
+function readRole(body: Record<string, unknown>): string {
+  const role = body.role;
+  if (typeof role !== "string" || !ROLES.includes(role)) throw invalid();
+  return role;
+}
+
+async function readDriverId(body: Record<string, unknown>, role: string): Promise<string | null> {
+  if (role !== "driver") return null;
+  const id = body.driver_id;
+  if (typeof id !== "string" || !UUID_PATTERN.test(id)) {
+    throw new RequestError("برای نقش راننده، پرونده راننده را انتخاب کنید.", 400);
+  }
+  const { data, error } = await admin.from("drivers").select("id").eq("id", id).maybeSingle();
+  if (error) throw error;
+  if (!data) throw new RequestError("پرونده راننده پیدا نشد.", 404);
+  return id;
+}
+
+async function hasManager(): Promise<boolean> {
+  const { count, error } = await admin
+    .from("profiles")
+    .select("user_id", { count: "exact", head: true })
+    .eq("role", "manager");
+  if (error) throw error;
+  return (count ?? 0) > 0;
+}
+
+async function requireStaff(req: Request, allowedRoles: string[]): Promise<string> {
+  const token = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") ?? "";
+  const { data: userData, error: userError } = await admin.auth.getUser(token);
+  if (userError || !userData.user) throw new RequestError("دسترسی مجاز نیست.", 401);
+  const { data: profile, error } = await admin
+    .from("profiles")
+    .select("role, is_active, approval_status")
+    .eq("user_id", userData.user.id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!profile || !allowedRoles.includes(profile.role) || !profile.is_active || profile.approval_status !== "approved") {
+    throw new RequestError("دسترسی مجاز نیست.", 403);
+  }
+  return userData.user.id;
+}
+
+async function createAuthUser(email: string, password: string): Promise<string> {
+  const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+  if (error) {
+    if (error.message.toLowerCase().includes("already")) {
+      throw new RequestError("این شماره موبایل قبلاً ثبت شده است.", 409);
+    }
+    throw error;
+  }
+  return data.user.id;
+}
+
+async function releaseRemovedDriverPhone(phone: string): Promise<void> {
+  const { data: profile, error } = await admin
+    .from("profiles")
+    .select("user_id, role, driver_id")
+    .eq("phone", phone)
+    .maybeSingle();
+  if (error) throw error;
+  if (!profile || profile.role !== "driver" || profile.driver_id) return;
+  const { error: profileError } = await admin.from("profiles").delete().eq("user_id", profile.user_id);
+  if (profileError) throw profileError;
+  const { error: authError } = await admin.auth.admin.deleteUser(profile.user_id);
+  if (authError) throw authError;
+}
+
+type ProfileValues = {
+  email: string;
+  phone: string;
+  full_name: string;
+  role: string;
+  driver_id: string | null;
+  is_active: boolean;
+  approval_status: "pending" | "approved";
+};
+
+async function insertProfile(userId: string, values: ProfileValues): Promise<void> {
+  const { error } = await admin.from("profiles").insert({ user_id: userId, ...values });
+  if (!error) return;
+  await admin.auth.admin.deleteUser(userId);
+  if (error.code === "23505") {
+    throw new RequestError("این شماره موبایل یا پرونده راننده قبلاً ثبت شده است.", 409);
+  }
+  throw error;
+}
+
+async function handleBootstrap(body: Record<string, unknown>): Promise<Response> {
+  if (!STAFF_REGISTRATION_CODE || body.registration_code !== STAFF_REGISTRATION_CODE) {
+    throw new RequestError("شناسه راه‌اندازی سازمان معتبر نیست.", 403);
+  }
+  if (await hasManager()) throw new RequestError("امکان ثبت مدیر اولیه وجود ندارد.", 403);
+  const phone = readPhone(body);
+  const password = readPassword(body.password);
+  const fullName = readText(body, "full_name", 100);
+  const userId = await createAuthUser(phoneToAccountEmail(phone), password);
+  await insertProfile(userId, {
+    email: phoneToAccountEmail(phone),
+    phone,
+    full_name: fullName,
+    role: "manager",
+    driver_id: null,
+    is_active: true,
+    approval_status: "approved",
+  });
+  return json({ user_id: userId });
+}
+
+async function handleCreate(req: Request, body: Record<string, unknown>): Promise<Response> {
+  await requireStaff(req, ["manager"]);
+  const phone = readPhone(body);
+  const password = readPassword(body.password);
+  const fullName = readText(body, "full_name", 100);
+  const role = readRole(body);
+  const driverId = await readDriverId(body, role);
+  await releaseRemovedDriverPhone(phone);
+  const userId = await createAuthUser(phoneToAccountEmail(phone), password);
+  await insertProfile(userId, {
+    email: phoneToAccountEmail(phone),
+    phone,
+    full_name: fullName,
+    role,
+    driver_id: driverId,
+    is_active: true,
+    approval_status: "approved",
+  });
+  return json({ user_id: userId });
+}
+
+async function handleDeleteExpert(req: Request, body: Record<string, unknown>): Promise<Response> {
+  const callerId = await requireStaff(req, ["manager"]);
+  const userId = body.user_id;
+  if (typeof userId !== "string" || !UUID_PATTERN.test(userId)) throw invalid();
+  if (userId === callerId) throw new RequestError("شما نمی‌توانید حساب خود را حذف کنید.", 400);
+
+  const { data: target, error: targetError } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (targetError) throw targetError;
+  if (!target) throw new RequestError("کاربر پیدا نشد.", 404);
+  if (target.role !== "expert") throw new RequestError("فقط حساب کارشناس قابل حذف است.", 400);
+
+  const { error: profileError } = await admin.from("profiles").delete().eq("user_id", userId);
+  if (profileError) throw profileError;
+  const { error: authError } = await admin.auth.admin.deleteUser(userId);
+  if (authError) throw authError;
+  return json({ user_id: userId });
+}
+
+async function handleUpdate(req: Request, body: Record<string, unknown>): Promise<Response> {
+  const callerId = await requireStaff(req, ["manager"]);
+  const userId = body.user_id;
+  if (typeof userId !== "string" || !UUID_PATTERN.test(userId)) throw invalid();
+
+  const { data: target, error: targetError } = await admin
+    .from("profiles")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (targetError) throw targetError;
+  if (!target) throw new RequestError("کاربر پیدا نشد.", 404);
+
+  const fullName = readText(body, "full_name", 100);
+  const role = readRole(body);
+  const driverId = await readDriverId(body, role);
+  if (typeof body.is_active !== "boolean") throw invalid();
+  const isActive = body.is_active;
+
+  if (userId === callerId && (role !== "manager" || !isActive)) {
+    throw new RequestError("شما نمی‌توانید نقش یا وضعیت حساب خود را تغییر دهید.", 400);
+  }
+
+  if (body.password) {
+    const { error } = await admin.auth.admin.updateUserById(userId, { password: readPassword(body.password) });
+    if (error) throw error;
+  }
+
+  const { error: banError } = await admin.auth.admin.updateUserById(userId, {
+    ban_duration: isActive ? "none" : DISABLED_BAN,
+  });
+  if (banError) throw banError;
+
+  const { error: updateError } = await admin
+    .from("profiles")
+    .update({ full_name: fullName, role, driver_id: driverId, is_active: isActive, approval_status: "approved" })
+    .eq("user_id", userId);
+  if (updateError) {
+    if (updateError.code === "23505") {
+      throw new RequestError("این پرونده راننده قبلاً به حساب دیگری متصل شده است.", 409);
+    }
+    throw updateError;
+  }
+  return json({ user_id: userId });
+}
+
+async function handleRegisterStaff(body: Record<string, unknown>): Promise<Response> {
+  if (!STAFF_REGISTRATION_CODE || body.registration_code !== STAFF_REGISTRATION_CODE) {
+    throw new RequestError("شناسه ثبت‌نام معتبر نیست.", 403);
+  }
+  const phone = readPhone(body);
+  const password = readPassword(body.password);
+  const fullName = readText(body, "full_name", 100);
+  const role = body.role;
+  if (typeof role !== "string" || !STAFF_SIGNUP_ROLES.includes(role)) throw invalid();
+
+  const email = phoneToAccountEmail(phone);
+  await releaseRemovedDriverPhone(phone);
+  const userId = await createAuthUser(email, password);
+  await insertProfile(userId, {
+    email,
+    phone,
+    full_name: fullName,
+    role,
+    driver_id: null,
+    is_active: true,
+    approval_status: "approved",
+  });
+  return json({ user_id: userId });
+}
+
+async function handleRegisterDriver(body: Record<string, unknown>): Promise<Response> {
+  const phone = readPhone(body);
+  const password = readPassword(body.password);
+  const fullName = readText(body, "full_name", 100);
+  const nationalCode = readText(body, "national_code", 10);
+  if (!NATIONAL_CODE_PATTERN.test(nationalCode)) {
+    throw new RequestError("کد ملی باید ۱۰ رقم باشد.", 400);
+  }
+  const plate = readText(body, "plate", 40);
+  if (!PLATE_PATTERN.test(plate)) throw new RequestError("شماره پلاک معتبر نیست.", 400);
+  const model = readText(body, "model", 100);
+  const taxiRowNo = readText(body, "taxi_row_no", 20);
+
+  const email = phoneToAccountEmail(phone);
+  await releaseRemovedDriverPhone(phone);
+  const userId = await createAuthUser(email, password);
+  let driverId: string | null = null;
+  try {
+    const { data: driver, error: driverError } = await admin
+      .from("drivers")
+      .insert({ name: fullName, national_code: nationalCode, phone, status: PENDING_DRIVER_STATUS })
+      .select("id")
+      .single();
+    if (driverError) throw driverError;
+    driverId = driver.id;
+
+    const { error: vehicleError } = await admin.from("vehicles").insert({
+      plate,
+      model,
+      driver_name: fullName,
+      taxi_row_no: taxiRowNo,
+      driver_id: driverId,
+      status: "نیازمند بررسی",
+    });
+    if (vehicleError) throw vehicleError;
+
+    await insertProfile(userId, {
+      email,
+      phone,
+      full_name: fullName,
+      role: "driver",
+      driver_id: driverId,
+      is_active: false,
+      approval_status: "pending",
+    });
+  } catch (error) {
+    if (driverId) {
+      await admin.from("vehicles").delete().eq("driver_id", driverId);
+      await admin.from("drivers").delete().eq("id", driverId);
+    }
+    throw error;
+  }
+  return json({ user_id: userId });
+}
+
+async function handleListStaff(req: Request): Promise<Response> {
+  await requireStaff(req, ["manager", "expert"]);
+  const { data, error } = await admin
+    .from("profiles")
+    .select("user_id, full_name")
+    .in("role", ["manager", "expert"])
+    .eq("approval_status", "approved")
+    .eq("is_active", true)
+    .order("full_name", { ascending: true });
+  if (error) throw error;
+  return json({ items: data ?? [] });
+}
+
+async function handleListRegistrations(req: Request): Promise<Response> {
+  await requireStaff(req, ["manager", "expert"]);
+  const { data: profiles, error } = await admin
+    .from("profiles")
+    .select("user_id, phone, full_name, driver_id, created_at")
+    .eq("role", "driver")
+    .eq("approval_status", "pending")
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  if (!profiles || profiles.length === 0) return json({ items: [] });
+
+  const driverIds = profiles.map(profile => profile.driver_id).filter((id): id is string => typeof id === "string");
+  const [driversResult, vehiclesResult] = await Promise.all([
+    admin.from("drivers").select("id, national_code").in("id", driverIds),
+    admin.from("vehicles").select("driver_id, plate, model, taxi_row_no").in("driver_id", driverIds),
+  ]);
+  if (driversResult.error) throw driversResult.error;
+  if (vehiclesResult.error) throw vehiclesResult.error;
+
+  const items = profiles.map(profile => {
+    const driver = driversResult.data.find((row: { id: string }) => row.id === profile.driver_id);
+    const vehicle = vehiclesResult.data.find((row: { driver_id: string }) => row.driver_id === profile.driver_id);
+    return {
+      user_id: profile.user_id,
+      full_name: profile.full_name,
+      phone: profile.phone ?? "",
+      national_code: driver?.national_code ?? "",
+      plate: vehicle?.plate ?? "",
+      model: vehicle?.model ?? "",
+      taxi_row_no: vehicle?.taxi_row_no ?? "",
+      created_at: profile.created_at,
+    };
+  });
+  return json({ items });
+}
+
+async function handleReviewRegistration(req: Request, body: Record<string, unknown>): Promise<Response> {
+  await requireStaff(req, ["manager", "expert"]);
+  const userId = body.user_id;
+  if (typeof userId !== "string" || !UUID_PATTERN.test(userId)) throw invalid();
+  const decision = body.decision;
+  if (decision !== "approve" && decision !== "reject") throw invalid();
+
+  const { data: profile, error: profileError } = await admin
+    .from("profiles")
+    .select("role, approval_status, driver_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (profileError) throw profileError;
+  if (!profile || profile.role !== "driver" || profile.approval_status !== "pending") {
+    throw new RequestError("این درخواست دیگر در انتظار بررسی نیست.", 400);
+  }
+
+  const approved = decision === "approve";
+  const { error: banError } = await admin.auth.admin.updateUserById(userId, {
+    ban_duration: approved ? "none" : DISABLED_BAN,
+  });
+  if (banError) throw banError;
+
+  const { error: profileUpdateError } = await admin
+    .from("profiles")
+    .update({ is_active: approved, approval_status: approved ? "approved" : "rejected" })
+    .eq("user_id", userId);
+  if (profileUpdateError) throw profileUpdateError;
+
+  if (profile.driver_id) {
+    const { error: driverError } = await admin
+      .from("drivers")
+      .update({ status: approved ? ACTIVE_DRIVER_STATUS : INACTIVE_DRIVER_STATUS })
+      .eq("id", profile.driver_id);
+    if (driverError) throw driverError;
+  }
+  return json({ user_id: userId });
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
+
+  try {
+    const body: unknown = await req.json();
+    if (!isRecord(body)) throw invalid();
+
+    switch (body.action) {
+      case "needs-setup":
+        return json({ needsSetup: !(await hasManager()) });
+      case "bootstrap":
+        return await handleBootstrap(body);
+      case "create":
+        return await handleCreate(req, body);
+      case "update":
+        return await handleUpdate(req, body);
+      case "delete-expert":
+        return await handleDeleteExpert(req, body);
+      case "register-driver":
+        return await handleRegisterDriver(body);
+      case "register-staff":
+        return await handleRegisterStaff(body);
+      case "list-registrations":
+        return await handleListRegistrations(req);
+      case "list-staff":
+        return await handleListStaff(req);
+      case "review-registration":
+        return await handleReviewRegistration(req, body);
+      default:
+        throw new RequestError("درخواست نامعتبر است.", 400);
+    }
+  } catch (error) {
+    if (error instanceof RequestError) return json({ error: error.message }, error.status);
+    console.error("manage-staff failed", error);
+    return json({ error: GENERIC_ERROR }, 500);
+  }
+});
