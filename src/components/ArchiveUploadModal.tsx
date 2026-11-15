@@ -31,8 +31,8 @@ export default function ArchiveUploadModal({ defaultCategory, allowedCategories 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const ownerOptions = category === 'driver' ? drivers : category === 'vehicle' ? vehicles : [];
-  const needsOwner = category === 'driver' || category === 'vehicle';
+  const ownerOptions = category === 'driver' ? drivers : category === 'vehicle' || category === 'ownership_transfer' ? vehicles : [];
+  const needsOwner = category === 'driver' || category === 'vehicle' || category === 'ownership_transfer';
 
   useEffect(() => {
     setOwnerId('');
@@ -83,7 +83,7 @@ export default function ArchiveUploadModal({ defaultCategory, allowedCategories 
     const { error: saveError } = await supabase.from('archive_documents').insert({
       category,
       driver_id: category === 'driver' ? ownerId : null,
-      vehicle_id: category === 'vehicle' ? ownerId : null,
+      vehicle_id: category === 'vehicle' || category === 'ownership_transfer' ? ownerId : null,
       title: title.trim(),
       file_path: filePath,
       file_name: file.name,
