@@ -30,7 +30,7 @@ export default function RecordsPage({ entity, records, readOnly = false, onCreat
             .replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
             .trim();
           if (!normalized) return null;
-          const match = normalized.match(/\\d+/);
+          const match = normalized.match(/\d+/);
           return match ? Number(match[0]) : null;
         };
         const left = toRowNumber(a.taxi_row_no);
