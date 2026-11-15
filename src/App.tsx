@@ -113,7 +113,7 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [objectionReview, setObjectionReview] = useState<FleetRecord | null>(null);
-  const { data, status, reload, saveRecord, removeRecord, restoreBackup, clearAll } = useFleetData();
+  const { data, status, reload, saveRecord, removeRecord, restoreBackup } = useFleetData();
   const { toast, showToast } = useToast();
 
   const items = navItemsForRole(profile.role);
@@ -198,16 +198,6 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
     }
   }
 
-  async function handleClearAll() {
-    if (!window.confirm('همه اطلاعات ثبت‌شده در سامانه حذف شود؟ این کار برگشت‌پذیر نیست.')) return;
-    try {
-      await clearAll();
-      showToast('اطلاعات پاک شد');
-    } catch {
-      showToast(GENERIC_ERROR, 'error');
-    }
-  }
-
   function renderPage() {
     if (status === 'loading') {
       return <p className="py-24 text-center text-ink-600">در حال بارگذاری اطلاعات…</p>;
@@ -257,7 +247,7 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
       );
     }
     if (page === 'settings') {
-      return <SettingsPage onBackup={handleBackup} onRestore={file => void handleRestore(file)} onClearAll={() => void handleClearAll()} />;
+      return <SettingsPage onBackup={handleBackup} onRestore={file => void handleRestore(file)} />;
     }
     if (!(ENTITY_KEYS as readonly string[]).includes(page)) {
       return <p className="py-24 text-center text-ink-600">این بخش به‌زودی فعال می‌شود.</p>;
