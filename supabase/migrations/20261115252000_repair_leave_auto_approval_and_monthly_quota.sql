@@ -3,7 +3,10 @@
   Replaces the original start-month-only quota calculation for databases where the
   earlier migration has already been applied.
 */
-DO $$
+ALTER TABLE public.leave_requests
+  DROP CONSTRAINT IF EXISTS leave_requests_review_provenance_check;
+
+DO $
 DECLARE
   constraint_row record;
 BEGIN
@@ -12,6 +15,7 @@ BEGIN
     FROM pg_catalog.pg_constraint
     WHERE conrelid = 'public.leave_requests'::regclass
       AND contype = 'c'
+      AND conname <> 'leave_requests_review_provenance_check'
       AND pg_catalog.pg_get_constraintdef(oid) ILIKE '%reviewed_by IS NOT NULL%'
   LOOP
     EXECUTE format('ALTER TABLE public.leave_requests DROP CONSTRAINT %I', constraint_row.conname);
