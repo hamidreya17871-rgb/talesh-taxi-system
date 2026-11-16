@@ -255,3 +255,18 @@ BEGIN
     RAISE NOTICE 'pg_cron is not enabled; due-letter notifications require a scheduled invocation of public.dispatch_due_letter_notifications().';
   END IF;
 END $$;
+
+
+-- Notify the app in real time when a deadline alert is inserted.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime')
+     AND NOT EXISTS (
+       SELECT 1 FROM pg_publication_tables
+       WHERE pubname = 'supabase_realtime'
+         AND schemaname = 'public'
+         AND tablename = 'staff_notifications'
+     ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.staff_notifications;
+  END IF;
+END $$;
