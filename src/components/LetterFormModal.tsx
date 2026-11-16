@@ -55,6 +55,8 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
   const [letterNo, setLetterNo] = useState(letter ? String(letter.letter_no) : '');
   const [attachment, setAttachment] = useState(letter?.attachment_path ?? '');
   const [priority, setPriority] = useState<LetterPriority>(letter?.priority ?? 'normal');
+  const [priorityDays, setPriorityDays] = useState<Record<LetterPriority, number>>({ normal: 5, urgent: 2, immediate: 1 });
+  const isLocked = Boolean(letter?.direction === 'outgoing' && (letter.manager_signed_at || ['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status)));
   const [paperSize, setPaperSize] = useState<'A4' | 'A5'>('A4');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +73,26 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
       setPriority(letter.priority ?? 'normal');
     }
   }, [letter]);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const { data, error: settingsError } = await supabase
+        .from('letter_priority_settings')
+        .select('priority, working_days');
+      if (!active || settingsError || !data) return;
+      setPriorityDays(current => {
+        const next = { ...current };
+        for (const row of data as { priority: LetterPriority; working_days: number }[]) {
+          if (row.priority in next && Number.isInteger(row.working_days) && row.working_days >= 1 && row.working_days <= 30) {
+            next[row.priority] = row.working_days;
+          }
+        }
+        return next;
+      });
+    })();
+    return () => { active = false; };
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -133,21 +155,22 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
           </button>
         </div>
 
+        {isLocked && <p className="mb-3 rounded-lg bg-gold-50 p-3 text-xs leading-6 text-gold-800">این نامه پس از تأیید مدیر قفل شده است؛ برای اصلاح، باید نسخه اصلاحی یا نامه پیرو ثبت شود.</p>}
         <form onSubmit={handleSubmit} className="flex flex-col gap-[13px]">
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-[7px]">
               <label htmlFor="letter-number" className="text-xs text-ink-600">شماره نامه</label>
-              <input id="letter-number" type="text" inputMode="numeric" value={letterNo} onChange={e => setLetterNo(e.target.value)} placeholder="خودکار" className="field-input" />
+              <input id="letter-number" type="text" inputMode="numeric" disabled={isLocked} value={letterNo} onChange={e => setLetterNo(e.target.value)} placeholder="خودکار" className="field-input" />
             </div>
             <div className="flex flex-col gap-[7px]">
               <label htmlFor="letter-attachment" className="text-xs text-ink-600">پیوست</label>
-              <input id="letter-attachment" type="text" value={attachment} onChange={e => setAttachment(e.target.value)} className="field-input" />
+              <input id="letter-attachment" type="text" disabled={isLocked} value={attachment} onChange={e => setAttachment(e.target.value)} className="field-input" />
             </div>
           </div>
 
           <div className="flex flex-col gap-[7px]">
             <label htmlFor="letter-direction" className="text-xs text-ink-600">نوع نامه</label>
-            <select id="letter-direction" value={direction} onChange={e => setDirection(e.target.value as 'incoming' | 'outgoing')} className="field-input">
+            <select id="letter-direction" disabled={isEdit} value={direction} onChange={e => setDirection(e.target.value as 'incoming' | 'outgoing')} className="field-input">
               <option value="outgoing">نامه خروجی</option>
               <option value="incoming">نامه ورودی</option>
             </select>
@@ -155,12 +178,12 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
 
           <div className="flex flex-col gap-[7px]">
             <label htmlFor="letter-priority" className="text-xs text-ink-600">درجه فوریت و مهلت اقدام</label>
-            <select id="letter-priority" value={priority} onChange={e => setPriority(e.target.value as LetterPriority)} className="field-input">
-              <option value="normal">عادی — ۵ روز کاری</option>
-              <option value="urgent">فوری — ۲ روز کاری</option>
-              <option value="immediate">آنی — ۱ روز کاری</option>
+            <select id="letter-priority" disabled={isLocked} value={priority} onChange={e => setPriority(e.target.value as LetterPriority)} className="field-input">
+              <option value="normal">{`عادی — ${priorityDays.normal} روز کاری`}</option>
+              <option value="urgent">{`فوری — ${priorityDays.urgent} روز کاری`}</option>
+              <option value="immediate">{`آنی — ${priorityDays.immediate} روز کاری`}</option>
             </select>
-            <p className="text-[11px] text-ink-500">مهلت از زمان ارجاع به کارشناس محاسبه می‌شود؛ پنجشنبه و جمعه روز غیرکاری هستند. تعطیلات رسمی در محاسبه این نسخه لحاظ نمی‌شوند.</p>
+            <p className="text-[11px] text-ink-500">مهلت از زمان ارجاع به کارشناس محاسبه می‌شود؛ پنجشنبه، جمعه و تعطیلات ثبت‌شده در تقویم سازمان از روزهای کاری محاسبه نمی‌شوند.</p>
           </div>
 
           <div className="flex flex-col gap-[7px]">
@@ -173,28 +196,28 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
 
           <div className="flex flex-col gap-[7px]">
             <label htmlFor="letter-subject" className="text-xs text-ink-600">موضوع</label>
-            <input id="letter-subject" type="text" required value={subject} onChange={e => setSubject(e.target.value)} className="field-input" />
+            <input id="letter-subject" type="text" required disabled={isLocked} value={subject} onChange={e => setSubject(e.target.value)} className="field-input" />
           </div>
 
           <div className="flex flex-col gap-[7px]">
             <label htmlFor="letter-correspondent" className="text-xs text-ink-600">{direction === 'incoming' ? 'فرستنده' : 'گیرنده'}</label>
-            <input id="letter-correspondent" type="text" value={correspondent} onChange={e => setCorrespondent(e.target.value)} className="field-input" />
+            <input id="letter-correspondent" type="text" disabled={isLocked} value={correspondent} onChange={e => setCorrespondent(e.target.value)} className="field-input" />
           </div>
 
           <div className="flex flex-col gap-[7px]">
             <label htmlFor="letter-date" className="text-xs text-ink-600">تاریخ نامه</label>
-            <JalaliDateInput id="letter-date" value={letterDate} onChange={setLetterDate} />
+            <div className={isLocked ? "pointer-events-none opacity-60" : ""}><JalaliDateInput id="letter-date" value={letterDate} onChange={setLetterDate} /></div>
           </div>
 
           <div className="flex flex-col gap-[7px]">
             <label htmlFor="letter-body" className="text-xs text-ink-600">متن نامه</label>
-            <textarea id="letter-body" rows={8} value={body} onChange={e => setBody(e.target.value)} className="field-input" />
+            <textarea id="letter-body" rows={8} disabled={isLocked} value={body} onChange={e => setBody(e.target.value)} className="field-input" />
           </div>
 
           {error && <p className="text-sm text-error-500">{error}</p>}
 
           <div className="flex flex-wrap gap-2">
-            <button type="submit" className="btn" disabled={busy}>
+            <button type="submit" className="btn" disabled={busy || isLocked}>
               <Save size={16} />
               {busy ? 'لطفاً صبر کنید…' : 'ذخیره'}
             </button>
