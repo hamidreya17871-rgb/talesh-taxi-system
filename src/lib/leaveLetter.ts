@@ -56,7 +56,7 @@ function sealSvg(): string {
     </svg>`;
 }
 
-export function buildLeaveLetterHtml(letterNo: number, body: string): string {
+export function buildLeaveLetterHtml(letterNo: number, body: string, includeLetterhead = true): string {
   const contentHtml = `
     <h2>موضوع: مجوز تردد</h2>
     ${paragraphsHtml(body)}
