@@ -82,7 +82,7 @@ LANGUAGE sql
 STABLE
 SECURITY INVOKER
 SET search_path = ''
-AS $
+AS $$
   SELECT count(*)
   FROM public.driver_messages m
   WHERE public.current_app_role() = 'driver'
@@ -94,7 +94,7 @@ AS $
       WHERE r.message_id = m.id
         AND r.driver_id = public.current_driver_id()
     )
-$;
+$$;
 
 REVOKE ALL ON FUNCTION public.get_unread_driver_message_count() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_unread_driver_message_count() TO authenticated;
