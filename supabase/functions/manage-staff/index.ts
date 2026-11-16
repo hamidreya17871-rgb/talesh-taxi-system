@@ -322,7 +322,7 @@ async function handleRegisterDriver(req: Request, body: Record<string, unknown>)
     ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
     ?? "unknown";
   const ipHash = await sha256Hex(clientIp);
-  const { data: registrationAllowed, error: rateLimitError } = await admin.schema("private")
+  const { data: registrationAllowed, error: rateLimitError } = await admin
     .rpc("allow_driver_registration", { p_phone: phone, p_ip_hash: ipHash });
   if (rateLimitError) throw rateLimitError;
   if (registrationAllowed !== true) {
@@ -466,16 +466,15 @@ async function handleImportDrivers(req: Request, body: Record<string, unknown>):
         driver_id: driverId, is_active: false, approval_status: "pending",
       });
       if (profile.error) throw profile.error;
-      const tokenInsert = await admin.schema("private").from("driver_activation_tokens").insert({
-        user_id: userId, code_hash: codeHash, expires_at: expiresAt,
+      const { error: tokenError } = await admin.rpc("store_driver_activation_token", {
+        p_user_id: userId, p_code_hash: codeHash, p_expires_at: expiresAt,
       });
-      if (tokenInsert.error) throw tokenInsert.error;
+      if (tokenError) throw tokenError;
       imported.push({ row: index + 2, full_name: fullName, phone, activation_code: activationCode, expires_at: expiresAt });
       userId = null; driverId = null;
     } catch (error) {
       if (userId) {
         await admin.from("profiles").delete().eq("user_id", userId);
-        await admin.schema("private").from("driver_activation_tokens").delete().eq("user_id", userId);
         if (driverId) {
           await admin.from("vehicles").delete().eq("driver_id", driverId);
           await admin.from("drivers").delete().eq("id", driverId);
@@ -499,12 +498,11 @@ async function handleActivateImportedDriver(body: Record<string, unknown>): Prom
     throw new RequestError("پرونده راننده یا درخواست فعال‌سازی پیدا نشد.", 404);
   }
   const codeHash = await sha256Hex(code);
-  const { data: consumed, error: consumeError } = await admin.schema("private")
-    .from("driver_activation_tokens").delete()
-    .eq("user_id", profile.user_id).eq("code_hash", codeHash)
-    .gt("expires_at", new Date().toISOString()).select("user_id").maybeSingle();
+  const { data: consumed, error: consumeError } = await admin.rpc("consume_driver_activation_token", {
+    p_user_id: profile.user_id, p_code_hash: codeHash,
+  });
   if (consumeError) throw consumeError;
-  if (!consumed) throw new RequestError("کد فعال‌سازی نادرست، منقضی یا قبلاً استفاده شده است.", 400);
+  if (consumed !== true) throw new RequestError("کد فعال‌سازی نادرست، منقضی یا قبلاً استفاده شده است.", 400);
   const { error: updateError } = await admin.auth.admin.updateUserById(profile.user_id, { password });
   if (updateError) throw updateError;
   return json({ activated: true, approval_status: profile.approval_status });
