@@ -161,6 +161,11 @@ BEGIN
     END IF;
   END IF;
 
+  IF TG_TABLE_NAME = 'letter_referrals' AND TG_OP = 'UPDATE' AND NEW.status = 'done'
+     AND NOT EXISTS (SELECT 1 FROM public.letter_referrals r WHERE r.letter_id = NEW.letter_id AND r.status = 'pending' AND r.id <> NEW.id) THEN
+    UPDATE public.letters SET response_due_at = NULL WHERE id = NEW.letter_id;
+  END IF;
+
   INSERT INTO public.letter_workflow_events(letter_id, referral_id, actor_id, event_type, details)
   VALUES (v_letter_id, v_referral_id, auth.uid(), v_type, COALESCE(v_details, '{}'::jsonb));
   RETURN NEW;
@@ -205,6 +210,27 @@ DROP TRIGGER IF EXISTS referrals_set_deadline ON public.letter_referrals;
 CREATE TRIGGER referrals_set_deadline
   BEFORE INSERT ON public.letter_referrals
   FOR EACH ROW EXECUTE FUNCTION public.set_letter_referral_deadline();
+
+UPDATE public.letter_referrals
+SET due_at = public.calculate_letter_due_at(COALESCE((SELECT l.priority FROM public.letters l WHERE l.id = letter_referrals.letter_id), 'normal'), created_at)
+WHERE status = 'pending' AND due_at IS NULL;
+UPDATE public.letters l
+SET response_due_at = deadlines.first_due
+FROM (
+  SELECT letter_id, min(due_at) AS first_due
+  FROM public.letter_referrals
+  WHERE status = 'pending' AND due_at IS NOT NULL
+  GROUP BY letter_id
+) deadlines
+WHERE l.id = deadlines.letter_id AND l.response_due_at IS NULL;
+
+-- Seed the timeline for records that predate this migration.
+INSERT INTO public.letter_workflow_events(letter_id, actor_id, event_type, details, created_at)
+SELECT l.id, l.created_by, 'letter_registered', jsonb_build_object('status', l.status, 'priority', l.priority), l.created_at
+FROM public.letters l;
+INSERT INTO public.letter_workflow_events(letter_id, referral_id, actor_id, event_type, details, created_at)
+SELECT r.letter_id, r.id, r.created_by, 'referred', jsonb_build_object('to', r.referred_to, 'action', r.action, 'note', r.note), r.created_at
+FROM public.letter_referrals r;
 
 CREATE OR REPLACE FUNCTION public.dispatch_due_letter_notifications()
 RETURNS integer
