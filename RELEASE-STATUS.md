@@ -47,3 +47,12 @@
 ## Production environment
 
 The production build environment file `.env.production` is populated with this project's Supabase URL and its public publishable key (`sb_publishable_...`). This key is designed for browser use and is not a service-role secret. Never place a service-role key or `STAFF_REGISTRATION_CODE` in frontend files. Vercel can alternatively receive these two values as Environment Variables.
+
+
+## Security follow-up — ۱۴۰۵/۰۸/۲۵
+
+- Public staff registration in the repository source is now restricted to the \`expert\` role; manager accounts are provisioned only by an authenticated manager, apart from the one-time initial bootstrap.
+- Public driver/staff registration no longer deletes an existing orphaned driver account to reuse its phone number.
+- The deployed \`manage-staff\` Edge Function was inspected and is still on its previous version. The updated repository function must be deployed by the project owner before production use; this run did not modify the live function or read any secrets.
+- Vehicle records are now sorted by taxi row number in ascending numeric order, including Persian and Arabic digits.
+- The one-time ZIP import workflow was removed; the read-only CI workflow remains the repeatable quality gate.
