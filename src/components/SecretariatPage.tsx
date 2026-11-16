@@ -41,6 +41,13 @@ const PRIORITY_LABELS: Record<string, string> = { normal: 'عادی', urgent: '�
 const EVENT_LABELS: Record<string, string> = { letter_registered: 'ثبت نامه', letter_edited: 'ویرایش محتوای نامه', priority_changed: 'تغییر فوریت', status_changed: 'تغییر وضعیت', referred: 'ارجاع به کارشناس', referral_completed: 'ثبت انجام ارجاع', deadline_changed: 'تغییر سررسید اقدام' };
 const FIELD_LABELS: Record<string, string> = { subject: 'موضوع', body: 'متن', correspondent: 'فرستنده/گیرنده', letter_no: 'شماره نامه', letter_date: 'تاریخ نامه', attachment_path: 'پیوست' };
 const formatTehranDateTime = (value: string) => new Date(value).toLocaleString('fa-IR', { timeZone: 'Asia/Tehran' });
+const workflowValue = (value: unknown) => {
+  if (typeof value !== 'string') return value == null ? '—' : String(value);
+  const priorities: Record<string, string> = { normal: 'عادی', urgent: 'فوری', immediate: 'آنی' };
+  if (priorities[value]) return priorities[value];
+  if (/^\\d{4}-\\d{2}-\\d{2}T/.test(value)) return formatTehranDateTime(value);
+  return value;
+};
 
 export default function SecretariatPage({ profile, onNotify }: Props) {
   const [letters, setLetters] = useState<LetterRecord[] | null>(null);
@@ -297,6 +304,11 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                         <li key={event.id} className="text-xs">
                           <p className="font-medium">{EVENT_LABELS[event.event_type] ?? event.event_type}</p>
                           <p className="mt-0.5 text-ink-500">{formatTehranDateTime(event.created_at)}{event.actor ? ` · ${Array.isArray(event.actor) ? event.actor[0]?.full_name ?? 'کاربر ثبت‌شده' : event.actor.full_name ?? 'کاربر ثبت‌شده'}` : ''}</p>
+                          {typeof event.details.from === 'string' || typeof event.details.to === 'string' ? (
+                            <p className="mt-0.5 text-ink-600">از «{workflowValue(event.details.from)}» به «{workflowValue(event.details.to)}»</p>
+                          ) : null}
+                          {typeof event.details.status === 'string' && <p className="mt-0.5 text-ink-600">وضعیت هنگام ثبت: {event.details.status}</p>}
+                          {typeof event.details.priority === 'string' && <p className="mt-0.5 text-ink-600">فوریت هنگام ثبت: {workflowValue(event.details.priority)}</p>}
                           {typeof event.details.note === 'string' && <p className="mt-0.5 text-ink-600">{event.details.note}</p>}
                           {Array.isArray(event.details.changed_fields) && <p className="mt-0.5 text-ink-600">فیلدهای تغییرکرده: {event.details.changed_fields.map(field => FIELD_LABELS[String(field)] ?? String(field)).join('، ')}</p>}
                         </li>
