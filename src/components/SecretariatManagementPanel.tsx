@@ -184,7 +184,7 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
   }), { assigned: 0, completed: 0, pending: 0, overdue: 0, onTime: 0, eligible: 0 }), [report]);
 
   function exportReport() {
-    const headers = ['کارشناس', 'ارجاع ثبت‌شده در ماه', 'تکمیل‌شده در ماه', 'باز در پایان ماه / تا امروز', 'معوق در پایان ماه / تا امروز', 'میانگین زمان پاسخ (ساعت)', 'تکمیل به‌موقع', 'مبنای درصد به‌موقع'];
+    const headers = ['کارشناس', 'ارجاع ثبت‌شده در ماه', 'تکمیل‌شده در ماه', 'باز پایان دوره / تا امروز', 'معوق پایان دوره / تا امروز', 'میانگین زمان پاسخ (ساعت)', 'تکمیل به‌موقع', 'مبنای درصد به‌موقع'];
     const rows = report.map(row => [
       row.staff_name,
       row.assigned_count,
@@ -273,8 +273,8 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
           <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-600">ارجاع جدید</p><p className="mt-1 text-xl font-bold">{formatNumber(totals.assigned)}</p></div>
           <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-600">تکمیل‌شده</p><p className="mt-1 text-xl font-bold">{formatNumber(totals.completed)}</p></div>
-          <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-600">باز در پایان ماه</p><p className="mt-1 text-xl font-bold">{formatNumber(totals.pending)}</p></div>
-          <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-600">معوق در پایان ماه</p><p className="mt-1 text-xl font-bold">{formatNumber(totals.overdue)}</p></div>
+          <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-600">باز پایان دوره</p><p className="mt-1 text-xl font-bold">{formatNumber(totals.pending)}</p></div>
+          <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-600">معوق پایان دوره</p><p className="mt-1 text-xl font-bold">{formatNumber(totals.overdue)}</p></div>
           <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-600">انجام به‌موقع</p><p className="mt-1 text-xl font-bold">{percent(totals.onTime, totals.eligible).toLocaleString('fa-IR')}٪</p></div>
           <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-600">کارشناسان فعال</p><p className="mt-1 text-xl font-bold">{formatNumber(report.length)}</p></div>
         </div>
@@ -301,7 +301,7 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
           </table>
         </div>
         {loading && <p className="py-3 text-center text-xs text-ink-500">در حال دریافت گزارش {monthLabel}…</p>}
-        <p className="text-[11px] leading-6 text-ink-500">«باز و معوق پایان دوره» برای ماه‌های گذشته در پایان ماه و برای ماه جاری تا زمان تهیه گزارش محاسبه می‌شود. سوابق قدیمی فاقد زمان تکمیل معتبر در شاخص‌های زمان پاسخ و درصد به‌موقع حدس زده نمی‌شوند. میانگین زمان پاسخ و درصد به‌موقع فقط ارجاع‌هایی را دربرمی‌گیرد که زمان تکمیل و سررسید معتبر دارند؛ سوابق قدیمی فاقد زمان تکمیل در این دو شاخص محاسبه نمی‌شوند.</p>
+        <p className="text-[11px] leading-6 text-ink-500">«باز و معوق پایان دوره» برای ماه‌های گذشته در پایان ماه و برای ماه جاری تا زمان تهیه گزارش محاسبه می‌شود. میانگین زمان پاسخ و درصد به‌موقع فقط برای ارجاع‌های دارای زمان تکمیل و سررسید معتبر محاسبه می‌شود؛ برای سوابق قدیمی فاقد این اطلاعات، مقداری حدس زده نمی‌شود.</p>
       </div>
 
       <div className="panel flex flex-col gap-4">
