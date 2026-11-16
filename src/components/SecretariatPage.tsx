@@ -45,7 +45,7 @@ const workflowValue = (value: unknown) => {
   if (typeof value !== 'string') return value == null ? '—' : String(value);
   const priorities: Record<string, string> = { normal: 'عادی', urgent: 'فوری', immediate: 'آنی' };
   if (priorities[value]) return priorities[value];
-  if (/^\\d{4}-\\d{2}-\\d{2}T/.test(value)) return formatTehranDateTime(value);
+  if (/^\d{4}-\d{2}-\d{2}T/.test(value)) return formatTehranDateTime(value);
   return value;
 };
 
