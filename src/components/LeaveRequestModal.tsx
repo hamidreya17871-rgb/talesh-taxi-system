@@ -22,6 +22,9 @@ export default function LeaveRequestModal({ driverId, onSaved, onClose, onNotify
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const leaveDays = startDate && endDate && endDate >= startDate
+    ? Math.round((Date.parse(endDate + 'T12:00:00') - Date.parse(startDate + 'T12:00:00')) / 86_400_000) + 1
+    : 0;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -78,14 +81,34 @@ export default function LeaveRequestModal({ driverId, onSaved, onClose, onNotify
               ))}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-[7px]">
-              <label htmlFor="leave-start" className="text-xs text-ink-600">از تاریخ</label>
-              <JalaliDateInput id="leave-start" value={startDate} onChange={setStartDate} required />
+          <div className="rounded-2xl border border-brand-100 bg-gradient-to-l from-brand-50 to-white p-3">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-extrabold text-ink-900">بازه مرخصی</p>
+                <p className="mt-1 text-[11px] text-ink-500">تاریخ‌ها را از تقویم شمسی انتخاب کنید</p>
+              </div>
+              <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-brand-700 shadow-sm">تقویم شمسی</span>
             </div>
-            <div className="flex flex-col gap-[7px]">
-              <label htmlFor="leave-end" className="text-xs text-ink-600">تا تاریخ</label>
-              <JalaliDateInput id="leave-end" value={endDate} onChange={setEndDate} required />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="flex min-w-0 flex-col gap-2">
+                <label htmlFor="leave-start" className="text-xs font-bold text-ink-700">شروع مرخصی</label>
+                <JalaliDateInput id="leave-start" value={startDate} onChange={setStartDate} required />
+              </div>
+              <div className="flex min-w-0 flex-col gap-2">
+                <label htmlFor="leave-end" className="text-xs font-bold text-ink-700">پایان مرخصی</label>
+                <JalaliDateInput
+                  id="leave-end"
+                  value={endDate}
+                  onChange={setEndDate}
+                  required
+                  minDate={startDate || undefined}
+                  rangeStart={startDate}
+                />
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-white/90 px-3 py-2">
+              <span className="text-xs text-ink-600">مدت مرخصی (با احتساب روز شروع و پایان)</span>
+              <strong className="text-sm text-brand-700">{leaveDays ? leaveDays.toLocaleString('fa-IR') + ' روز' : '—'}</strong>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
