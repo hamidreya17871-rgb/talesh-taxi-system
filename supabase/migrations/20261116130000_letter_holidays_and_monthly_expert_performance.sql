@@ -252,3 +252,77 @@ $$;
 
 REVOKE ALL ON FUNCTION public.get_monthly_secretariat_performance(date, date) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_monthly_secretariat_performance(date, date) TO authenticated;
+
+
+-- Record deadline recalculations in the visible letter timeline.
+CREATE OR REPLACE FUNCTION public.audit_letter_workflow_event()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_letter_id uuid;
+  v_referral_id uuid;
+  v_type text;
+  v_details jsonb;
+  v_changed_fields text[] := ARRAY[]::text[];
+BEGIN
+  IF TG_TABLE_NAME = 'letters' THEN
+    v_letter_id := NEW.id;
+    IF TG_OP = 'INSERT' THEN
+      v_type := 'letter_registered';
+      v_details := jsonb_build_object('status', NEW.status, 'priority', NEW.priority);
+    ELSIF NEW.priority IS DISTINCT FROM OLD.priority THEN
+      v_type := 'priority_changed';
+      v_details := jsonb_build_object('from', OLD.priority, 'to', NEW.priority);
+    ELSIF NEW.status IS DISTINCT FROM OLD.status THEN
+      v_type := 'status_changed';
+      v_details := jsonb_build_object('from', OLD.status, 'to', NEW.status);
+    ELSE
+      IF NEW.subject IS DISTINCT FROM OLD.subject THEN v_changed_fields := array_append(v_changed_fields, 'subject'); END IF;
+      IF NEW.body IS DISTINCT FROM OLD.body THEN v_changed_fields := array_append(v_changed_fields, 'body'); END IF;
+      IF NEW.correspondent IS DISTINCT FROM OLD.correspondent THEN v_changed_fields := array_append(v_changed_fields, 'correspondent'); END IF;
+      IF NEW.letter_no IS DISTINCT FROM OLD.letter_no THEN v_changed_fields := array_append(v_changed_fields, 'letter_no'); END IF;
+      IF NEW.letter_date IS DISTINCT FROM OLD.letter_date THEN v_changed_fields := array_append(v_changed_fields, 'letter_date'); END IF;
+      IF NEW.attachment_path IS DISTINCT FROM OLD.attachment_path THEN v_changed_fields := array_append(v_changed_fields, 'attachment_path'); END IF;
+      IF cardinality(v_changed_fields) = 0 THEN RETURN NEW; END IF;
+      v_type := 'letter_edited';
+      v_details := jsonb_build_object('changed_fields', v_changed_fields);
+    END IF;
+  ELSE
+    v_letter_id := NEW.letter_id;
+    v_referral_id := NEW.id;
+    IF TG_OP = 'INSERT' THEN
+      v_type := 'referred';
+      v_details := jsonb_build_object('to', NEW.referred_to, 'action', NEW.action, 'note', NEW.note);
+    ELSIF NEW.status IS DISTINCT FROM OLD.status THEN
+      v_type := CASE WHEN NEW.status = 'done' THEN 'referral_completed' ELSE 'referral_status_changed' END;
+      v_details := jsonb_build_object('from', OLD.status, 'to', NEW.status);
+    ELSIF NEW.due_at IS DISTINCT FROM OLD.due_at THEN
+      v_type := 'deadline_changed';
+      v_details := jsonb_build_object('from', OLD.due_at, 'to', NEW.due_at);
+    ELSE
+      RETURN NEW;
+    END IF;
+  END IF;
+
+  IF TG_TABLE_NAME = 'letter_referrals' AND TG_OP = 'UPDATE' AND NEW.status = 'done'
+     AND NOT EXISTS (
+       SELECT 1 FROM public.letter_referrals r
+       WHERE r.letter_id = NEW.letter_id AND r.status = 'pending' AND r.id <> NEW.id
+     ) THEN
+    UPDATE public.letters SET response_due_at = NULL WHERE id = NEW.letter_id;
+  END IF;
+
+  INSERT INTO public.letter_workflow_events(letter_id, referral_id, actor_id, event_type, details)
+  VALUES (v_letter_id, v_referral_id, auth.uid(), v_type, COALESCE(v_details, '{}'::jsonb));
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.audit_letter_workflow_event() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS referrals_workflow_audit ON public.letter_referrals;
+CREATE TRIGGER referrals_workflow_audit
+  AFTER INSERT OR UPDATE OF status, due_at ON public.letter_referrals
+  FOR EACH ROW EXECUTE FUNCTION public.audit_letter_workflow_event();
