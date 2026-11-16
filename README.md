@@ -5,7 +5,7 @@
 - Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for the web build.
 - Configure `STAFF_REGISTRATION_CODE` only as a Supabase Edge Function secret. It is used for first-manager bootstrap and expert registration; public staff registration must not create manager accounts. Additional managers must be created by an authenticated manager in the user-management panel. Never put this value in frontend code or commit it.
 - Deploy the `manage-staff` Edge Function after setting its secret.
-- The connected Supabase project (`xrhzsafezpwdztjytkob`) currently has 51 migration-history entries, matching the 51 migration files in `release/standalone-railway`. The JSON backup has been restored into it: `drivers=11`, `vehicles=11`, `licenses=1`. `auth.users=0`, `profiles=0`, and operational records such as letters/leave requests remain empty. Three Storage buckets exist but contain zero objects; attachment files were not included in the JSON backup. Never replay an applied migration. The restored fleet data is not evidence that the original Bolt database or its files were migrated.
+- The connected Supabase project (`xrhzsafezpwdztjytkob`) has 51 migration-history entries and the release branch has 51 SQL migration files. However, 21 legacy migration filenames retain older timestamp prefixes than the versions recorded in Supabase. **Do not run `supabase db push` or replay migrations until this history mismatch is reconciled against a backup and staging copy.** The JSON backup has been restored: `drivers=11`, `vehicles=11`, `licenses=1`. `auth.users=0`, `profiles=0`, and operational records such as letters/leave requests remain empty. Three Storage buckets exist but contain zero objects; attachment files were not included in the JSON backup.
 - Confirm the Supabase project has Row Level Security enabled and test each role (manager, expert, driver) before using real personal data.
 
 
@@ -38,7 +38,7 @@ In Android Studio, use **Build → Generate Signed Bundle / APK → APK**, creat
 
 ## Supabase release checklist
 
-1. Verify the restored 11 drivers, 11 vehicles and 1 license in the connected project. The source JSON backup did not include Storage objects or Auth users/profiles; do not assume old attachments or login accounts were restored.
+1. Verify the restored 11 drivers, 11 vehicles and 1 license in the connected project. Before any future schema change, reconcile the 21 legacy migration filename/version mismatches in a backup and staging environment. The source JSON backup did not include Storage objects or Auth users/profiles; do not assume old attachments or login accounts were restored.
 2. Confirm `STAFF_REGISTRATION_CODE` is configured only as a Supabase Edge Function secret. `manage-staff` is active at deployed version 7; never put the secret in frontend configuration.
 3. Create the first manager through the application's initial-setup screen, then test manager, expert and driver flows with separate accounts. Check anonymous access and Storage policies before importing additional personal data.
 4. Verify archive upload/download, letter creation and referral using real authenticated sessions before importing real records.
