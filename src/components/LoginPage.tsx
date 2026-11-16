@@ -91,7 +91,7 @@ export default function LoginPage() {
       : mode === 'register'
         ? 'ثبت‌نام راننده'
         : mode === 'staff-register'
-          ? 'ثبت‌نام مدیر و کارشناس'
+          ? 'ثبت‌نام کارشناس'
           : mode === 'citizen-report'
             ? 'ثبت گزارش شهروندی بدون ثبت‌نام'
             : 'ورود به سامانه';
@@ -175,7 +175,7 @@ export default function LoginPage() {
             )}
             {mode === 'login' && (
               <button type="button" className="text-sm text-brand-700 underline-offset-4 hover:underline" onClick={() => switchMode('staff-register')}>
-                مدیر یا کارشناس هستید؟ ثبت‌نام کنید
+                کارشناس هستید؟ ثبت‌نام کنید
               </button>
             )}
           </form>
