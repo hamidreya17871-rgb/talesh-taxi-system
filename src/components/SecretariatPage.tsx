@@ -12,7 +12,6 @@ import DisciplinaryCommitteePanel from '@/components/DisciplinaryCommitteePanel'
 import DisciplinaryManagerApprovalPanel from '@/components/DisciplinaryManagerApprovalPanel';
 import OutgoingLetterWorkflowActions from '@/components/OutgoingLetterWorkflowActions';
 import SecretariatManagementPanel from '@/components/SecretariatManagementPanel';
-import LetterAdministrationPanel from '@/components/LetterAdministrationPanel';
 
 type Props = {
   profile: Profile;
@@ -165,7 +164,6 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
       {profile.is_disciplinary_committee && <DisciplinaryCommitteePanel profile={profile} />}
       {profile.role === 'manager' && <DisciplinaryManagerApprovalPanel profile={profile} />}
       {isManager && <SecretariatManagementPanel profile={profile} onNotify={onNotify} />}
-      {isManager && <LetterAdministrationPanel profile={profile} onNotify={onNotify} />}
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold">دبیرخانه</h2>
