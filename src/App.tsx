@@ -278,7 +278,7 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
     <div className="flex min-h-screen">
       <Sidebar items={items} page={page} onNavigate={setPage} />
       <main className="flex min-w-0 flex-1 flex-col">
-        <TopBar title={pageLabel} profile={profile} onSignOut={onSignOut} onMenuClick={() => setDrawerOpen(true)} onMessagesClick={() => setPage('messages')} />
+        <TopBar title={pageLabel} profile={profile} onSignOut={onSignOut} onMenuClick={() => setDrawerOpen(true)} onMessagesClick={() => setPage('messages')} onSecretariatClick={() => setPage('secretariat')} />
         <div className="mx-auto w-full max-w-[1500px] flex-1 p-[26px] max-[1000px]:p-[18px] max-[650px]:px-3 max-[650px]:pb-[85px] max-[650px]:pt-[15px]">
           {renderPage()}
         </div>
