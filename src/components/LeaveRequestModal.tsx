@@ -23,7 +23,7 @@ export default function LeaveRequestModal({ driverId, onSaved, onClose, onNotify
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const leaveDays = startDate && endDate && endDate >= startDate
-    ? Math.round((Date.parse(endDate + 'T12:00:00') - Date.parse(startDate + 'T12:00:00')) / 86_400_000) + 1
+    ? Math.round((Date.parse(endDate + 'T00:00:00Z') - Date.parse(startDate + 'T00:00:00Z')) / 86_400_000) + 1
     : 0;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
