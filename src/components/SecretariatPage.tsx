@@ -39,7 +39,7 @@ const LOAD_ERROR = 'نامه‌ها دریافت نشد. لطفاً دوباره
 const ACTION_ERROR = 'عملیات انجام نشد. لطفاً دوباره تلاش کنید.';
 const ACTION_LABELS: Record<string, string> = { review: 'بررسی', 'follow-up': 'پیگیری', signature: 'امضا' };
 const PRIORITY_LABELS: Record<string, string> = { normal: 'عادی', urgent: 'فوری', immediate: 'آنی' };
-const EVENT_LABELS: Record<string, string> = { letter_registered: 'ثبت نامه', letter_edited: 'ویرایش محتوای نامه', priority_changed: 'تغییر فوریت', status_changed: 'تغییر وضعیت', referred: 'ارجاع به کارشناس', referral_completed: 'ثبت انجام ارجاع' };
+const EVENT_LABELS: Record<string, string> = { letter_registered: 'ثبت نامه', letter_edited: 'ویرایش محتوای نامه', priority_changed: 'تغییر فوریت', status_changed: 'تغییر وضعیت', referred: 'ارجاع به کارشناس', referral_completed: 'ثبت انجام ارجاع', deadline_changed: 'تغییر سررسید اقدام' };
 const FIELD_LABELS: Record<string, string> = { subject: 'موضوع', body: 'متن', correspondent: 'فرستنده/گیرنده', letter_no: 'شماره نامه', letter_date: 'تاریخ نامه', attachment_path: 'پیوست' };
 const formatTehranDateTime = (value: string) => new Date(value).toLocaleString('fa-IR', { timeZone: 'Asia/Tehran' });
 
