@@ -101,7 +101,10 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
       return;
     }
     const trimmedNo = letterNo.trim();
-    const numberValue = trimmedNo === '' ? null : Number(trimmedNo);
+    const normalizedNo = trimmedNo
+      .replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
+      .replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)));
+    const numberValue = trimmedNo === '' ? null : Number(normalizedNo);
     if (numberValue !== null && (!Number.isInteger(numberValue) || numberValue <= 0)) {
       setError('شماره نامه باید عدد صحیح مثبت باشد.');
       return;
