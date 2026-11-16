@@ -5,7 +5,7 @@
 - Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for the web build.
 - Configure `STAFF_REGISTRATION_CODE` only as a Supabase Edge Function secret. It is used for first-manager bootstrap and expert registration; public staff registration must not create manager accounts. Additional managers must be created by an authenticated manager in the user-management panel. Never put this value in frontend code or commit it.
 - Deploy the `manage-staff` Edge Function after setting its secret.
-- The live Supabase project currently records 22 applied migrations. The repository has one additional pending migration, `20261116100000_harden_secretariat_workflow.sql`; review and apply it only after a backup and before deploying the updated Secretariat UI. Fleet-table anonymous access is hardened by `20261114150000_harden_fleet_table_access.sql`.
+- The only Supabase project currently connected for inspection (`xrhzsafezpwdztjytkob`) records 22 migration-history entries, but its `drivers`, `profiles`, `vehicles`, `letters` and `letter_referrals` tables currently contain zero rows. It is therefore **not verified as the live production database**. The development branch contains 43 migration files; 21 additional migrations require ordered review and testing. Do not apply them or switch hosting until the actual Bolt database containing the 11 reported drivers is identified and backed up. Never replay a migration already recorded in Supabase.
 - Confirm the Supabase project has Row Level Security enabled and test each role (manager, expert, driver) before using real personal data.
 
 
@@ -38,7 +38,7 @@ In Android Studio, use **Build → Generate Signed Bundle / APK → APK**, creat
 
 ## Supabase release checklist
 
-1. Confirm the 22 migrations already recorded in Supabase. Then review and apply `20261116100000_harden_secretariat_workflow.sql` after a backup; do not replay migrations that are already recorded.
+1. Identify the actual production Supabase project from the running Bolt app, verify the 11 existing driver records, and take database plus Storage backups. The currently connected project has zero driver/profile/vehicle/letter rows and must not be assumed to be production. Review the 21 additional branch migrations in a separate staging environment; do not replay any of the 22 already-recorded migrations.
 2. Deploy `supabase/functions/manage-staff` and set `STAFF_REGISTRATION_CODE` as a server-side function secret.
 3. Verify the manager, expert and driver flows against the actual Supabase project with separate test accounts. Check anonymous access is denied for every personal-data table and both private storage buckets.
 4. Verify archive upload/download, letter creation and referral using real authenticated sessions before importing real records.
@@ -46,7 +46,7 @@ In Android Studio, use **Build → Generate Signed Bundle / APK → APK**, creat
 
 ## وضعیت استقرار
 
-پایگاه داده Supabase فعال است و ۲۲ migration در تاریخچه آن ثبت شده‌اند؛ مخزن ۲۳ migration دارد و مهاجرت جدید دبیرخانه هنوز اجرا نشده است. دسترسی مستقیم `anon` به ۱۲ جدول عمومی بسته و RLS فعال است. Edge Function `manage-staff` نسخه ۱ فعال دارد، اما نسخه امن‌تر موجود در مخزن هنوز مستقر نشده؛ وجود Secret راه‌اندازی نیز از این اتصال قابل تأیید نیست. انتشار وب و آزمون نهایی همچنان باقی است. جزئیات را در `RELEASE-STATUS.md` ببینید.
+تنها پروژه Supabase متصل برای بررسی، ۲۲ سابقه migration دارد اما جدول‌های راننده، پروفایل، خودرو، نامه و ارجاع در آن خالی هستند؛ بنابراین دیتابیس عملیاتی دارای ۱۱ راننده هنوز شناسایی نشده است. شاخه توسعه ۴۳ فایل migration دارد که ۲۱ مورد جدید باید در محیط staging بازبینی و آزمایش شوند. تا شناسایی و پشتیبان‌گیری از دیتابیس واقعی، هیچ migration روی دیتابیس زنده اجرا نمی‌شود. جزئیات در `RELEASE-STATUS.md` ثبت شده است.
 
 
 ## نصب روی گوشی
