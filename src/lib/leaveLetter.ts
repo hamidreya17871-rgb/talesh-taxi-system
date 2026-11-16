@@ -75,9 +75,10 @@ export function buildLeaveLetterHtml(letterNo: number, body: string, includeLett
     letterNo,
     date: todayIso(),
     contentHtml,
+    includeLetterhead,
   });
 }
 
-export function printLeaveLetter(letterNo: number, body: string): boolean {
-  return openLetterPrintWindow(buildLeaveLetterHtml(letterNo, body));
+export function printLeaveLetter(letterNo: number, body: string, includeLetterhead = true): boolean {
+  return openLetterPrintWindow(buildLeaveLetterHtml(letterNo, body, includeLetterhead));
 }
