@@ -108,6 +108,37 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.calculate_letter_due_at(text, timestamptz) FROM PUBLIC, anon, authenticated;
 
+CREATE OR REPLACE FUNCTION public.refresh_letter_referral_deadlines()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $
+BEGIN
+  UPDATE public.letter_referrals r
+  SET due_at = public.calculate_letter_due_at(l.priority, r.created_at),
+      due_notified_at = NULL
+  FROM public.letters l
+  WHERE l.id = r.letter_id AND r.status = 'pending';
+  UPDATE public.letters l
+  SET response_due_at = (
+    SELECT min(r.due_at) FROM public.letter_referrals r
+    WHERE r.letter_id = l.id AND r.status = 'pending'
+  )
+  WHERE EXISTS (SELECT 1 FROM public.letter_referrals r WHERE r.letter_id = l.id AND r.status = 'pending');
+  RETURN NULL;
+END;
+$;
+REVOKE ALL ON FUNCTION public.refresh_letter_referral_deadlines() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS letter_priority_settings_refresh_deadlines ON public.letter_priority_settings;
+CREATE TRIGGER letter_priority_settings_refresh_deadlines
+  AFTER UPDATE ON public.letter_priority_settings
+  FOR EACH STATEMENT EXECUTE FUNCTION public.refresh_letter_referral_deadlines();
+DROP TRIGGER IF EXISTS letter_official_holidays_refresh_deadlines ON public.letter_official_holidays;
+CREATE TRIGGER letter_official_holidays_refresh_deadlines
+  AFTER INSERT OR UPDATE OR DELETE ON public.letter_official_holidays
+  FOR EACH STATEMENT EXECUTE FUNCTION public.refresh_letter_referral_deadlines();
+
 CREATE TABLE IF NOT EXISTS public.letter_workflow_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   letter_id uuid NOT NULL REFERENCES public.letters(id) ON DELETE RESTRICT,
