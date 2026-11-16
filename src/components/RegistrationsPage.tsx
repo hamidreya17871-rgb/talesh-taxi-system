@@ -258,6 +258,7 @@ export default function RegistrationsPage({ onNotify, canImport }: Props) {
         </div>
         {selectedFile && <p className="text-xs text-ink-600">فایل انتخاب‌شده: {selectedFile}</p>}
         {rows.length > 0 && (
+          <>
           <div className="rounded-xl border border-line p-3">
             <p className="mb-2 text-sm font-semibold">پیش‌نمایش پنج ردیف نخست</p>
             <div className="overflow-x-auto text-xs">
@@ -275,6 +276,7 @@ export default function RegistrationsPage({ onNotify, canImport }: Props) {
               <Upload size={16} /> شروع ورود گروهی
             </button>
           </div>
+          </>
         )}
         {importBusy && <p className="text-sm text-ink-600">{importProgress}</p>}
         {importError && <p className="text-sm text-error-500">{importError}</p>}
