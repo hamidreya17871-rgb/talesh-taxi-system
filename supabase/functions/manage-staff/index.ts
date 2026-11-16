@@ -316,8 +316,18 @@ async function handleRegisterStaff(body: Record<string, unknown>): Promise<Respo
   return json({ user_id: userId });
 }
 
-async function handleRegisterDriver(body: Record<string, unknown>): Promise<Response> {
+async function handleRegisterDriver(req: Request, body: Record<string, unknown>): Promise<Response> {
   const phone = readPhone(body);
+  const clientIp = req.headers.get("cf-connecting-ip")
+    ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    ?? "unknown";
+  const ipHash = await sha256Hex(clientIp);
+  const { data: registrationAllowed, error: rateLimitError } = await admin.schema("private")
+    .rpc("allow_driver_registration", { p_phone: phone, p_ip_hash: ipHash });
+  if (rateLimitError) throw rateLimitError;
+  if (registrationAllowed !== true) {
+    throw new RequestError("تعداد درخواست‌های ثبت‌نام از این شماره یا اتصال زیاد است. یک ساعت دیگر دوباره تلاش کنید.", 429);
+  }
   const password = readPassword(body.password);
   const fullName = readText(body, "full_name", 100);
   const nationalCode = readText(body, "national_code", 10);
@@ -631,7 +641,7 @@ Deno.serve(async (req: Request) => {
       case "delete-expert":
         return await handleDeleteExpert(req, body);
       case "register-driver":
-        return await handleRegisterDriver(body);
+        return await handleRegisterDriver(req, body);
       case "import-drivers":
         return await handleImportDrivers(req, body);
       case "activate-imported-driver":
