@@ -54,10 +54,7 @@ function monthBounds(year: number, month: number) {
   const nextYear = Math.floor(nextMonthIndex / 12);
   const nextMonth = nextMonthIndex % 12 + 1;
   const endDate = jalaliToIso({ year: nextYear, month: nextMonth, day: 1 });
-  return {
-    start: new Date(`${startDate}T00:00:00+03:30`).toISOString(),
-    end: new Date(`${endDate}T00:00:00+03:30`).toISOString(),
-  };
+  return { start: startDate, end: endDate };
 }
 
 function percent(value: number, total: number) {
@@ -89,7 +86,7 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
     setReportError(null);
     const [settingsResult, holidaysResult, reportResult] = await Promise.all([
       supabase.from('letter_priority_settings').select('priority, working_days').order('priority'),
-      supabase.from('letter_holidays').select('holiday_date, title, created_at').order('holiday_date', { ascending: true }),
+      supabase.from('letter_official_holidays').select('holiday_date, title, created_at').order('holiday_date', { ascending: true }),
       supabase.rpc('get_monthly_secretariat_performance', {
         p_month_start: bounds.start,
         p_month_end: bounds.end,
@@ -150,7 +147,7 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
       return;
     }
     setSavingHoliday(true);
-    const { error } = await supabase.from('letter_holidays').insert({
+    const { error } = await supabase.from('letter_official_holidays').insert({
       holiday_date: holidayDate,
       title: holidayTitle.trim(),
       created_by: profile.user_id,
@@ -168,7 +165,7 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
 
   async function removeHoliday(holiday: Holiday) {
     if (!window.confirm(`تعطیلی «${holiday.title}» حذف شود؟ سررسید ارجاع‌های باز دوباره محاسبه خواهد شد.`)) return;
-    const { error } = await supabase.from('letter_holidays').delete().eq('holiday_date', holiday.holiday_date);
+    const { error } = await supabase.from('letter_official_holidays').delete().eq('holiday_date', holiday.holiday_date);
     if (error) {
       onNotify('حذف تعطیلی انجام نشد.', 'error');
       return;
@@ -304,7 +301,7 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
           </table>
         </div>
         {loading && <p className="py-3 text-center text-xs text-ink-500">در حال دریافت گزارش {monthLabel}…</p>}
-        <p className="text-[11px] leading-6 text-ink-500">«باز و معوق پایان ماه» برای ماه‌های گذشته در پایان ماه و برای ماه جاری تا زمان تهیه گزارش محاسبه می‌شود. سوابق قدیمی فاقد زمان تکمیل معتبر در شاخص‌های زمان پاسخ و درصد به‌موقع حدس زده نمی‌شوند. میانگین زمان پاسخ و درصد به‌موقع فقط ارجاع‌هایی را دربرمی‌گیرد که زمان تکمیل و سررسید معتبر دارند؛ سوابق قدیمی فاقد زمان تکمیل در این دو شاخص محاسبه نمی‌شوند.</p>
+        <p className="text-[11px] leading-6 text-ink-500">«باز و معوق پایان دوره» برای ماه‌های گذشته در پایان ماه و برای ماه جاری تا زمان تهیه گزارش محاسبه می‌شود. سوابق قدیمی فاقد زمان تکمیل معتبر در شاخص‌های زمان پاسخ و درصد به‌موقع حدس زده نمی‌شوند. میانگین زمان پاسخ و درصد به‌موقع فقط ارجاع‌هایی را دربرمی‌گیرد که زمان تکمیل و سررسید معتبر دارند؛ سوابق قدیمی فاقد زمان تکمیل در این دو شاخص محاسبه نمی‌شوند.</p>
       </div>
 
       <div className="panel flex flex-col gap-4">
