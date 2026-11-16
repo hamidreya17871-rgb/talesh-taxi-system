@@ -84,6 +84,15 @@ BEGIN
 END;
 $$;
 REVOKE ALL ON FUNCTION public.refresh_letter_deadlines() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS letter_priority_settings_refresh_deadlines ON public.letter_priority_settings;
+CREATE TRIGGER letter_priority_settings_refresh_deadlines
+  AFTER UPDATE OF working_days ON public.letter_priority_settings
+  FOR EACH ROW EXECUTE FUNCTION public.refresh_letter_deadlines();
+DROP TRIGGER IF EXISTS letter_official_holidays_refresh_deadlines ON public.letter_official_holidays;
+CREATE TRIGGER letter_official_holidays_refresh_deadlines
+  AFTER INSERT OR DELETE ON public.letter_official_holidays
+  FOR EACH ROW EXECUTE FUNCTION public.refresh_letter_deadlines();
+
 
 -- Apply the updated holiday-aware calculation to all currently open referrals.
 UPDATE public.letter_referrals r
