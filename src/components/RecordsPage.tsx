@@ -17,16 +17,48 @@ type RecordsPageProps = {
   onExport: () => void;
 };
 
+const persianDigits = '۰۱۲۳۴۵۶۷۸۹';
+const arabicDigits = '٠١٢٣٤٥٦٧٨٩';
+const taxiRowCollator = new Intl.Collator('fa', { numeric: true, sensitivity: 'base' });
+
+function normalizeDigits(value: string): string {
+  return value.replace(/[۰-۹٠-٩]/g, digit => {
+    const persianIndex = persianDigits.indexOf(digit);
+    return String(persianIndex >= 0 ? persianIndex : arabicDigits.indexOf(digit));
+  });
+}
+
+function compareTaxiRows(a: FleetRecord, b: FleetRecord): number {
+  const aRaw = String(a.taxi_row_no ?? '').trim();
+  const bRaw = String(b.taxi_row_no ?? '').trim();
+  if (!aRaw && !bRaw) return taxiRowCollator.compare(String(a.plate ?? ''), String(b.plate ?? ''));
+  if (!aRaw) return 1;
+  if (!bRaw) return -1;
+
+  const aNormalized = normalizeDigits(aRaw);
+  const bNormalized = normalizeDigits(bRaw);
+  const aNumeric = /^\\d+$/.test(aNormalized) ? Number(aNormalized) : null;
+  const bNumeric = /^\\d+$/.test(bNormalized) ? Number(bNormalized) : null;
+
+  if (aNumeric !== null && bNumeric !== null && aNumeric !== bNumeric) return aNumeric - bNumeric;
+  if (aNumeric !== null && bNumeric === null) return -1;
+  if (aNumeric === null && bNumeric !== null) return 1;
+
+  return taxiRowCollator.compare(aNormalized, bNormalized)
+    || taxiRowCollator.compare(String(a.plate ?? ''), String(b.plate ?? ''));
+}
+
 export default function RecordsPage({ entity, records, readOnly = false, onCreate, onEdit, onDelete, onReview, onExport }: RecordsPageProps) {
   const config = entityConfigs[entity];
   const dateKeys = new Set(config.fields.filter(field => field.type === 'date').map(field => field.key));
   const [query, setQuery] = useState('');
   const normalizedQuery = query.trim().toLowerCase();
+  const orderedRecords = entity === 'vehicles' ? [...records].sort(compareTaxiRows) : records;
   const visible = normalizedQuery
-    ? records.filter(record =>
+    ? orderedRecords.filter(record =>
         config.fields.some(field => String(record[field.key] ?? '').toLowerCase().includes(normalizedQuery))
       )
-    : records;
+    : orderedRecords;
 
   return (
     <>
