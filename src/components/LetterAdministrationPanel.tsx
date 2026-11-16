@@ -139,7 +139,7 @@ export default function LetterAdministrationPanel({ profile, onNotify }: {
     completed: sum.completed + row.completed,
     openNow: sum.openNow + row.openNow,
     overdueNow: sum.overdueNow + row.overdueNow,
-  }), { assigned: 0, completed: 0, openNow: 0, overdueNow: 0 }), [metrics]);
+  }), { assigned: 0, completed: 0, cohortCompleted: 0, openNow: 0, overdueNow: 0 }), [metrics]);
 
   async function saveSettings() {
     setSaving(true);
@@ -188,7 +188,7 @@ export default function LetterAdministrationPanel({ profile, onNotify }: {
 
   function exportReport() {
     const rows = [
-      ['نام کارشناس', 'ارجاع‌شده در ماه', 'تکمیل‌شده در ماه', 'باز در حال حاضر', 'سررسیدگذشته از ارجاع‌های ماه', 'میانگین روز تا تکمیل'],
+      ['نام کارشناس', 'ارجاع‌شده در ماه', 'تکمیل‌شده در ماه', 'تکمیل از ارجاع‌های ماه تا امروز', 'باز از ارجاع‌های ماه', 'سررسیدگذشته', 'میانگین روز تا تکمیل'],
       ...metrics.map(row => [
         row.name,
         row.assigned,
@@ -279,16 +279,17 @@ export default function LetterAdministrationPanel({ profile, onNotify }: {
             <button type="button" className="btn btn-secondary" onClick={exportReport} disabled={reportLoading || metrics.length === 0}><Download size={14} /> CSV</button>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-500">ارجاع ماه</p><p className="text-xl font-bold">{totals.assigned}</p></div>
           <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-500">تکمیل در ماه</p><p className="text-xl font-bold">{totals.completed}</p></div>
+          <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-500">تکمیل ارجاع‌های ماه تا امروز</p><p className="text-xl font-bold">{totals.cohortCompleted}</p></div>
           <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-500">باز از ارجاع‌های ماه</p><p className="text-xl font-bold">{totals.openNow}</p></div>
           <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-500">سررسیدگذشته باز</p><p className="text-xl font-bold">{totals.overdueNow}</p></div>
         </div>
         {reportLoading ? <p className="py-5 text-center text-xs text-ink-500">در حال تهیه گزارش…</p> : metrics.length === 0 ? <p className="py-5 text-center text-xs text-ink-500">برای این ماه اطلاعاتی ثبت نشده است.</p> : (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[720px] text-right text-xs">
-              <thead><tr className="border-b border-ink-200 text-ink-600"><th className="p-2">کارشناس</th><th className="p-2">ارجاع ماه</th><th className="p-2">تکمیل ماه</th><th className="p-2">باز فعلی</th><th className="p-2">عقب‌افتاده</th><th className="p-2">میانگین زمان تکمیل (روز)</th></tr></thead>
+              <thead><tr className="border-b border-ink-200 text-ink-600"><th className="p-2">کارشناس</th><th className="p-2">ارجاع ماه</th><th className="p-2">تکمیل در ماه</th><th className="p-2">تکمیل از ارجاع‌های ماه تا امروز</th><th className="p-2">باز از ارجاع‌های ماه</th><th className="p-2">سررسیدگذشته</th><th className="p-2">میانگین زمان تکمیل (روز)</th></tr></thead>
               <tbody>
                 {metrics.map(row => {
                   const average = row.completionDays.length ? row.completionDays.reduce((a, b) => a + b, 0) / row.completionDays.length : null;
