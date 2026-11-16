@@ -48,7 +48,7 @@ export function buildLetterPageHtml(title: string, input: LetterPageInput): stri
     body { font-family: Tahoma, Arial, sans-serif; color: ${LETTER_INK}; }
     .page { position: relative; width: 210mm; height: 297mm; overflow: hidden; background: #fff; }
     .template { position: absolute; left: 0; top: 0; width: 210mm; height: 297mm; }
-    .field { position: absolute; left: 7mm; width: 34mm; height: 9mm; line-height: 9mm; text-align: center; font-size: 11pt; font-weight: 700; overflow: hidden; white-space: nowrap; }
+    .field { position: absolute; left: 6mm; width: 52mm; height: 9mm; line-height: 9mm; text-align: right; padding-right: 3mm; font-size: 11pt; font-weight: 700; overflow: hidden; white-space: nowrap; }
     .plain-meta { display: none; }
     .field-number { top: 8.8mm; }
     .field-date { top: 21.1mm; }
