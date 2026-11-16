@@ -52,7 +52,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $$
 DECLARE
   v_priority text;
 BEGIN
@@ -63,7 +63,7 @@ BEGIN
   NEW.due_at := public.calculate_letter_due_at(COALESCE(v_priority, 'normal'), NEW.created_at);
   RETURN NEW;
 END;
-$;
+$$;
 REVOKE ALL ON FUNCTION public.set_letter_referral_deadline() FROM PUBLIC, anon, authenticated;
 
 -- The preceding migration already attached these triggers to the
