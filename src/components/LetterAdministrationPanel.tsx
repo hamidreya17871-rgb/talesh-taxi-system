@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { CalendarDays, Download, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/staff';
@@ -155,7 +155,7 @@ export default function LetterAdministrationPanel({ profile, onNotify }: {
     setSaving(false);
   }
 
-  async function addHoliday(event: React.FormEvent<HTMLFormElement>) {
+  async function addHoliday(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!holidayDate || !holidayTitle.trim()) return;
     const { data, error } = await supabase.from('letter_holidays')
@@ -184,7 +184,7 @@ export default function LetterAdministrationPanel({ profile, onNotify }: {
 
   function exportReport() {
     const rows = [
-      ['نام کارشناس', 'ارجاع‌شده در ماه', 'تکمیل‌شده در ماه', 'باز در حال حاضر', 'سررسیدگذشته باز', 'میانگین روز تا تکمیل'],
+      ['نام کارشناس', 'ارجاع‌شده در ماه', 'تکمیل‌شده در ماه', 'باز در حال حاضر', 'سررسیدگذشته از ارجاع‌های ماه', 'میانگین روز تا تکمیل'],
       ...metrics.map(row => [
         row.name,
         row.assigned,
@@ -277,7 +277,7 @@ export default function LetterAdministrationPanel({ profile, onNotify }: {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-500">ارجاع ماه</p><p className="text-xl font-bold">{totals.assigned}</p></div>
           <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-500">تکمیل در ماه</p><p className="text-xl font-bold">{totals.completed}</p></div>
-          <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-500">باز فعلی</p><p className="text-xl font-bold">{totals.openNow}</p></div>
+          <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-500">باز از ارجاع‌های ماه</p><p className="text-xl font-bold">{totals.openNow}</p></div>
           <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-500">سررسیدگذشته باز</p><p className="text-xl font-bold">{totals.overdueNow}</p></div>
         </div>
         {reportLoading ? <p className="py-5 text-center text-xs text-ink-500">در حال تهیه گزارش…</p> : metrics.length === 0 ? <p className="py-5 text-center text-xs text-ink-500">برای این ماه اطلاعاتی ثبت نشده است.</p> : (
