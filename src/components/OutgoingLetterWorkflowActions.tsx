@@ -122,10 +122,11 @@ export default function OutgoingLetterWorkflowActions({ letter, profile, onSaved
     ['ثبت شده', 'در حال بررسی', 'در انتظار بررسی کارشناس'].includes(letter.status);
   const canManagerSign = profile.role === 'manager' && letter.status === 'در انتظار تأیید مدیر';
   const canDispatch = profile.role === 'manager' && letter.status === 'امضا شده';
-  const canClose = profile.role === 'manager' && letter.status === 'صادر شده';
+  const canMarkAwaitingResponse = profile.role === 'manager' && letter.status === 'صادر شده';
+  const canClose = profile.role === 'manager' && ['صادر شده', 'در انتظار پاسخ'].includes(letter.status);
   const canAttachReceipt = profile.role === 'manager' && letter.status === 'صادر شده' && !letter.delivery_receipt_path;
 
-  if (!canExpertReview && !canManagerSign && !canDispatch && !canClose && !canAttachReceipt && !letter.delivery_receipt_path) return null;
+  if (!canExpertReview && !canManagerSign && !canDispatch && !canMarkAwaitingResponse && !canClose && !canAttachReceipt && !letter.delivery_receipt_path) return null;
 
   return (
     <div className="rounded-lg border border-ink-200 bg-ink-50 p-3 flex flex-col gap-3">
@@ -235,12 +236,24 @@ export default function OutgoingLetterWorkflowActions({ letter, profile, onSaved
         </button>
       )}
 
+      {canMarkAwaitingResponse && (
+        <button
+          type="button"
+          className="btn btn-secondary self-start"
+          disabled={busy}
+          onClick={() => void update('صادر شده', { status: 'در انتظار پاسخ' }, 'نامه برای دریافت پاسخ در کارتابل پیگیری قرار گرفت')}
+        >
+          <Send size={15} />
+          ثبت در انتظار پاسخ
+        </button>
+      )}
+
       {canClose && (
         <button
           type="button"
           className="btn btn-secondary self-start"
           disabled={busy}
-          onClick={() => void update('صادر شده', { status: 'مختومه' }, 'پرونده نامه مختومه شد')}
+          onClick={() => void update(letter.status, { status: 'مختومه' }, 'پرونده نامه مختومه شد')}
         >
           <CheckCircle2 size={15} />
           مختومه‌سازی نامه
