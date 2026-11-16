@@ -51,6 +51,7 @@ CREATE POLICY letter_referrals_recipient_complete
   FOR UPDATE TO authenticated
   USING (
     status = 'pending'
+    AND (SELECT public.current_app_role()) IN ('manager', 'expert')
     AND (
       referred_to = (SELECT auth.uid())
       OR (SELECT public.current_app_role()) = 'manager'
@@ -60,6 +61,7 @@ CREATE POLICY letter_referrals_recipient_complete
     status = 'done'
     AND completed_by = (SELECT auth.uid())
     AND completed_at IS NOT NULL
+    AND (SELECT public.current_app_role()) IN ('manager', 'expert')
     AND (
       referred_to = (SELECT auth.uid())
       OR (SELECT public.current_app_role()) = 'manager'
@@ -95,7 +97,7 @@ BEGIN
   END IF;
 
   IF NEW.status = 'امضا شده' THEN
-    IF actor_role <> 'manager' THEN
+    IF actor_role IS DISTINCT FROM 'manager' THEN
       RAISE EXCEPTION 'ثبت امضای نهایی فقط توسط مدیر مجاز است.' USING ERRCODE = '42501';
     END IF;
     IF TG_OP = 'INSERT'
@@ -162,8 +164,10 @@ SET search_path = ''
 AS $$
 DECLARE
   v_referral_id uuid;
+  v_role text;
 BEGIN
-  IF public.current_app_role() NOT IN ('manager', 'expert') THEN
+  v_role := public.current_app_role();
+  IF v_role IS NULL OR v_role NOT IN ('manager', 'expert') THEN
     RAISE EXCEPTION 'دسترسی مجاز نیست.' USING ERRCODE = '42501';
   END IF;
   IF p_action IS NULL OR p_action NOT IN ('review', 'follow-up', 'signature') THEN
