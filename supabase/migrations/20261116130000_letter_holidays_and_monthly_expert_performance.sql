@@ -109,11 +109,11 @@ CREATE INDEX IF NOT EXISTS letter_referrals_monthly_performance_idx
 
 -- Keep the aggregate implementation in a non-exposed schema. It returns only
 -- performance aggregates and checks the authenticated manager inside the function.
-CREATE SCHEMA IF NOT EXISTS private;
-REVOKE ALL ON SCHEMA private FROM PUBLIC, anon;
-GRANT USAGE ON SCHEMA private TO authenticated;
+CREATE SCHEMA IF NOT EXISTS secretariat_private;
+REVOKE ALL ON SCHEMA secretariat_private FROM PUBLIC, anon;
+GRANT USAGE ON SCHEMA secretariat_private TO authenticated;
 
-CREATE OR REPLACE FUNCTION private.get_monthly_secretariat_performance(
+CREATE OR REPLACE FUNCTION secretariat_private.get_monthly_secretariat_performance(
   p_month_start date,
   p_month_end date
 )
@@ -220,9 +220,9 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION private.get_monthly_secretariat_performance(date, date)
+REVOKE ALL ON FUNCTION secretariat_private.get_monthly_secretariat_performance(date, date)
   FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION private.get_monthly_secretariat_performance(date, date)
+GRANT EXECUTE ON FUNCTION secretariat_private.get_monthly_secretariat_performance(date, date)
   TO authenticated;
 
 -- Public RPC wrapper is invoker-security; the private implementation performs
@@ -248,7 +248,7 @@ SECURITY INVOKER
 SET search_path = ''
 AS $$
   SELECT *
-  FROM private.get_monthly_secretariat_performance(p_month_start, p_month_end);
+  FROM secretariat_private.get_monthly_secretariat_performance(p_month_start, p_month_end);
 $$;
 
 REVOKE ALL ON FUNCTION public.get_monthly_secretariat_performance(date, date)
