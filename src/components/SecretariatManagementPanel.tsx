@@ -230,7 +230,7 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
       <h1>گزارش ماهانه عملکرد کارشناسان دبیرخانه</h1><p>دوره گزارش: ${escapeHtml(monthLabel)} — تاریخ تهیه: ${new Date().toLocaleString('fa-IR', { timeZone: 'Asia/Tehran' })}</p>
       <div class="summary"><span>ارجاع جدید: ${formatNumber(totals.assigned)}</span><span>تکمیل‌شده: ${formatNumber(totals.completed)}</span><span>باز: ${formatNumber(totals.pending)}</span><span>معوق: ${formatNumber(totals.overdue)}</span><span>تکمیل به‌موقع: ${percent(totals.onTime, totals.eligible).toLocaleString('fa-IR')}٪</span></div>
       <table><thead><tr><th>کارشناس</th><th>ارجاع جدید</th><th>تکمیل‌شده</th><th>باز تا پایان دوره</th><th>معوق تا پایان دوره</th><th>میانگین پاسخ (ساعت)</th><th>به‌موقع</th></tr></thead><tbody>${rows}</tbody></table>
-      <p>برای ماه جاری، وضعیت باز و معوق تا زمان تهیه گزارش محاسبه شده است؛ برای ماه‌های گذشته، محاسبه در پایان ماه انجام می‌شود. درصد به‌موقع فقط بر اساس ارجاع‌های تکمیل‌شده دارای سررسید معتبر محاسبه شده است.</p>
+      <p>برای ماه جاری، وضعیت باز و معوق تا زمان تهیه گزارش محاسبه شده است؛ برای ماه‌های گذشته، محاسبه در پایان ماه انجام می‌شود. میانگین پاسخ بر اساس زمان تکمیل ثبت‌شده و درصد به‌موقع فقط بر اساس ارجاع‌های تکمیل‌شده دارای سررسید معتبر محاسبه شده است.</p>
       </body></html>`);
     printWindow.document.close();
     printWindow.focus();
@@ -301,7 +301,7 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
           </table>
         </div>
         {loading && <p className="py-3 text-center text-xs text-ink-500">در حال دریافت گزارش {monthLabel}…</p>}
-        <p className="text-[11px] leading-6 text-ink-500">«باز و معوق پایان دوره» برای ماه‌های گذشته در پایان ماه و برای ماه جاری تا زمان تهیه گزارش محاسبه می‌شود. میانگین زمان پاسخ و درصد به‌موقع فقط برای ارجاع‌های دارای زمان تکمیل و سررسید معتبر محاسبه می‌شود؛ برای سوابق قدیمی فاقد این اطلاعات، مقداری حدس زده نمی‌شود.</p>
+        <p className="text-[11px] leading-6 text-ink-500">«باز و معوق پایان دوره» برای ماه‌های گذشته در پایان ماه و برای ماه جاری تا زمان تهیه گزارش محاسبه می‌شود. میانگین زمان پاسخ برای ارجاع‌های دارای زمان تکمیل معتبر و درصد به‌موقع برای ارجاع‌های تکمیل‌شده دارای سررسید معتبر محاسبه می‌شود؛ برای سوابق قدیمی فاقد اطلاعات لازم، مقداری حدس زده نمی‌شود.</p>
       </div>
 
       <div className="panel flex flex-col gap-4">
