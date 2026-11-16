@@ -70,7 +70,7 @@ function mapCsvRows(text: string): ImportRow[] {
   const aliases: Record<keyof ImportRow, string[]> = {
     full_name: ['نامونامخانوادگی', 'نام', 'fullname', 'name'],
     national_code: ['کدملی', 'nationalcode', 'national_code'],
-    phone: ['شماره‌موبایل', 'موبایل', 'تلفن', 'phone'],
+    phone: ['شمارهموبایل', 'شماره‌موبایل', 'موبایل', 'تلفن', 'phone'],
     plate: ['شمارهپلاک', 'پلاک', 'plate'],
     model: ['مدلخودرو', 'نوعخودرو', 'مدل', 'model'],
     taxi_row_no: ['ردیفتاکسی', 'شمارهردیف', 'taxirowno', 'taxi_row_no'],
