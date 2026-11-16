@@ -209,6 +209,12 @@ export default function RegistrationsPage({ onNotify, canImport }: Props) {
     setImportProgress('');
     setImportBusy(false);
     setRows([]);
+    if (importedRows.length > 0) {
+      downloadCsv('talesh-driver-activation-codes.csv', [
+        ['نام راننده', 'شماره موبایل', 'کد فعال‌سازی', 'مهلت استفاده'],
+        ...importedRows.map(item => [item.full_name, item.phone, item.activation_code, new Date(item.expires_at).toLocaleDateString('fa-IR')]),
+      ]);
+    }
     onNotify(`ورود گروهی تمام شد؛ ${importedRows.length} راننده ثبت و ${skippedRows.length} ردیف رد شد.`, skippedRows.length ? 'error' : 'success');
     await load();
   }
@@ -252,6 +258,17 @@ export default function RegistrationsPage({ onNotify, canImport }: Props) {
         </div>
         {selectedFile && <p className="text-xs text-ink-600">فایل انتخاب‌شده: {selectedFile}</p>}
         {rows.length > 0 && (
+          <div className="rounded-xl border border-line p-3">
+            <p className="mb-2 text-sm font-semibold">پیش‌نمایش پنج ردیف نخست</p>
+            <div className="overflow-x-auto text-xs">
+              <table className="w-full text-right">
+                <thead><tr><th className="p-2">نام</th><th className="p-2">موبایل</th><th className="p-2">پلاک</th><th className="p-2">ردیف</th></tr></thead>
+                <tbody>{rows.slice(0, 5).map((item, index) => (
+                  <tr key={index}><td className="p-2">{item.full_name || '—'}</td><td className="p-2" dir="ltr">{item.phone || '—'}</td><td className="p-2">{item.plate || '—'}</td><td className="p-2">{item.taxi_row_no || '—'}</td></tr>
+                ))}</tbody>
+              </table>
+            </div>
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-surface-muted p-3">
             <p className="text-sm">{rows.length} ردیف آماده ورود است.</p>
             <button type="button" className="btn" onClick={() => void importFile()} disabled={importBusy}>
