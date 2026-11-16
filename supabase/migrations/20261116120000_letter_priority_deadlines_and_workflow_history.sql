@@ -231,6 +231,10 @@ FROM public.letters l;
 INSERT INTO public.letter_workflow_events(letter_id, referral_id, actor_id, event_type, details, created_at)
 SELECT r.letter_id, r.id, r.created_by, 'referred', jsonb_build_object('to', r.referred_to, 'action', r.action, 'note', r.note), r.created_at
 FROM public.letter_referrals r;
+INSERT INTO public.letter_workflow_events(letter_id, referral_id, actor_id, event_type, details, created_at)
+SELECT r.letter_id, r.id, r.completed_by, 'referral_completed', jsonb_build_object('from', 'pending', 'to', 'done'), COALESCE(r.completed_at, r.created_at)
+FROM public.letter_referrals r
+WHERE r.status = 'done';
 
 CREATE OR REPLACE FUNCTION public.sync_letter_priority_deadlines()
 RETURNS trigger
