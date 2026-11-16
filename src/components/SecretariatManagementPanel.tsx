@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BarChart3, CalendarDays, Download, Plus, Save, Settings2, Trash2 } from 'lucide-react';
+import { BarChart3, CalendarDays, Download, Plus, Printer, Save, Settings2, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatNumber, formatPersianDate } from '@/lib/format';
 import { isoToJalali, JALALI_MONTHS, jalaliToIso } from '@/lib/jalali';
@@ -49,12 +49,15 @@ function tehranTodayIso() {
 const currentJalali = isoToJalali(tehranTodayIso()) ?? { year: 1405, month: 8, day: 1 };
 
 function monthBounds(year: number, month: number) {
-  const start = jalaliToIso({ year, month, day: 1 });
+  const startDate = jalaliToIso({ year, month, day: 1 });
   const nextMonthIndex = year * 12 + month;
   const nextYear = Math.floor(nextMonthIndex / 12);
   const nextMonth = nextMonthIndex % 12 + 1;
-  const end = jalaliToIso({ year: nextYear, month: nextMonth, day: 1 });
-  return { start, end };
+  const endDate = jalaliToIso({ year: nextYear, month: nextMonth, day: 1 });
+  return {
+    start: new Date(`${startDate}T00:00:00+03:30`).toISOString(),
+    end: new Date(`${endDate}T00:00:00+03:30`).toISOString(),
+  };
 }
 
 function percent(value: number, total: number) {
@@ -86,7 +89,7 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
     setReportError(null);
     const [settingsResult, holidaysResult, reportResult] = await Promise.all([
       supabase.from('letter_priority_settings').select('priority, working_days').order('priority'),
-      supabase.from('letter_official_holidays').select('holiday_date, title, created_at').order('holiday_date', { ascending: true }),
+      supabase.from('letter_holidays').select('holiday_date, title, created_at').order('holiday_date', { ascending: true }),
       supabase.rpc('get_monthly_secretariat_performance', {
         p_month_start: bounds.start,
         p_month_end: bounds.end,
@@ -205,6 +208,37 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
     URL.revokeObjectURL(url);
   }
 
+  function printReport() {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      onNotify('مرورگر اجازه بازکردن پنجره چاپ را نداد.', 'error');
+      return;
+    }
+    const escapeHtml = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, char => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[char] ?? char);
+    const rows = report.map(row => `
+      <tr>
+        <td>${escapeHtml(row.staff_name)}</td>
+        <td>${formatNumber(row.assigned_count)}</td>
+        <td>${formatNumber(row.completed_count)}</td>
+        <td>${formatNumber(row.pending_at_month_end)}</td>
+        <td>${formatNumber(row.overdue_at_month_end)}</td>
+        <td>${row.average_response_hours == null ? '—' : escapeHtml(Number(row.average_response_hours).toLocaleString('fa-IR', { maximumFractionDigits: 1 }))}</td>
+        <td>${percent(row.on_time_completed, row.on_time_eligible).toLocaleString('fa-IR')}٪</td>
+      </tr>`).join('');
+    printWindow.document.write(`<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>گزارش عملکرد دبیرخانه</title>
+      <style>body{font-family:Tahoma,Arial,sans-serif;padding:24px;color:#172033}h1{font-size:20px}p{color:#555;font-size:12px}.summary{display:flex;gap:18px;margin:18px 0;flex-wrap:wrap}.summary span{border:1px solid #ddd;padding:10px;border-radius:8px}table{width:100%;border-collapse:collapse;margin-top:18px;font-size:12px}th,td{border:1px solid #ccc;padding:9px;text-align:right}th{background:#f3f4f6}@media print{button{display:none}}</style></head><body>
+      <h1>گزارش ماهانه عملکرد کارشناسان دبیرخانه</h1><p>دوره گزارش: ${escapeHtml(monthLabel)} — تاریخ تهیه: ${new Date().toLocaleString('fa-IR', { timeZone: 'Asia/Tehran' })}</p>
+      <div class="summary"><span>ارجاع جدید: ${formatNumber(totals.assigned)}</span><span>تکمیل‌شده: ${formatNumber(totals.completed)}</span><span>باز: ${formatNumber(totals.pending)}</span><span>معوق: ${formatNumber(totals.overdue)}</span><span>تکمیل به‌موقع: ${percent(totals.onTime, totals.eligible).toLocaleString('fa-IR')}٪</span></div>
+      <table><thead><tr><th>کارشناس</th><th>ارجاع جدید</th><th>تکمیل‌شده</th><th>باز تا پایان دوره</th><th>معوق تا پایان دوره</th><th>میانگین پاسخ (ساعت)</th><th>به‌موقع</th></tr></thead><tbody>${rows}</tbody></table>
+      <p>برای ماه جاری، وضعیت باز و معوق تا زمان تهیه گزارش محاسبه شده است؛ برای ماه‌های گذشته، محاسبه در پایان ماه انجام می‌شود. درصد به‌موقع فقط بر اساس ارجاع‌های تکمیل‌شده دارای سررسید معتبر محاسبه شده است.</p>
+      </body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  }
+
   const monthLabel = `${JALALI_MONTHS[month - 1]} ${year.toLocaleString('fa-IR')}`;
 
   return (
@@ -229,6 +263,9 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
             </select>
             <button type="button" className="btn btn-secondary" onClick={exportReport} disabled={loading || report.length === 0}>
               <Download size={15} /> خروجی CSV
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={printReport} disabled={loading || report.length === 0}>
+              <Printer size={15} /> چاپ گزارش
             </button>
           </div>
         </div>
@@ -266,7 +303,7 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
           </table>
         </div>
         {loading && <p className="py-3 text-center text-xs text-ink-500">در حال دریافت گزارش {monthLabel}…</p>}
-        <p className="text-[11px] leading-6 text-ink-500">«باز و معوق پایان ماه» وضعیت ارجاع در پایان ماه انتخابی را با استفاده از تاریخ تکمیل ثبت‌شده محاسبه می‌کند. میانگین زمان پاسخ و درصد به‌موقع فقط ارجاع‌هایی را دربرمی‌گیرد که زمان تکمیل و سررسید معتبر دارند؛ سوابق قدیمی فاقد زمان تکمیل در این دو شاخص محاسبه نمی‌شوند.</p>
+        <p className="text-[11px] leading-6 text-ink-500">«باز و معوق پایان ماه» برای ماه‌های گذشته در پایان ماه و برای ماه جاری تا زمان تهیه گزارش محاسبه می‌شود. سوابق قدیمی فاقد زمان تکمیل معتبر در شاخص‌های زمان پاسخ و درصد به‌موقع حدس زده نمی‌شوند. میانگین زمان پاسخ و درصد به‌موقع فقط ارجاع‌هایی را دربرمی‌گیرد که زمان تکمیل و سررسید معتبر دارند؛ سوابق قدیمی فاقد زمان تکمیل در این دو شاخص محاسبه نمی‌شوند.</p>
       </div>
 
       <div className="panel flex flex-col gap-4">
