@@ -113,7 +113,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $$
 BEGIN
   UPDATE public.letter_referrals r
   SET due_at = public.calculate_letter_due_at(l.priority, r.created_at),
@@ -128,7 +128,7 @@ BEGIN
   WHERE EXISTS (SELECT 1 FROM public.letter_referrals r WHERE r.letter_id = l.id AND r.status = 'pending');
   RETURN NULL;
 END;
-$;
+$$;
 REVOKE ALL ON FUNCTION public.refresh_letter_referral_deadlines() FROM PUBLIC, anon, authenticated;
 DROP TRIGGER IF EXISTS letter_priority_settings_refresh_deadlines ON public.letter_priority_settings;
 CREATE TRIGGER letter_priority_settings_refresh_deadlines
