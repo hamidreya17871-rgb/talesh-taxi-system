@@ -335,7 +335,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                 )}
 
                 <div className="flex flex-wrap gap-2">
-                  {!(letter.direction === 'outgoing' && ['امضا شده', 'صادر شده', 'مختومه'].includes(letter.status)) && <button type="button" className="btn-tiny" onClick={() => setEditor(letter)}>
+                  {!(letter.direction === 'outgoing' && ['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status)) && <button type="button" className="btn-tiny" onClick={() => setEditor(letter)}>
                     <Pencil size={13} />
                     ویرایش
                   </button>}
