@@ -260,7 +260,7 @@ export default function RegistrationsPage({ onNotify, canImport }: Props) {
             </div>
           </div>
         )}
-      </section>
+      </section>}
 
       {items === null && !loadError && <p className="py-16 text-center text-ink-600">در حال بارگذاری…</p>}
       {loadError && (
