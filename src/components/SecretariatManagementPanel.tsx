@@ -13,7 +13,7 @@ type Props = {
 
 type Priority = 'normal' | 'urgent' | 'immediate';
 type PrioritySetting = { priority: Priority; working_days: number };
-type Holiday = { holiday_date: string; title: string; created_at: string };
+type Holiday = { id: string; holiday_date: string; title: string; created_at: string };
 type PerformanceRow = {
   staff_user_id: string;
   staff_name: string;
