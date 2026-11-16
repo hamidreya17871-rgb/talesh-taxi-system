@@ -345,11 +345,31 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                         correspondent: letter.correspondent ?? undefined,
                         attachment: letter.attachment_path,
                         direction: letter.direction,
+                        includeLetterhead: true,
                       })
                     }
                   >
                     <Printer size={13} />
-                    چاپ
+                    چاپ با سربرگ
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-tiny"
+                    onClick={() =>
+                      printLetter({
+                        letterNo: letter.letter_no,
+                        date: letter.letter_date ?? letter.created_at,
+                        subject: letter.subject,
+                        body: letter.body,
+                        correspondent: letter.correspondent ?? undefined,
+                        attachment: letter.attachment_path,
+                        direction: letter.direction,
+                        includeLetterhead: false,
+                      })
+                    }
+                  >
+                    <Printer size={13} />
+                    بدون سربرگ
                   </button>
                   <button type="button" className="btn-tiny" onClick={() => setReferralLetter(letter)}>
                     <ArrowRightLeft size={13} />
