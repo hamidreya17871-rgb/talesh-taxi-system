@@ -371,6 +371,135 @@ async function handleRegisterDriver(body: Record<string, unknown>): Promise<Resp
   return json({ user_id: userId });
 }
 
+
+
+function normalizeDigits(value: string): string {
+  const persian = "۰۱۲۳۴۵۶۷۸۹", arabic = "٠١٢٣٤٥٦٧٨٩";
+  return value.split("").map(char => {
+    const p = persian.indexOf(char); if (p >= 0) return String(p);
+    const a = arabic.indexOf(char); if (a >= 0) return String(a);
+    return char;
+  }).join("");
+}
+function randomUrlToken(bytes = 24): string {
+  const data = crypto.getRandomValues(new Uint8Array(bytes));
+  let binary = ""; for (const byte of data) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, "0")).join("");
+}
+async function handleImportDrivers(req: Request, body: Record<string, unknown>): Promise<Response> {
+  await requireStaff(req, ["manager"]);
+  if (!Array.isArray(body.records) || body.records.length < 1 || body.records.length > 50) {
+    throw new RequestError("هر بار باید بین ۱ تا ۵۰ راننده وارد شود.", 400);
+  }
+  const imported: Array<Record<string, unknown>> = [];
+  const skipped: Array<Record<string, unknown>> = [];
+  for (let index = 0; index < body.records.length; index++) {
+    const raw = body.records[index];
+    if (!isRecord(raw)) { skipped.push({ row: index + 2, reason: "ساختار ردیف معتبر نیست." }); continue; }
+    const row = { ...raw };
+    for (const key of ["phone", "national_code", "taxi_row_no"]) {
+      if (typeof row[key] === "string") row[key] = normalizeDigits(row[key] as string).trim();
+    }
+    let userId: string | null = null, driverId: string | null = null;
+    try {
+      const phone = readPhone(row);
+      const nationalCode = readText(row, "national_code", 10);
+      if (!NATIONAL_CODE_PATTERN.test(nationalCode)) throw new RequestError("کد ملی باید ۱۰ رقم باشد.", 400);
+      const fullName = readText(row, "full_name", 100);
+      const plate = readText(row, "plate", 40);
+      const model = readText(row, "model", 100);
+      const taxiRowNo = readText(row, "taxi_row_no", 20);
+      const email = phoneToAccountEmail(phone);
+      const [profileByPhone, driverByPhone, driverByNationalCode, vehicleByPlate] = await Promise.all([
+        admin.from("profiles").select("user_id").eq("phone", phone).limit(1).maybeSingle(),
+        admin.from("drivers").select("id").eq("phone", phone).limit(1).maybeSingle(),
+        admin.from("drivers").select("id").eq("national_code", nationalCode).limit(1).maybeSingle(),
+        admin.from("vehicles").select("id").eq("plate", plate).limit(1).maybeSingle(),
+      ]);
+      for (const result of [profileByPhone, driverByPhone, driverByNationalCode, vehicleByPlate]) {
+        if (result.error) throw result.error;
+      }
+      if (profileByPhone.data || driverByPhone.data || driverByNationalCode.data || vehicleByPlate.data) {
+        skipped.push({ row: index + 2, full_name: fullName, phone, reason: "شماره موبایل، کد ملی یا پلاک تکراری است." });
+        continue;
+      }
+      const user = await admin.auth.admin.createUser({
+        email, password: randomUrlToken(32), email_confirm: true,
+      });
+      if (user.error) {
+        if (user.error.message.toLowerCase().includes("already")) {
+          skipped.push({ row: index + 2, full_name: fullName, phone, reason: "برای این شماره قبلاً حساب کاربری ساخته شده است." });
+          continue;
+        }
+        throw user.error;
+      }
+      userId = user.data.user.id;
+      const driver = await admin.from("drivers").insert({
+        name: fullName, national_code: nationalCode, phone, status: PENDING_DRIVER_STATUS,
+      }).select("id").single();
+      if (driver.error) throw driver.error;
+      driverId = driver.data.id;
+      const vehicle = await admin.from("vehicles").insert({
+        plate, model, driver_name: fullName, taxi_row_no: taxiRowNo,
+        driver_id: driverId, status: "نیازمند بررسی",
+      });
+      if (vehicle.error) throw vehicle.error;
+      const activationCode = randomUrlToken(24);
+      const codeHash = await sha256Hex(activationCode);
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      const profile = await admin.from("profiles").insert({
+        user_id: userId, email, phone, full_name: fullName, role: "driver",
+        driver_id: driverId, is_active: false, approval_status: "pending",
+      });
+      if (profile.error) throw profile.error;
+      const tokenInsert = await admin.schema("private").from("driver_activation_tokens").insert({
+        user_id: userId, code_hash: codeHash, expires_at: expiresAt,
+      });
+      if (tokenInsert.error) throw tokenInsert.error;
+      imported.push({ row: index + 2, full_name: fullName, phone, activation_code: activationCode, expires_at: expiresAt });
+      userId = null; driverId = null;
+    } catch (error) {
+      if (userId) {
+        await admin.from("profiles").delete().eq("user_id", userId);
+        await admin.schema("private").from("driver_activation_tokens").delete().eq("user_id", userId);
+        if (driverId) {
+          await admin.from("vehicles").delete().eq("driver_id", driverId);
+          await admin.from("drivers").delete().eq("id", driverId);
+        }
+        await admin.auth.admin.deleteUser(userId);
+      }
+      skipped.push({ row: index + 2, reason: error instanceof RequestError ? error.message : "ثبت این ردیف انجام نشد؛ اطلاعات آن را بررسی کنید." });
+    }
+  }
+  return json({ imported, skipped, imported_count: imported.length, skipped_count: skipped.length });
+}
+async function handleActivateImportedDriver(body: Record<string, unknown>): Promise<Response> {
+  const phone = readPhone(body);
+  const code = readText(body, "activation_code", 64);
+  if (!/^[A-Za-z0-9_-]{32}$/.test(code)) throw new RequestError("کد فعال‌سازی معتبر نیست.", 400);
+  const password = readPassword(body.password);
+  const { data: profile, error: profileError } = await admin.from("profiles")
+    .select("user_id, role, approval_status").eq("phone", phone).maybeSingle();
+  if (profileError) throw profileError;
+  if (!profile || profile.role !== "driver" || profile.approval_status === "rejected") {
+    throw new RequestError("پرونده راننده یا درخواست فعال‌سازی پیدا نشد.", 404);
+  }
+  const codeHash = await sha256Hex(code);
+  const { data: consumed, error: consumeError } = await admin.schema("private")
+    .from("driver_activation_tokens").delete()
+    .eq("user_id", profile.user_id).eq("code_hash", codeHash)
+    .gt("expires_at", new Date().toISOString()).select("user_id").maybeSingle();
+  if (consumeError) throw consumeError;
+  if (!consumed) throw new RequestError("کد فعال‌سازی نادرست، منقضی یا قبلاً استفاده شده است.", 400);
+  const { error: updateError } = await admin.auth.admin.updateUserById(profile.user_id, { password });
+  if (updateError) throw updateError;
+  return json({ activated: true, approval_status: profile.approval_status });
+}
+
 async function handleListStaff(req: Request): Promise<Response> {
   await requireOrganizationStaff(req);
   const { data, error } = await admin
@@ -479,6 +608,10 @@ Deno.serve(async (req: Request) => {
         return await handleDeleteExpert(req, body);
       case "register-driver":
         return await handleRegisterDriver(body);
+      case "import-drivers":
+        return await handleImportDrivers(req, body);
+      case "activate-imported-driver":
+        return await handleActivateImportedDriver(body);
       case "register-staff":
         return await handleRegisterStaff(body);
       case "list-registrations":
