@@ -24,6 +24,7 @@ export function buildLetterHtml(data: LetterheadData): string {
     date: data.date || todayIso(),
     attachment: data.attachment,
     contentHtml,
+    includeLetterhead: data.includeLetterhead,
   });
 }
 
