@@ -4,13 +4,14 @@ import { supabase } from '@/lib/supabase';
 import { callStaffApi } from '@/lib/staffApi';
 import { isValidPhone, normalizePhone, phoneToAccountEmail } from '@/lib/phone';
 import DriverRegisterForm from '@/components/DriverRegisterForm';
+import DriverActivateForm from '@/components/DriverActivateForm';
 import StaffRegisterForm from '@/components/StaffRegisterForm';
 import CitizenViolationReportForm from '@/components/CitizenViolationReportForm';
 
 const LOGIN_ERROR = 'ورود ناموفق بود. شماره موبایل یا رمز عبور را بررسی کنید.';
 const PHONE_ERROR = 'شماره موبایل معتبر نیست. نمونه: ۰۹۱۲۳۴۵۶۷۸۹';
 
-type Mode = 'checking' | 'login' | 'register' | 'staff-register' | 'setup' | 'citizen-report';
+type Mode = 'checking' | 'login' | 'register' | 'activate-driver' | 'staff-register' | 'setup' | 'citizen-report';
 
 export default function LoginPage() {
   const [mode, setMode] = useState<Mode>('checking');
@@ -90,7 +91,9 @@ export default function LoginPage() {
       ? 'راه‌اندازی اولیه: ایجاد حساب مدیر سازمان'
       : mode === 'register'
         ? 'ثبت‌نام راننده'
-        : mode === 'staff-register'
+        : mode === 'activate-driver'
+          ? 'فعال‌سازی حساب راننده'
+          : mode === 'staff-register'
           ? 'ثبت‌نام کارشناس'
           : mode === 'citizen-report'
             ? 'ثبت گزارش شهروندی بدون ثبت‌نام'
@@ -112,6 +115,7 @@ export default function LoginPage() {
         {mode === 'checking' && <p className="py-8 text-center text-ink-600">در حال بررسی…</p>}
 
         {mode === 'register' && <DriverRegisterForm onBack={() => switchMode('login')} />}
+        {mode === 'activate-driver' && <DriverActivateForm onBack={() => switchMode('login')} />}
         {mode === 'staff-register' && <StaffRegisterForm onBack={() => switchMode('login')} />}
         {mode === 'citizen-report' && <CitizenViolationReportForm onBack={() => switchMode('login')} />}
 
@@ -166,6 +170,11 @@ export default function LoginPage() {
             {mode === 'login' && (
               <button type="button" className="text-sm text-brand-700 underline-offset-4 hover:underline" onClick={() => switchMode('register')}>
                 راننده هستید؟ ثبت‌نام کنید
+              </button>
+            )}
+            {mode === 'login' && (
+              <button type="button" className="text-sm text-brand-700 underline-offset-4 hover:underline" onClick={() => switchMode('activate-driver')}>
+                اطلاعاتتان با اکسل ثبت شده؟ فعال‌سازی و تعیین رمز
               </button>
             )}
             {mode === 'login' && (
