@@ -332,8 +332,7 @@ BEGIN
   SET due_at = public.calculate_letter_due_at(l.priority, r.created_at)
   FROM public.letters l
   WHERE l.id = r.letter_id
-    AND r.status = 'pending'
-    AND (TG_TABLE_NAME = 'letter_holidays' OR l.priority = NEW.priority);
+    AND r.status = 'pending';
   UPDATE public.letters l
   SET response_due_at = (
     SELECT min(r.due_at) FROM public.letter_referrals r
