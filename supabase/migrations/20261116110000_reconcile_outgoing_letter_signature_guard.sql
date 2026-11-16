@@ -29,6 +29,7 @@ DECLARE
   v_referral_id uuid;
   v_role text;
   v_direction text;
+  v_status text;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'دسترسی مجاز نیست.' USING ERRCODE = '42501';
@@ -63,15 +64,22 @@ BEGIN
     RAISE EXCEPTION 'گیرنده ارجاع فعال و تأییدشده نیست.' USING ERRCODE = '23514';
   END IF;
 
-  SELECT l.direction
-    INTO v_direction
+  SELECT l.direction, l.status
+    INTO v_direction, v_status
   FROM public.letters l
   WHERE l.id = p_letter_id
-    AND l.status NOT IN ('امضا شده', 'صادر شده', 'مختومه')
+    AND l.deleted_at IS NULL
+    AND l.status NOT IN ('امضا شده', 'مختومه')
   FOR UPDATE;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'نامه پیدا نشد، مختومه است یا امکان ارجاع ندارد.' USING ERRCODE = '23514';
+    RAISE EXCEPTION 'نامه پیدا نشد، بایگانی شده یا امکان ارجاع ندارد.' USING ERRCODE = '23514';
+  END IF;
+
+  IF v_direction = 'outgoing'
+     AND v_status IN ('صادر شده', 'در انتظار پاسخ')
+     AND p_action <> 'follow-up' THEN
+    RAISE EXCEPTION 'پس از صدور نامه، فقط ارجاع برای پیگیری مجاز است.' USING ERRCODE = '23514';
   END IF;
 
   INSERT INTO public.letter_referrals (letter_id, referred_to, action, note, created_by)
