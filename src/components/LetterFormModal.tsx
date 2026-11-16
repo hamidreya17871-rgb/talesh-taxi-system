@@ -5,6 +5,14 @@ import { formatPersianDate, todayIso } from '@/lib/format';
 import { printLetter } from '@/lib/letterhead';
 import JalaliDateInput from '@/components/JalaliDateInput';
 
+export type LetterPriority = 'normal' | 'urgent' | 'immediate';
+
+export const LETTER_PRIORITY_LABELS: Record<LetterPriority, string> = {
+  normal: 'عادی',
+  urgent: 'فوری',
+  immediate: 'آنی',
+};
+
 export type LetterRecord = {
   id: string;
   letter_no: number;
@@ -15,6 +23,8 @@ export type LetterRecord = {
   letter_date: string | null;
   attachment_path: string | null;
   status: string;
+  priority?: LetterPriority;
+  response_due_at?: string | null;
   expert_reviewed_by?: string | null;
   expert_reviewed_at?: string | null;
   manager_signed_by?: string | null;
@@ -44,6 +54,7 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
   const [letterDate, setLetterDate] = useState(letter?.letter_date ?? todayIso());
   const [letterNo, setLetterNo] = useState(letter ? String(letter.letter_no) : '');
   const [attachment, setAttachment] = useState(letter?.attachment_path ?? '');
+  const [priority, setPriority] = useState<LetterPriority>(letter?.priority ?? 'normal');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,6 +67,7 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
       setLetterDate(letter.letter_date ?? todayIso());
       setLetterNo(String(letter.letter_no));
       setAttachment(letter.attachment_path ?? '');
+      setPriority(letter.priority ?? 'normal');
     }
   }, [letter]);
 
@@ -81,6 +93,7 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
       correspondent: correspondent.trim() || null,
       letter_date: letterDate || null,
       attachment_path: attachment.trim() || null,
+      priority,
     };
     const { error: saveError } = isEdit
       ? await supabase.from('letters').update(payload).eq('id', letter!.id)
@@ -121,15 +134,7 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-[7px]">
               <label htmlFor="letter-number" className="text-xs text-ink-600">شماره نامه</label>
-              <input
-                id="letter-number"
-                type="text"
-                inputMode="numeric"
-                value={letterNo}
-                onChange={e => setLetterNo(e.target.value)}
-                placeholder="خودکار"
-                className="field-input"
-              />
+              <input id="letter-number" type="text" inputMode="numeric" value={letterNo} onChange={e => setLetterNo(e.target.value)} placeholder="خودکار" className="field-input" />
             </div>
             <div className="flex flex-col gap-[7px]">
               <label htmlFor="letter-attachment" className="text-xs text-ink-600">پیوست</label>
@@ -146,14 +151,22 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
           </div>
 
           <div className="flex flex-col gap-[7px]">
+            <label htmlFor="letter-priority" className="text-xs text-ink-600">درجه فوریت و مهلت اقدام</label>
+            <select id="letter-priority" value={priority} onChange={e => setPriority(e.target.value as LetterPriority)} className="field-input">
+              <option value="normal">عادی — ۵ روز کاری</option>
+              <option value="urgent">فوری — ۲ روز کاری</option>
+              <option value="immediate">آنی — ۱ روز کاری</option>
+            </select>
+            <p className="text-[11px] text-ink-500">مهلت از زمان ارجاع به کارشناس محاسبه می‌شود؛ پنجشنبه و جمعه روز غیرکاری هستند. مدیر می‌تواند مدت‌ها را در تنظیمات دبیرخانه تغییر دهد.</p>
+          </div>
+
+          <div className="flex flex-col gap-[7px]">
             <label htmlFor="letter-subject" className="text-xs text-ink-600">موضوع</label>
             <input id="letter-subject" type="text" required value={subject} onChange={e => setSubject(e.target.value)} className="field-input" />
           </div>
 
           <div className="flex flex-col gap-[7px]">
-            <label htmlFor="letter-correspondent" className="text-xs text-ink-600">
-              {direction === 'incoming' ? 'فرستنده' : 'گیرنده'}
-            </label>
+            <label htmlFor="letter-correspondent" className="text-xs text-ink-600">{direction === 'incoming' ? 'فرستنده' : 'گیرنده'}</label>
             <input id="letter-correspondent" type="text" value={correspondent} onChange={e => setCorrespondent(e.target.value)} className="field-input" />
           </div>
 
