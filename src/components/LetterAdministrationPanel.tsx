@@ -19,6 +19,7 @@ type StaffMetric = {
   name: string;
   assigned: number;
   completed: number;
+  cohortCompleted: number;
   openNow: number;
   overdueNow: number;
   completionDays: number[];
@@ -102,6 +103,7 @@ export default function LetterAdministrationPanel({ profile, onNotify }: {
           name: name ?? 'کارشناس بدون نام',
           assigned: 0,
           completed: 0,
+          cohortCompleted: 0,
           openNow: 0,
           overdueNow: 0,
           completionDays: [],
@@ -113,6 +115,7 @@ export default function LetterAdministrationPanel({ profile, onNotify }: {
     for (const row of assignedRows) {
       const metric = ensure(row);
       metric.assigned += 1;
+      if (row.status === 'done') metric.cohortCompleted += 1;
       if (row.status === 'pending') {
         metric.openNow += 1;
         if (row.due_at && new Date(row.due_at).getTime() < now) metric.overdueNow += 1;
@@ -190,6 +193,7 @@ export default function LetterAdministrationPanel({ profile, onNotify }: {
         row.name,
         row.assigned,
         row.completed,
+        row.cohortCompleted,
         row.openNow,
         row.overdueNow,
         row.completionDays.length ? (row.completionDays.reduce((a, b) => a + b, 0) / row.completionDays.length).toFixed(1) : '—',
@@ -288,7 +292,7 @@ export default function LetterAdministrationPanel({ profile, onNotify }: {
               <tbody>
                 {metrics.map(row => {
                   const average = row.completionDays.length ? row.completionDays.reduce((a, b) => a + b, 0) / row.completionDays.length : null;
-                  return <tr key={row.id} className="border-b border-ink-100"><td className="p-2 font-medium">{row.name}</td><td className="p-2">{row.assigned}</td><td className="p-2">{row.completed}</td><td className="p-2">{row.openNow}</td><td className="p-2">{row.overdueNow}</td><td className="p-2">{average === null ? '—' : average.toFixed(1)}</td></tr>;
+                  return <tr key={row.id} className="border-b border-ink-100"><td className="p-2 font-medium">{row.name}</td><td className="p-2">{row.assigned}</td><td className="p-2">{row.completed}</td><td className="p-2">{row.cohortCompleted}</td><td className="p-2">{row.openNow}</td><td className="p-2">{row.overdueNow}</td><td className="p-2">{average === null ? '—' : average.toFixed(1)}</td></tr>;
                 })}
               </tbody>
             </table>
