@@ -55,6 +55,7 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
   const [letterNo, setLetterNo] = useState(letter ? String(letter.letter_no) : '');
   const [attachment, setAttachment] = useState(letter?.attachment_path ?? '');
   const [priority, setPriority] = useState<LetterPriority>(letter?.priority ?? 'normal');
+  const [paperSize, setPaperSize] = useState<'A4' | 'A5'>('A4');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -118,6 +119,7 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
       attachment: letter.attachment_path,
       direction: letter.direction,
       includeLetterhead,
+      paperSize,
     });
   }
 
@@ -159,6 +161,14 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
               <option value="immediate">آنی — ۱ روز کاری</option>
             </select>
             <p className="text-[11px] text-ink-500">مهلت از زمان ارجاع به کارشناس محاسبه می‌شود؛ پنجشنبه و جمعه روز غیرکاری هستند. تعطیلات رسمی در محاسبه این نسخه لحاظ نمی‌شوند.</p>
+          </div>
+
+          <div className="flex flex-col gap-[7px]">
+            <label htmlFor="letter-paper-size" className="text-xs text-ink-600">اندازه کاغذ چاپ</label>
+            <select id="letter-paper-size" value={paperSize} onChange={e => setPaperSize(e.target.value as 'A4' | 'A5')} className="field-input">
+              <option value="A4">A4 — ۲۱۰ × ۲۹۷ میلی‌متر</option>
+              <option value="A5">A5 — ۱۴۸ × ۲۱۰ میلی‌متر</option>
+            </select>
           </div>
 
           <div className="flex flex-col gap-[7px]">
