@@ -16,7 +16,14 @@ export function formatPersianDate(isoDate: string | null | undefined): string {
 }
 
 export function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Tehran',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const part = (type: string) => parts.find(item => item.type === type)?.value ?? '01';
+  return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
 export function isPastDate(value: RecordValue): boolean {
@@ -25,9 +32,9 @@ export function isPastDate(value: RecordValue): boolean {
 
 export function daysUntil(value: RecordValue): number | null {
   if (typeof value !== 'string' || !value) return null;
-  const target = new Date(`${value}T00:00:00`).getTime();
+  const target = Date.parse(`${value}T00:00:00Z`);
   if (Number.isNaN(target)) return null;
-  const today = new Date(`${todayIso()}T00:00:00`).getTime();
+  const today = Date.parse(`${todayIso()}T00:00:00Z`);
   return Math.round((target - today) / 86_400_000);
 }
 
