@@ -214,9 +214,10 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
       onNotify('مرورگر اجازه بازکردن پنجره چاپ را نداد.', 'error');
       return;
     }
-    const escapeHtml = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, char => ({
+    const htmlEntities: Record<string, string> = {
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    })[char] ?? char);
+    };
+    const escapeHtml = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, char => htmlEntities[char] ?? char);
     const rows = report.map(row => `
       <tr>
         <td>${escapeHtml(row.staff_name)}</td>
