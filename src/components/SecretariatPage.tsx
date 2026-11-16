@@ -19,6 +19,8 @@ type Props = {
 
 type StaffOption = { user_id: string; full_name: string };
 
+type WorkflowEvent = { id: string; letter_id: string; event_type: string; details: Record<string, unknown>; created_at: string; actor_id: string | null };
+
 type ReferralRow = {
   id: string;
   letter_id: string;
@@ -27,16 +29,20 @@ type ReferralRow = {
   note: string | null;
   status: string;
   created_at: string;
+  due_at: string | null;
   reviewer: { full_name: string | null } | { full_name: string | null }[] | null;
 };
 
 const LOAD_ERROR = 'نامه‌ها دریافت نشد. لطفاً دوباره تلاش کنید.';
 const ACTION_ERROR = 'عملیات انجام نشد. لطفاً دوباره تلاش کنید.';
 const ACTION_LABELS: Record<string, string> = { review: 'بررسی', 'follow-up': 'پیگیری', signature: 'امضا' };
+const PRIORITY_LABELS: Record<string, string> = { normal: 'عادی', urgent: 'فوری', immediate: 'آنی' };
+const EVENT_LABELS: Record<string, string> = { letter_registered: 'ثبت نامه', priority_changed: 'تغییر فوریت', status_changed: 'تغییر وضعیت', referred: 'ارجاع به کارشناس', referral_completed: 'ثبت انجام ارجاع' };
 
 export default function SecretariatPage({ profile, onNotify }: Props) {
   const [letters, setLetters] = useState<LetterRecord[] | null>(null);
   const [referrals, setReferrals] = useState<Map<string, ReferralRow[]>>(new Map());
+  const [workflowEvents, setWorkflowEvents] = useState<Map<string, WorkflowEvent[]>>(new Map());
   const [staff, setStaff] = useState<StaffOption[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editor, setEditor] = useState<LetterRecord | null | undefined>(undefined);
@@ -53,12 +59,13 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
     if (isCommitteeOnly) return;
     setLoadError(null);
     try {
-      const [lettersResult, referralsResult, staffResult] = await Promise.all([
+      const [lettersResult, referralsResult, eventsResult, staffResult] = await Promise.all([
         supabase.from('letters').select('*').is('deleted_at', null).order('created_at', { ascending: false }),
         supabase
           .from('letter_referrals')
-          .select('id, letter_id, referred_to, action, note, status, created_at, reviewer:referred_to(full_name)')
+          .select('id, letter_id, referred_to, action, note, status, created_at, due_at, reviewer:referred_to(full_name)')
           .order('created_at', { ascending: false }),
+        supabase.from('letter_workflow_events').select('id, letter_id, event_type, details, created_at, actor_id').order('created_at', { ascending: false }).limit(1000),
         callStaffApi<{ items: StaffOption[] }>('list-staff'),
       ]);
       if (lettersResult.error || referralsResult.error) {
@@ -74,6 +81,13 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
         referralMap.set(row.letter_id, list);
       }
       setReferrals(referralMap);
+      const eventMap = new Map<string, WorkflowEvent[]>();
+      for (const event of (eventsResult.data ?? []) as WorkflowEvent[]) {
+        const list = eventMap.get(event.letter_id) ?? [];
+        list.push(event);
+        eventMap.set(event.letter_id, list);
+      }
+      setWorkflowEvents(eventMap);
       setStaff(staffResult.items);
     } catch {
       setLoadError(LOAD_ERROR);
@@ -249,6 +263,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                   <span className="rounded-full bg-ink-100 px-3 py-1 text-xs">{letter.status}</span>
                 </div>
 
+                <div className="flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-ink-100 px-2.5 py-1">فوریت: {PRIORITY_LABELS[letter.priority ?? 'normal'] ?? 'عادی'}</span>{letter.response_due_at && <span className="rounded-full bg-gold-50 px-2.5 py-1 text-gold-700">مهلت پاسخ: {new Date(letter.response_due_at).toLocaleString('fa-IR')}</span>}</div>
                 {letter.body && <p className="line-clamp-2 text-sm text-ink-600">{letter.body}</p>}
 
                 {(letter.expert_reviewed_at || letter.manager_signed_at || letter.manager_order_note || letter.sent_at || letter.delivery_receipt_path) && (
@@ -263,6 +278,21 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
 
                 <OutgoingLetterWorkflowActions letter={letter} profile={profile} onSaved={() => void load()} onNotify={onNotify} />
 
+                {(workflowEvents.get(letter.id) ?? []).length > 0 && (
+                  <details className="border-t border-ink-100 pt-2">
+                    <summary className="cursor-pointer text-xs font-bold text-ink-600">مشاهده گردش کامل دبیرخانه ({(workflowEvents.get(letter.id) ?? []).length} رویداد)</summary>
+                    <ol className="mt-3 flex flex-col gap-2 border-r-2 border-ink-100 pr-3">
+                      {(workflowEvents.get(letter.id) ?? []).map(event => (
+                        <li key={event.id} className="text-xs">
+                          <p className="font-medium">{EVENT_LABELS[event.event_type] ?? event.event_type}</p>
+                          <p className="mt-0.5 text-ink-500">{new Date(event.created_at).toLocaleString('fa-IR')}</p>
+                          {typeof event.details.note === 'string' && <p className="mt-0.5 text-ink-600">{event.details.note}</p>}
+                        </li>
+                      ))}
+                    </ol>
+                  </details>
+                )}
+
                 {letterReferrals.length > 0 && (
                   <div className="flex flex-col gap-1.5 border-t border-ink-100 pt-2">
                     <p className="text-xs font-bold text-ink-600">ارجاع‌ها:</p>
@@ -274,7 +304,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                             <span className="font-medium">{name ?? 'کارشناس'}</span>
                             {' — '}
                             {ACTION_LABELS[ref.action] ?? ref.action}
-                            {ref.note ? ` · ${ref.note}` : ''}
+                            {ref.note ? ` · ${ref.note}` : ''}{ref.due_at ? ` · سررسید: ${new Date(ref.due_at).toLocaleString('fa-IR')}` : ''}
                           </span>
                           <div className="flex items-center gap-2">
                             <span className={ref.status === 'done' ? 'text-brand-600' : 'text-gold-700'}>
