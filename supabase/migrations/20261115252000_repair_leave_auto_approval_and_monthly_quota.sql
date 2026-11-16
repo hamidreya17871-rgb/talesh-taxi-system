@@ -6,7 +6,7 @@
 ALTER TABLE public.leave_requests
   DROP CONSTRAINT IF EXISTS leave_requests_review_provenance_check;
 
-DO $
+DO $$
 DECLARE
   constraint_row record;
 BEGIN
