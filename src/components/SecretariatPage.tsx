@@ -86,7 +86,6 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
       for (const event of (eventsResult.data ?? []) as WorkflowEvent[]) {
         const list = eventMap.get(event.letter_id) ?? [];
         list.push(event);
-        list.push(event);
         list.sort((a, b) => a.created_at.localeCompare(b.created_at));
         eventMap.set(event.letter_id, list);
       }
