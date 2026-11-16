@@ -1,0 +1,23 @@
+-- Cover newly introduced foreign keys to keep joins and deletes efficient.
+CREATE INDEX IF NOT EXISTS archive_document_audit_log_actor_id_idx ON public.archive_document_audit_log(actor_id);
+CREATE INDEX IF NOT EXISTS archive_documents_archived_by_idx ON public.archive_documents(archived_by);
+CREATE INDEX IF NOT EXISTS citizen_violation_reports_reviewed_by_idx ON public.citizen_violation_reports(reviewed_by);
+CREATE INDEX IF NOT EXISTS letter_audit_log_actor_id_idx ON public.letter_audit_log(actor_id);
+CREATE INDEX IF NOT EXISTS letter_official_holidays_created_by_idx ON public.letter_official_holidays(created_by);
+CREATE INDEX IF NOT EXISTS letter_priority_settings_updated_by_idx ON public.letter_priority_settings(updated_by);
+CREATE INDEX IF NOT EXISTS letter_referrals_completed_by_idx ON public.letter_referrals(completed_by);
+CREATE INDEX IF NOT EXISTS letter_workflow_events_actor_id_idx ON public.letter_workflow_events(actor_id);
+CREATE INDEX IF NOT EXISTS letter_workflow_events_referral_id_idx ON public.letter_workflow_events(referral_id);
+CREATE INDEX IF NOT EXISTS letters_deleted_by_idx ON public.letters(deleted_by);
+CREATE INDEX IF NOT EXISTS letters_expert_reviewed_by_idx ON public.letters(expert_reviewed_by);
+CREATE INDEX IF NOT EXISTS letters_manager_signed_by_idx ON public.letters(manager_signed_by);
+CREATE INDEX IF NOT EXISTS letters_signed_by_idx ON public.letters(signed_by);
+CREATE INDEX IF NOT EXISTS line_violation_report_events_actor_id_idx ON public.line_violation_report_events(actor_id);
+CREATE INDEX IF NOT EXISTS line_violation_report_evidence_uploaded_by_idx ON public.line_violation_report_evidence(uploaded_by);
+CREATE INDEX IF NOT EXISTS line_violation_reports_committee_decided_by_idx ON public.line_violation_reports(committee_decided_by);
+CREATE INDEX IF NOT EXISTS line_violation_reports_referral_order_by_idx ON public.line_violation_reports(referral_order_by);
+CREATE INDEX IF NOT EXISTS line_violation_reports_reporter_driver_id_idx ON public.line_violation_reports(reporter_driver_id);
+CREATE INDEX IF NOT EXISTS line_violation_reports_reviewed_by_idx ON public.line_violation_reports(reviewed_by);
+CREATE INDEX IF NOT EXISTS line_violation_reports_settlement_approved_by_idx ON public.line_violation_reports(settlement_approved_by);
+CREATE INDEX IF NOT EXISTS line_violation_reports_verdict_approved_by_idx ON public.line_violation_reports(verdict_approved_by);
+CREATE INDEX IF NOT EXISTS staff_notifications_letter_id_idx ON public.staff_notifications(letter_id);
