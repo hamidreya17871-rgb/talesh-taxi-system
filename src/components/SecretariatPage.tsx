@@ -54,6 +54,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
   const [filter, setFilter] = useState<'all' | 'incoming' | 'outgoing'>('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [paperSize, setPaperSize] = useState<'A4' | 'A5'>('A4');
 
   const isManager = profile.role === 'manager';
   const isCommitteeOnly = profile.role === 'expert' && Boolean(profile.is_disciplinary_committee);
@@ -197,6 +198,11 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        <label className="text-xs text-ink-600" htmlFor="secretariat-paper-size">اندازه چاپ:</label>
+        <select id="secretariat-paper-size" value={paperSize} onChange={event => setPaperSize(event.target.value as 'A4' | 'A5')} className="field-input w-auto">
+          <option value="A4">A4</option>
+          <option value="A5">A5</option>
+        </select>
         {(['all', 'incoming', 'outgoing'] as const).map(f => (
           <button
             key={f}
@@ -346,6 +352,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                         attachment: letter.attachment_path,
                         direction: letter.direction,
                         includeLetterhead: true,
+                        paperSize,
                       })
                     }
                   >
@@ -365,6 +372,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                         attachment: letter.attachment_path,
                         direction: letter.direction,
                         includeLetterhead: false,
+                        paperSize,
                       })
                     }
                   >
