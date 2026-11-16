@@ -297,7 +297,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $ 
 BEGIN
   IF NEW.priority IS DISTINCT FROM OLD.priority THEN
     UPDATE public.letter_referrals r
