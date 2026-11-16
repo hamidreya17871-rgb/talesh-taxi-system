@@ -47,6 +47,23 @@ BEGIN
 END;
 $$;
 REVOKE ALL ON FUNCTION public.calculate_letter_due_at(text, timestamptz) FROM PUBLIC, anon, authenticated;
+CREATE OR REPLACE FUNCTION public.set_letter_referral_deadline()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $
+DECLARE
+  v_priority text;
+BEGIN
+  SELECT l.priority INTO v_priority
+  FROM public.letters l
+  WHERE l.id = NEW.letter_id;
+
+  NEW.due_at := public.calculate_letter_due_at(COALESCE(v_priority, 'normal'), NEW.created_at);
+  RETURN NEW;
+END;
+$;
 REVOKE ALL ON FUNCTION public.set_letter_referral_deadline() FROM PUBLIC, anon, authenticated;
 
 -- The preceding migration already attached these triggers to the
@@ -268,14 +285,22 @@ BEGIN
     END IF;
   END IF;
 
-  IF TG_TABLE_NAME = 'letter_referrals' AND TG_OP = 'UPDATE' AND NEW.status = 'done' THEN
-    UPDATE public.letters l
-    SET response_due_at = (
-      SELECT min(r.due_at)
-      FROM public.letter_referrals r
-      WHERE r.letter_id = NEW.letter_id AND r.status = 'pending'
-    )
-    WHERE l.id = NEW.letter_id;
+  IF TG_TABLE_NAME = 'letter_referrals' THEN
+    IF TG_OP = 'INSERT' THEN
+      UPDATE public.letters l
+      SET response_due_at = (
+        SELECT min(r.due_at) FROM public.letter_referrals r
+        WHERE r.letter_id = NEW.letter_id AND r.status = 'pending'
+      )
+      WHERE l.id = NEW.letter_id;
+    ELSIF NEW.status IS DISTINCT FROM OLD.status OR NEW.due_at IS DISTINCT FROM OLD.due_at THEN
+      UPDATE public.letters l
+      SET response_due_at = (
+        SELECT min(r.due_at) FROM public.letter_referrals r
+        WHERE r.letter_id = NEW.letter_id AND r.status = 'pending'
+      )
+      WHERE l.id = NEW.letter_id;
+    END IF;
   END IF;
 
   INSERT INTO public.letter_workflow_events(letter_id, referral_id, actor_id, event_type, details)
