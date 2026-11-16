@@ -9,6 +9,7 @@ export type LetterheadData = {
   correspondent?: string;
   attachment?: string | null;
   direction: 'incoming' | 'outgoing';
+  includeLetterhead?: boolean;
 };
 
 export function buildLetterHtml(data: LetterheadData): string {
