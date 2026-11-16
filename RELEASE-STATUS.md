@@ -56,3 +56,13 @@ The production build environment file `.env.production` is populated with this p
 - The deployed \`manage-staff\` Edge Function was inspected and is still on its previous version. The updated repository function must be deployed by the project owner before production use; this run did not modify the live function or read any secrets.
 - Vehicle records are now sorted by taxi row number in ascending numeric order, including Persian and Arabic digits.
 - The one-time ZIP import workflow was removed; the read-only CI workflow remains the repeatable quality gate.
+
+
+## Secretariat and production blockers — ۱۴۰۵/۰۸/۲۵
+
+- Migration \`20261116100000_harden_secretariat_workflow.sql\` has been added to the repository. It adds referral completion fields, recipient/manager completion permissions, atomic referral creation, manager-only final signing, and protection against editing/deleting signed letters.
+- This migration has **not** been applied to the live Supabase project. Apply it only after reviewing the SQL and taking a backup; the updated Secretariat UI depends on these new columns and RPC.
+- The live database currently has no profiles, Auth users, letters, referrals, or stored documents. The first manager account has not yet been created.
+- Public driver registration still does not verify phone ownership with SMS/OTP and has no application-level rate limit. Add verified phone ownership and abuse throttling before accepting real driver identity data.
+- The active deployed \`manage-staff\` function remains version 1. The repository has a safer source revision, but deployment to Supabase was intentionally left to the project owner.
+- The repository has a PWA shell and icons; there is no Capacitor/Android project or tested APK yet.
