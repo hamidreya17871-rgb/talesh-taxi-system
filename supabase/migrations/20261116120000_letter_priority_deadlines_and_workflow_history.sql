@@ -217,9 +217,13 @@ BEGIN
     END IF;
   END IF;
 
-  IF TG_TABLE_NAME = 'letter_referrals' AND TG_OP = 'UPDATE' AND NEW.status = 'done'
-     AND NOT EXISTS (SELECT 1 FROM public.letter_referrals r WHERE r.letter_id = NEW.letter_id AND r.status = 'pending' AND r.id <> NEW.id) THEN
-    UPDATE public.letters SET response_due_at = NULL WHERE id = NEW.letter_id;
+  IF TG_TABLE_NAME = 'letter_referrals' AND TG_OP = 'UPDATE' AND NEW.status = 'done' THEN
+    UPDATE public.letters l
+    SET response_due_at = (
+      SELECT min(r.due_at) FROM public.letter_referrals r
+      WHERE r.letter_id = NEW.letter_id AND r.status = 'pending' AND r.id <> NEW.id
+    )
+    WHERE l.id = NEW.letter_id;
   END IF;
 
   INSERT INTO public.letter_workflow_events(letter_id, referral_id, actor_id, event_type, details)
@@ -263,6 +267,7 @@ CREATE INDEX IF NOT EXISTS letter_referrals_due_pending_idx
   ON public.letter_referrals(due_at) WHERE status = 'pending' AND due_notified_at IS NULL;
 
 DROP TRIGGER IF EXISTS referrals_set_deadline ON public.letter_referrals;
+REVOKE ALL ON FUNCTION public.set_letter_referral_deadline() FROM PUBLIC, anon, authenticated;
 CREATE TRIGGER referrals_set_deadline
   BEFORE INSERT ON public.letter_referrals
   FOR EACH ROW EXECUTE FUNCTION public.set_letter_referral_deadline();
