@@ -310,12 +310,14 @@ BEGIN
     END IF;
   END IF;
 
-  IF TG_TABLE_NAME = 'letter_referrals' AND TG_OP = 'UPDATE' AND NEW.status = 'done'
-     AND NOT EXISTS (
-       SELECT 1 FROM public.letter_referrals r
-       WHERE r.letter_id = NEW.letter_id AND r.status = 'pending' AND r.id <> NEW.id
-     ) THEN
-    UPDATE public.letters SET response_due_at = NULL WHERE id = NEW.letter_id;
+  IF TG_TABLE_NAME = 'letter_referrals' AND TG_OP = 'UPDATE' AND NEW.status = 'done' THEN
+    UPDATE public.letters l
+    SET response_due_at = (
+      SELECT min(r.due_at)
+      FROM public.letter_referrals r
+      WHERE r.letter_id = NEW.letter_id AND r.status = 'pending'
+    )
+    WHERE l.id = NEW.letter_id;
   END IF;
 
   INSERT INTO public.letter_workflow_events(letter_id, referral_id, actor_id, event_type, details)
