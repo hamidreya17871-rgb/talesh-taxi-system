@@ -2,16 +2,13 @@
 -- Uses completion timestamps; legacy completed referrals without completed_at
 -- are intentionally excluded from time-based metrics rather than guessed.
 
-DROP POLICY IF EXISTS profiles_manager_secretariat_report_read ON public.profiles;
-CREATE POLICY profiles_manager_secretariat_report_read
-  ON public.profiles
-  FOR SELECT
-  TO authenticated
-  USING ((SELECT public.current_app_role()) = 'manager');
+-- Keep the aggregate implementation in a non-exposed schema. It returns only
+-- performance aggregates and checks the authenticated manager inside the function.
+CREATE SCHEMA IF NOT EXISTS private;
+REVOKE ALL ON SCHEMA private FROM PUBLIC, anon;
+GRANT USAGE ON SCHEMA private TO authenticated;
 
-GRANT SELECT ON public.profiles, public.letter_referrals TO authenticated;
-
-CREATE OR REPLACE FUNCTION public.get_monthly_secretariat_performance(
+CREATE OR REPLACE FUNCTION private.get_monthly_secretariat_performance(
   p_month_start timestamptz,
   p_month_end timestamptz
 )
@@ -28,7 +25,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 STABLE
-SECURITY INVOKER
+SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
@@ -103,6 +100,37 @@ BEGIN
   ORDER BY p.full_name;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION private.get_monthly_secretariat_performance(timestamptz, timestamptz)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION private.get_monthly_secretariat_performance(timestamptz, timestamptz)
+  TO authenticated;
+
+-- Public RPC wrapper is invoker-security; the private implementation performs
+-- the explicit manager check before reading staff/referral records.
+CREATE OR REPLACE FUNCTION public.get_monthly_secretariat_performance(
+  p_month_start timestamptz,
+  p_month_end timestamptz
+)
+RETURNS TABLE (
+  staff_user_id uuid,
+  staff_name text,
+  assigned_count bigint,
+  completed_count bigint,
+  pending_at_month_end bigint,
+  overdue_at_month_end bigint,
+  average_response_hours numeric,
+  on_time_completed bigint,
+  on_time_eligible bigint
+)
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = ''
+AS $
+  SELECT *
+  FROM private.get_monthly_secretariat_performance(p_month_start, p_month_end);
+$;
 
 REVOKE ALL ON FUNCTION public.get_monthly_secretariat_performance(timestamptz, timestamptz)
   FROM PUBLIC, anon;
