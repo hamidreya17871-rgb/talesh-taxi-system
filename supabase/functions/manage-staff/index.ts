@@ -341,26 +341,88 @@ async function handleRegisterDriver(req: Request, body: Record<string, unknown>)
 
   const email = phoneToAccountEmail(phone);
   await releaseRemovedDriverPhone(phone);
-  const userId = await createAuthUser(email, password);
-  let driverId: string | null = null;
-  try {
-    const { data: driver, error: driverError } = await admin
-      .from("drivers")
-      .insert({ name: fullName, national_code: nationalCode, phone, status: PENDING_DRIVER_STATUS })
-      .select("id")
-      .single();
-    if (driverError) throw driverError;
-    driverId = driver.id;
 
-    const { error: vehicleError } = await admin.from("vehicles").insert({
-      plate,
-      model,
-      driver_name: fullName,
-      taxi_row_no: taxiRowNo,
-      driver_id: driverId,
-      status: "نیازمند بررسی",
-    });
-    if (vehicleError) throw vehicleError;
+  const [driverByPhone, driverByNationalCode, profileByPhone, vehicleByPlate, vehicleByTaxiRow] = await Promise.all([
+    admin.from("drivers").select("id").eq("phone", phone).maybeSingle(),
+    admin.from("drivers").select("id").eq("national_code", nationalCode).maybeSingle(),
+    admin.from("profiles").select("user_id").eq("phone", phone).maybeSingle(),
+    admin.from("vehicles").select("id, driver_id").eq("plate", plate).maybeSingle(),
+    admin.from("vehicles").select("id, driver_id").eq("taxi_row_no", taxiRowNo).maybeSingle(),
+  ]);
+  for (const result of [driverByPhone, driverByNationalCode, profileByPhone, vehicleByPlate, vehicleByTaxiRow]) {
+    if (result.error) throw result.error;
+  }
+
+  let existingDriverId: string | null = null;
+  let existingVehicleId: string | null = null;
+  if (driverByPhone.data || driverByNationalCode.data) {
+    if (!driverByPhone.data || !driverByNationalCode.data
+      || driverByPhone.data.id !== driverByNationalCode.data.id) {
+      throw new RequestError("شماره موبایل و کد ملی با یک پرونده راننده واحد مطابقت ندارند.", 409);
+    }
+    existingDriverId = driverByPhone.data.id;
+    if (profileByPhone.data) {
+      throw new RequestError("برای این شماره موبایل قبلاً حساب کاربری ثبت شده است.", 409);
+    }
+
+    const [profileByDriver, existingVehicles] = await Promise.all([
+      admin.from("profiles").select("user_id").eq("driver_id", existingDriverId).limit(1).maybeSingle(),
+      admin.from("vehicles").select("id, plate, taxi_row_no").eq("driver_id", existingDriverId),
+    ]);
+    if (profileByDriver.error) throw profileByDriver.error;
+    if (existingVehicles.error) throw existingVehicles.error;
+    if (profileByDriver.data) {
+      throw new RequestError("برای این پرونده راننده قبلاً حساب کاربری ایجاد شده است.", 409);
+    }
+
+    if (existingVehicles.data.length > 0) {
+      const matchingVehicle = existingVehicles.data.find(vehicle =>
+        normalizeDigits(vehicle.plate) === normalizeDigits(plate)
+        && normalizeDigits(vehicle.taxi_row_no ?? "") === normalizeDigits(taxiRowNo)
+      );
+      if (!matchingVehicle) {
+        throw new RequestError("پلاک یا ردیف تاکسی با پرونده موجود مطابقت ندارد؛ با مدیر سازمان تماس بگیرید.", 409);
+      }
+      if ((vehicleByPlate.data && vehicleByPlate.data.id !== matchingVehicle.id)
+        || (vehicleByTaxiRow.data && vehicleByTaxiRow.data.id !== matchingVehicle.id)) {
+        throw new RequestError("پلاک یا ردیف تاکسی به پرونده دیگری تعلق دارد.", 409);
+      }
+      existingVehicleId = matchingVehicle.id;
+    } else if (vehicleByPlate.data || vehicleByTaxiRow.data) {
+      throw new RequestError("پلاک یا ردیف تاکسی قبلاً در پرونده دیگری ثبت شده است.", 409);
+    }
+  } else if (profileByPhone.data || vehicleByPlate.data || vehicleByTaxiRow.data) {
+    throw new RequestError("شماره موبایل، پلاک یا ردیف تاکسی قبلاً ثبت شده است.", 409);
+  }
+
+  const userId = await createAuthUser(email, password);
+  let driverId = existingDriverId;
+  let createdDriverId: string | null = null;
+  let createdVehicleId: string | null = null;
+  try {
+    if (!driverId) {
+      const { data: driver, error: driverError } = await admin
+        .from("drivers")
+        .insert({ name: fullName, national_code: nationalCode, phone, status: PENDING_DRIVER_STATUS })
+        .select("id")
+        .single();
+      if (driverError) throw driverError;
+      driverId = driver.id;
+      createdDriverId = driver.id;
+    }
+
+    if (!existingVehicleId) {
+      const { data: vehicle, error: vehicleError } = await admin.from("vehicles").insert({
+        plate,
+        model,
+        driver_name: fullName,
+        taxi_row_no: taxiRowNo,
+        driver_id: driverId,
+        status: "نیازمند بررسی",
+      }).select("id").single();
+      if (vehicleError) throw vehicleError;
+      createdVehicleId = vehicle.id;
+    }
 
     await insertProfile(userId, {
       email,
@@ -372,13 +434,12 @@ async function handleRegisterDriver(req: Request, body: Record<string, unknown>)
       approval_status: "pending",
     });
   } catch (error) {
-    if (driverId) {
-      await admin.from("vehicles").delete().eq("driver_id", driverId);
-      await admin.from("drivers").delete().eq("id", driverId);
-    }
+    if (createdVehicleId) await admin.from("vehicles").delete().eq("id", createdVehicleId);
+    if (createdDriverId) await admin.from("drivers").delete().eq("id", createdDriverId);
+    await admin.auth.admin.deleteUser(userId);
     throw error;
   }
-  return json({ user_id: userId });
+  return json({ user_id: userId, linked_existing_driver: Boolean(existingDriverId) });
 }
 
 
