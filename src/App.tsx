@@ -226,7 +226,7 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
         <Dashboard data={data} isManager={profile.role === 'manager'} onNavigate={setPage} />
       );
     }
-    if (page === 'requests') return <RegistrationsPage onNotify={showToast} />;
+    if (page === 'requests') return <RegistrationsPage onNotify={showToast} canImport={profile.role === 'manager'} />;
     if (page === 'licenses' && profile.role === 'driver') {
       return (
         <DriverLicensesPage
