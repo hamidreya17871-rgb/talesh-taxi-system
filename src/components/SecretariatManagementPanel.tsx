@@ -150,7 +150,7 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
       return;
     }
     setSavingHoliday(true);
-    const { error } = await supabase.from('letter_official_holidays').insert({
+    const { error } = await supabase.from('letter_holidays').insert({
       holiday_date: holidayDate,
       title: holidayTitle.trim(),
       created_by: profile.user_id,
@@ -168,7 +168,7 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
 
   async function removeHoliday(holiday: Holiday) {
     if (!window.confirm(`تعطیلی «${holiday.title}» حذف شود؟ سررسید ارجاع‌های باز دوباره محاسبه خواهد شد.`)) return;
-    const { error } = await supabase.from('letter_official_holidays').delete().eq('holiday_date', holiday.holiday_date);
+    const { error } = await supabase.from('letter_holidays').delete().eq('holiday_date', holiday.holiday_date);
     if (error) {
       onNotify('حذف تعطیلی انجام نشد.', 'error');
       return;
@@ -338,7 +338,7 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
         </div>
         <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_1.5fr_auto]">
           <label className="flex flex-col gap-2 text-sm"><span>تاریخ تعطیلی</span><JalaliDateInput id="secretariat-holiday-date" value={holidayDate} onChange={setHolidayDate} /></label>
-          <label className="flex flex-col gap-2 text-sm"><span>عنوان تعطیلی</span><input className="field-input" value={holidayTitle} onChange={event => setHolidayTitle(event.target.value)} placeholder="مثلاً تعطیل رسمی" maxLength={200} /></label>
+          <label className="flex flex-col gap-2 text-sm"><span>عنوان تعطیلی</span><input className="field-input" value={holidayTitle} onChange={event => setHolidayTitle(event.target.value)} placeholder="مثلاً تعطیل رسمی" maxLength={120} /></label>
           <button type="button" className="btn" onClick={() => void addHoliday()} disabled={savingHoliday}><Plus size={15} />{savingHoliday ? 'در حال ثبت…' : 'ثبت تعطیلی'}</button>
         </div>
         <div className="flex flex-col gap-2">
