@@ -56,7 +56,7 @@ function sealSvg(): string {
     </svg>`;
 }
 
-export function buildLeaveLetterHtml(letterNo: number, body: string, includeLetterhead = true, attachment?: string | null): string {
+export function buildLeaveLetterHtml(letterNo: number, body: string, includeLetterhead = true, attachment?: string | null, paperSize: 'A4' | 'A5' = 'A4'): string {
   const contentHtml = `
     <h2>موضوع: مجوز تردد</h2>
     ${paragraphsHtml(body)}
@@ -77,9 +77,10 @@ export function buildLeaveLetterHtml(letterNo: number, body: string, includeLett
     attachment,
     contentHtml,
     includeLetterhead,
+    paperSize,
   });
 }
 
-export function printLeaveLetter(letterNo: number, body: string, includeLetterhead = true, attachment?: string | null): boolean {
-  return openLetterPrintWindow(buildLeaveLetterHtml(letterNo, body, includeLetterhead, attachment));
+export function printLeaveLetter(letterNo: number, body: string, includeLetterhead = true, attachment?: string | null, paperSize: 'A4' | 'A5' = 'A4'): boolean {
+  return openLetterPrintWindow(buildLeaveLetterHtml(letterNo, body, includeLetterhead, attachment, paperSize));
 }
