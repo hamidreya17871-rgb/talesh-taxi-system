@@ -235,7 +235,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                     <Printer size={13} />
                     چاپ
                   </button>
-                  <button type="button" className="btn-tiny" onClick={() => setReferralLetter(letter)}>
+                  <button type="button" className="btn-tiny" disabled={letter.status === 'امضا شده' || letter.status === 'مختومه'} onClick={() => setReferralLetter(letter)}>
                     <ArrowRightLeft size={13} />
                     ارجاع
                   </button>
