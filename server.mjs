@@ -3,8 +3,8 @@ import { readFile, stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('./dist/', import.meta.url));
-const rootPrefix = root.endsWith(sep) ? root : root + sep;
+const root = resolve(fileURLToPath(new URL('./dist/', import.meta.url)));
+const rootPrefix = root + sep;
 const port = Number.parseInt(process.env.PORT ?? '3000', 10);
 
 const contentTypes = {
