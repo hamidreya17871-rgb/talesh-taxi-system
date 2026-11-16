@@ -149,6 +149,7 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify, ca
               <select id="letter-status" value={status} onChange={e => setStatus(e.target.value)} className="field-input">
                 <option value="ثبت شده">ثبت شده</option>
                 <option value="در حال بررسی">در حال بررسی</option>
+                {letter?.status === 'ارجاع شده' && <option value="ارجاع شده" disabled>ارجاع شده</option>}
                 {canSign && <option value="امضا شده">امضا شده</option>}
                 <option value="مختومه">مختومه</option>
               </select>
