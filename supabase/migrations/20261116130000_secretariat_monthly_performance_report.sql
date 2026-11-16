@@ -9,6 +9,8 @@ CREATE POLICY profiles_manager_secretariat_report_read
   TO authenticated
   USING ((SELECT public.current_app_role()) = 'manager');
 
+GRANT SELECT ON public.profiles, public.letter_referrals TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.get_monthly_secretariat_performance(
   p_month_start timestamptz,
   p_month_end timestamptz
