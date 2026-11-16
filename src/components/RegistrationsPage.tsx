@@ -25,7 +25,7 @@ type ImportRow = {
 type ImportedDriver = { row: number; full_name: string; phone: string; activation_code: string; expires_at: string };
 type SkippedRow = { row: number; full_name?: string; phone?: string; reason: string };
 
-type Props = { onNotify: (message: string, kind?: 'success' | 'error') => void };
+type Props = { onNotify: (message: string, kind?: 'success' | 'error') => void; canImport: boolean };
 
 const TEMPLATE = [
   ['نام و نام خانوادگی', 'کد ملی', 'شماره موبایل', 'شماره پلاک', 'مدل خودرو', 'ردیف تاکسی'],
@@ -101,7 +101,7 @@ function downloadCsv(filename: string, rows: string[][]) {
   URL.revokeObjectURL(url);
 }
 
-export default function RegistrationsPage({ onNotify }: Props) {
+export default function RegistrationsPage({ onNotify, canImport }: Props) {
   const [items, setItems] = useState<PendingRegistration[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -209,7 +209,7 @@ export default function RegistrationsPage({ onNotify }: Props) {
         </button>
       </header>
 
-      <section className="panel flex flex-col gap-3">
+      {canImport && <section className="panel flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <FileSpreadsheet size={20} />
           <h3 className="font-bold">ورود گروهی رانندگان از Excel</h3>
