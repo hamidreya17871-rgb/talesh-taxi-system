@@ -137,6 +137,7 @@ export default function LetterAdministrationPanel({ profile, onNotify }: {
   const totals = useMemo(() => metrics.reduce((sum, row) => ({
     assigned: sum.assigned + row.assigned,
     completed: sum.completed + row.completed,
+    cohortCompleted: sum.cohortCompleted + row.cohortCompleted,
     openNow: sum.openNow + row.openNow,
     overdueNow: sum.overdueNow + row.overdueNow,
   }), { assigned: 0, completed: 0, cohortCompleted: 0, openNow: 0, overdueNow: 0 }), [metrics]);
@@ -284,7 +285,7 @@ export default function LetterAdministrationPanel({ profile, onNotify }: {
           <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-500">تکمیل در ماه</p><p className="text-xl font-bold">{totals.completed}</p></div>
           <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-500">تکمیل ارجاع‌های ماه تا امروز</p><p className="text-xl font-bold">{totals.cohortCompleted}</p></div>
           <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-500">باز از ارجاع‌های ماه</p><p className="text-xl font-bold">{totals.openNow}</p></div>
-          <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-500">سررسیدگذشته باز</p><p className="text-xl font-bold">{totals.overdueNow}</p></div>
+          <div className="rounded-lg bg-ink-50 p-3"><p className="text-xs text-ink-500">سررسیدگذشته از ارجاع‌های ماه</p><p className="text-xl font-bold">{totals.overdueNow}</p></div>
         </div>
         {reportLoading ? <p className="py-5 text-center text-xs text-ink-500">در حال تهیه گزارش…</p> : metrics.length === 0 ? <p className="py-5 text-center text-xs text-ink-500">برای این ماه اطلاعاتی ثبت نشده است.</p> : (
           <div className="mt-3 overflow-x-auto">
