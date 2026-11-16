@@ -16,6 +16,9 @@ export type LetterRecord = {
   attachment_path: string | null;
   status: string;
   created_at: string;
+  signed_by?: string | null;
+  signed_at?: string | null;
+  signer?: { full_name: string | null } | { full_name: string | null }[] | null;
 };
 
 type Props = {
@@ -23,11 +26,12 @@ type Props = {
   onSaved: () => void;
   onClose: () => void;
   onNotify: (message: string, kind?: 'success' | 'error') => void;
+  canSign: boolean;
 };
 
 const GENERIC_ERROR = 'ذخیره نامه انجام نشد. لطفاً دوباره تلاش کنید.';
 
-export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: Props) {
+export default function LetterFormModal({ letter, onSaved, onClose, onNotify, canSign }: Props) {
   const isEdit = !!letter;
   const [direction, setDirection] = useState<'incoming' | 'outgoing'>(letter?.direction ?? 'outgoing');
   const [subject, setSubject] = useState(letter?.subject ?? '');
@@ -145,8 +149,7 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
               <select id="letter-status" value={status} onChange={e => setStatus(e.target.value)} className="field-input">
                 <option value="ثبت شده">ثبت شده</option>
                 <option value="در حال بررسی">در حال بررسی</option>
-                <option value="ارجاع شده">ارجاع شده</option>
-                <option value="امضا شده">امضا شده</option>
+                {canSign && <option value="امضا شده">امضا شده</option>}
                 <option value="مختومه">مختومه</option>
               </select>
             </div>
