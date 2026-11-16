@@ -588,6 +588,30 @@ async function handleReviewRegistration(req: Request, body: Record<string, unkno
   return json({ user_id: userId });
 }
 
+
+async function handleBulkReviewRegistrations(req: Request, body: Record<string, unknown>): Promise<Response> {
+  await requireOrganizationStaff(req);
+  if (!Array.isArray(body.user_ids) || body.user_ids.length < 1 || body.user_ids.length > 100) {
+    throw new RequestError("برای بررسی گروهی باید بین ۱ تا ۱۰۰ درخواست انتخاب شود.", 400);
+  }
+  const decision = body.decision;
+  if (decision !== "approve" && decision !== "reject") throw invalid();
+  const ids = [...new Set(body.user_ids.filter((id): id is string => typeof id === "string" && UUID_PATTERN.test(id)))];
+  const results: Array<{ user_id: string; success: boolean; error?: string }> = [];
+  for (const userId of ids) {
+    const response = await handleReviewRegistration(req, { user_id: userId, decision });
+    const payload = await response.json().catch(() => ({}));
+    results.push(response.ok
+      ? { user_id: userId, success: true }
+      : { user_id: userId, success: false, error: typeof payload.error === "string" ? payload.error : GENERIC_ERROR });
+  }
+  return json({
+    results,
+    success_count: results.filter(item => item.success).length,
+    failed_count: results.filter(item => !item.success).length,
+  });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
 
@@ -620,6 +644,8 @@ Deno.serve(async (req: Request) => {
         return await handleListStaff(req);
       case "review-registration":
         return await handleReviewRegistration(req, body);
+      case "review-registrations":
+        return await handleBulkReviewRegistrations(req, body);
       default:
         throw new RequestError("درخواست نامعتبر است.", 400);
     }
