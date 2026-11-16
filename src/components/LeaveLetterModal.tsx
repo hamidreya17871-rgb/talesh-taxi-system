@@ -27,6 +27,7 @@ export default function LeaveLetterModal({ request, onClose, onNotify }: Props) 
   const [origin, setOrigin] = useState(DEFAULT_ORIGIN);
   const [province, setProvince] = useState(request.destination_province ?? '');
   const [city, setCity] = useState(request.destination_city ?? '');
+  const [attachment, setAttachment] = useState('');
   const [customBody, setCustomBody] = useState<string | null>(null);
   const [vehicleError, setVehicleError] = useState<string | null>(null);
 
@@ -68,7 +69,7 @@ export default function LeaveLetterModal({ request, onClose, onNotify }: Props) 
   const body = customBody ?? defaultBody;
 
   function handlePrint(includeLetterhead: boolean) {
-    if (!printLeaveLetter(request.letter_no, body, includeLetterhead)) onNotify(PRINT_BLOCKED, 'error');
+    if (!printLeaveLetter(request.letter_no, body, includeLetterhead, attachment)) onNotify(PRINT_BLOCKED, 'error');
   }
 
   return (
@@ -96,6 +97,7 @@ export default function LeaveLetterModal({ request, onClose, onNotify }: Props) 
           <LetterField id="letter-origin" label="مبدا" value={origin} onChange={setOrigin} />
           <LetterField id="letter-province" label="استان مقصد" value={province} onChange={setProvince} />
           <LetterField id="letter-city" label="شهر مقصد" value={city} onChange={setCity} />
+          <LetterField id="letter-attachment" label="پیوست" value={attachment} onChange={setAttachment} />
           <LetterDateField id="letter-start" label="از تاریخ" value={startDate} onChange={setStartDate} />
           <LetterDateField id="letter-end" label="تا تاریخ" value={endDate} onChange={setEndDate} />
           <LetterField id="letter-days" label="تعداد روز" value={String(days)} onChange={value => setDays(Math.max(1, Math.floor(Number(value)) || 1))} type="number" ltr />
