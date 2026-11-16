@@ -86,7 +86,7 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
     setReportError(null);
     const [settingsResult, holidaysResult, reportResult] = await Promise.all([
       supabase.from('letter_priority_settings').select('priority, working_days').order('priority'),
-      supabase.from('letter_official_holidays').select('id, holiday_date, title, created_at').order('holiday_date', { ascending: true }),
+      supabase.from('letter_official_holidays').select('holiday_date, title, created_at').order('holiday_date', { ascending: true }),
       supabase.rpc('get_monthly_secretariat_performance', {
         p_month_start: bounds.start,
         p_month_end: bounds.end,
