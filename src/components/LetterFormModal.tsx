@@ -157,7 +157,7 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
               <option value="urgent">فوری — ۲ روز کاری</option>
               <option value="immediate">آنی — ۱ روز کاری</option>
             </select>
-            <p className="text-[11px] text-ink-500">مهلت از زمان ارجاع به کارشناس محاسبه می‌شود؛ پنجشنبه و جمعه روز غیرکاری هستند. مدیر می‌تواند مدت‌ها را در تنظیمات دبیرخانه تغییر دهد.</p>
+            <p className="text-[11px] text-ink-500">مهلت از زمان ارجاع به کارشناس محاسبه می‌شود؛ پنجشنبه و جمعه روز غیرکاری هستند. تعطیلات رسمی در محاسبه این نسخه لحاظ نمی‌شوند.</p>
           </div>
 
           <div className="flex flex-col gap-[7px]">
