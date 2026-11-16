@@ -107,7 +107,7 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
     onSaved();
   }
 
-  function handlePrint() {
+  function handlePrint(includeLetterhead: boolean) {
     if (!letter) return;
     printLetter({
       letterNo: letter.letter_no,
@@ -117,6 +117,7 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
       correspondent: letter.correspondent ?? undefined,
       attachment: letter.attachment_path,
       direction: letter.direction,
+      includeLetterhead,
     });
   }
 
@@ -188,10 +189,16 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
               {busy ? 'لطفاً صبر کنید…' : 'ذخیره'}
             </button>
             {isEdit && (
-              <button type="button" className="btn btn-secondary" onClick={handlePrint}>
-                <Printer size={16} />
-                چاپ با سربرگ
-              </button>
+              <>
+                <button type="button" className="btn btn-secondary" onClick={() => handlePrint(true)}>
+                  <Printer size={16} />
+                  چاپ با سربرگ
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => handlePrint(false)}>
+                  <Printer size={16} />
+                  چاپ بدون سربرگ
+                </button>
+              </>
             )}
           </div>
         </form>
