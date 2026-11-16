@@ -19,7 +19,7 @@ type Props = {
 
 type StaffOption = { user_id: string; full_name: string };
 
-type WorkflowEvent = { id: string; letter_id: string; event_type: string; details: Record<string, unknown>; created_at: string; actor_id: string | null };
+type WorkflowEvent = { id: string; letter_id: string; event_type: string; details: Record<string, unknown>; created_at: string; actor_id: string | null; actor: { full_name: string | null } | { full_name: string | null }[] | null };
 
 type ReferralRow = {
   id: string;
@@ -66,7 +66,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
           .from('letter_referrals')
           .select('id, letter_id, referred_to, action, note, status, created_at, due_at, reviewer:referred_to(full_name)')
           .order('created_at', { ascending: false }),
-        supabase.from('letter_workflow_events').select('id, letter_id, event_type, details, created_at, actor_id').order('created_at', { ascending: false }).limit(1000),
+        supabase.from('letter_workflow_events').select('id, letter_id, event_type, details, created_at, actor_id, actor:actor_id(full_name)').order('created_at', { ascending: false }).limit(1000),
         callStaffApi<{ items: StaffOption[] }>('list-staff'),
       ]);
       if (lettersResult.error || referralsResult.error) {
@@ -86,6 +86,8 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
       for (const event of (eventsResult.data ?? []) as WorkflowEvent[]) {
         const list = eventMap.get(event.letter_id) ?? [];
         list.push(event);
+        list.push(event);
+        list.sort((a, b) => a.created_at.localeCompare(b.created_at));
         eventMap.set(event.letter_id, list);
       }
       setWorkflowEvents(eventMap);
@@ -286,7 +288,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                       {(workflowEvents.get(letter.id) ?? []).map(event => (
                         <li key={event.id} className="text-xs">
                           <p className="font-medium">{EVENT_LABELS[event.event_type] ?? event.event_type}</p>
-                          <p className="mt-0.5 text-ink-500">{formatTehranDateTime(event.created_at)}</p>
+                          <p className="mt-0.5 text-ink-500">{formatTehranDateTime(event.created_at)}{event.actor ? ` · ${Array.isArray(event.actor) ? event.actor[0]?.full_name ?? 'کاربر ثبت‌شده' : event.actor.full_name ?? 'کاربر ثبت‌شده'}` : ''}</p>
                           {typeof event.details.note === 'string' && <p className="mt-0.5 text-ink-600">{event.details.note}</p>}
                         </li>
                       ))}
