@@ -89,13 +89,15 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
   }
 
   async function completeReferral(referral: ReferralRow) {
-    const { error } = await supabase.from('letter_referrals').update({
+    setBusyId(referral.id);
+    const { data, error } = await supabase.from('letter_referrals').update({
       status: 'done',
       completed_by: profile.user_id,
       completed_at: new Date().toISOString(),
-    }).eq('id', referral.id).eq('status', 'pending');
-    if (error) {
-      onNotify('ثبت نتیجه ارجاع انجام نشد.', 'error');
+    }).eq('id', referral.id).eq('status', 'pending').select('id').maybeSingle();
+    setBusyId(null);
+    if (error || !data) {
+      onNotify('ثبت نتیجه ارجاع انجام نشد؛ احتمالاً وضعیت ارجاع تغییر کرده است.', 'error');
       return;
     }
     onNotify('انجام ارجاع ثبت شد.');
