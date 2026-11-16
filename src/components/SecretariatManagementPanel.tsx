@@ -184,7 +184,7 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
   }), { assigned: 0, completed: 0, pending: 0, overdue: 0, onTime: 0, eligible: 0 }), [report]);
 
   function exportReport() {
-    const headers = ['کارشناس', 'ارجاع ثبت‌شده در ماه', 'تکمیل‌شده در ماه', 'باز در پایان ماه', 'معوق در پایان ماه', 'میانگین زمان پاسخ (ساعت)', 'تکمیل به‌موقع', 'مبنای درصد به‌موقع'];
+    const headers = ['کارشناس', 'ارجاع ثبت‌شده در ماه', 'تکمیل‌شده در ماه', 'باز در پایان ماه / تا امروز', 'معوق در پایان ماه / تا امروز', 'میانگین زمان پاسخ (ساعت)', 'تکمیل به‌موقع', 'مبنای درصد به‌موقع'];
     const rows = report.map(row => [
       row.staff_name,
       row.assigned_count,
@@ -248,7 +248,7 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
               <BarChart3 size={19} className="text-brand-600" />
               <h3 className="font-bold">گزارش ماهانه عملکرد کارشناسان</h3>
             </div>
-            <p className="mt-1 text-xs text-ink-600">گزارش بر اساس زمان ثبت ارجاع، زمان تکمیل ثبت‌شده و سررسید هر ارجاع</p>
+            <p className="mt-1 text-xs text-ink-600">آمار بر اساس ارجاع به کارشناس است، نه تعداد نامه‌های یکتا؛ ماه جاری تا زمان فعلی و ماه‌های گذشته تا پایان همان ماه سنجیده می‌شوند.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <select aria-label="سال گزارش" className="field-input min-w-24" value={year} onChange={event => setYear(Number(event.target.value))}>
@@ -282,7 +282,7 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
         <div className="overflow-x-auto">
           <table className="w-full min-w-[850px] text-right text-xs">
             <thead><tr className="border-b border-ink-200 text-ink-600">
-              <th className="p-2">کارشناس</th><th className="p-2">ارجاع جدید</th><th className="p-2">تکمیل‌شده</th><th className="p-2">باز پایان ماه</th><th className="p-2">معوق پایان ماه</th><th className="p-2">میانگین پاسخ</th><th className="p-2">به‌موقع</th>
+              <th className="p-2">کارشناس</th><th className="p-2">ارجاع جدید</th><th className="p-2">تکمیل‌شده</th><th className="p-2">باز پایان ماه / امروز</th><th className="p-2">معوق پایان ماه / امروز</th><th className="p-2">میانگین پاسخ</th><th className="p-2">به‌موقع</th>
             </tr></thead>
             <tbody>
               {report.map(row => (
