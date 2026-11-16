@@ -102,7 +102,7 @@ BEGIN
   END LOOP;
   RETURN v_result;
 END;
-$;
+$$;
 REVOKE ALL ON FUNCTION public.calculate_letter_due_at(text, timestamptz) FROM PUBLIC, anon, authenticated;
 
 CREATE TABLE IF NOT EXISTS public.letter_workflow_events (
@@ -259,7 +259,7 @@ BEGIN
   UPDATE public.letters SET response_due_at = v_due_at WHERE id = NEW.letter_id;
   RETURN NEW;
 END;
-$;
+$$;
 REVOKE ALL ON FUNCTION public.set_letter_referral_deadline() FROM PUBLIC, anon, authenticated;
 
 ALTER TABLE public.letter_referrals
