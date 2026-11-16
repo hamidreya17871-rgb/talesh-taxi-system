@@ -9,10 +9,7 @@ type Props = {
   onBack: () => void;
 };
 
-const STAFF_ROLE_OPTIONS = [
-  { value: 'manager', label: 'مدیر سازمان' },
-  { value: 'expert', label: 'کارشناس' },
-] as const;
+const STAFF_ROLE_OPTIONS = [{ value: 'expert', label: 'کارشناس' }] as const;
 
 export default function StaffRegisterForm({ onBack }: Props) {
   const [fullName, setFullName] = useState('');
@@ -55,7 +52,7 @@ export default function StaffRegisterForm({ onBack }: Props) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-[13px]">
       <p className="text-xs leading-[1.5] text-ink-600">
-        برای ثبت‌نام مدیر یا کارشناس، شناسه ثبت‌نام سازمان را وارد کنید.
+        برای ثبت‌نام کارشناس، شناسه ثبت‌نام سازمان را وارد کنید.
       </p>
       <Field id="staff-name" label="نام و نام خانوادگی" value={fullName} onChange={setFullName} required />
       <Field id="staff-phone" label="شماره موبایل" value={phone} onChange={setPhone} required inputMode="tel" ltr />
