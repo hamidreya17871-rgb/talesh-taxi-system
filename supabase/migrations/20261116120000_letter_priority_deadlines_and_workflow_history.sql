@@ -232,6 +232,34 @@ INSERT INTO public.letter_workflow_events(letter_id, referral_id, actor_id, even
 SELECT r.letter_id, r.id, r.created_by, 'referred', jsonb_build_object('to', r.referred_to, 'action', r.action, 'note', r.note), r.created_at
 FROM public.letter_referrals r;
 
+CREATE OR REPLACE FUNCTION public.sync_letter_priority_deadlines()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $
+BEGIN
+  IF NEW.priority IS DISTINCT FROM OLD.priority THEN
+    UPDATE public.letter_referrals r
+    SET due_at = public.calculate_letter_due_at(NEW.priority, r.created_at),
+        due_notified_at = NULL
+    WHERE r.letter_id = NEW.id AND r.status = 'pending';
+    UPDATE public.letters l
+    SET response_due_at = (
+      SELECT min(r.due_at) FROM public.letter_referrals r
+      WHERE r.letter_id = NEW.id AND r.status = 'pending'
+    )
+    WHERE l.id = NEW.id;
+  END IF;
+  RETURN NEW;
+END;
+$;
+REVOKE ALL ON FUNCTION public.sync_letter_priority_deadlines() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS letters_sync_priority_deadlines ON public.letters;
+CREATE TRIGGER letters_sync_priority_deadlines
+  AFTER UPDATE OF priority ON public.letters
+  FOR EACH ROW EXECUTE FUNCTION public.sync_letter_priority_deadlines();
+
 CREATE OR REPLACE FUNCTION public.dispatch_due_letter_notifications()
 RETURNS integer
 LANGUAGE plpgsql
