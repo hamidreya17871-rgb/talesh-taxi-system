@@ -33,6 +33,49 @@ CREATE POLICY letter_priority_settings_manager_update ON public.letter_priority_
   USING ((SELECT public.current_app_role()) = 'manager')
   WITH CHECK ((SELECT public.current_app_role()) = 'manager');
 
+
+CREATE TABLE IF NOT EXISTS public.letter_holidays (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  holiday_date date NOT NULL UNIQUE,
+  title text NOT NULL CHECK (length(btrim(title)) BETWEEN 1 AND 120),
+  created_by uuid REFERENCES public.profiles(user_id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.letter_holidays ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS letter_holidays_read ON public.letter_holidays;
+CREATE POLICY letter_holidays_read ON public.letter_holidays
+  FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS letter_holidays_manager_insert ON public.letter_holidays;
+CREATE POLICY letter_holidays_manager_insert ON public.letter_holidays
+  FOR INSERT TO authenticated
+  WITH CHECK ((SELECT public.current_app_role()) = 'manager' AND created_by = (SELECT auth.uid()));
+DROP POLICY IF EXISTS letter_holidays_manager_delete ON public.letter_holidays;
+CREATE POLICY letter_holidays_manager_delete ON public.letter_holidays
+  FOR DELETE TO authenticated
+  USING ((SELECT public.current_app_role()) = 'manager');
+GRANT SELECT ON public.letter_holidays TO authenticated;
+GRANT INSERT, DELETE ON public.letter_holidays TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.guard_letter_priority_setting_update()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = ''
+AS $
+BEGIN
+  IF public.current_app_role() IS DISTINCT FROM 'manager' THEN
+    RAISE EXCEPTION 'فقط مدیر سازمان می‌تواند مهلت‌ها را تغییر دهد.' USING ERRCODE = '42501';
+  END IF;
+  NEW.updated_by := auth.uid();
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$;
+REVOKE ALL ON FUNCTION public.guard_letter_priority_setting_update() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS letter_priority_settings_guard ON public.letter_priority_settings;
+CREATE TRIGGER letter_priority_settings_guard
+  BEFORE UPDATE ON public.letter_priority_settings
+  FOR EACH ROW EXECUTE FUNCTION public.guard_letter_priority_setting_update();
+
 CREATE OR REPLACE FUNCTION public.calculate_letter_due_at(p_priority text, p_start timestamptz DEFAULT now())
 RETURNS timestamptz
 LANGUAGE plpgsql STABLE
@@ -52,7 +95,8 @@ BEGIN
   WHILE v_added < v_days LOOP
     v_result := v_result + interval '1 day';
     -- ISO weekday: Thursday=4, Friday=5 in the Iranian work week.
-    IF extract(isodow FROM v_result)::integer NOT IN (4, 5) THEN
+    IF extract(isodow FROM (v_result AT TIME ZONE 'Asia/Tehran'))::integer NOT IN (4, 5)
+       AND NOT EXISTS (SELECT 1 FROM public.letter_holidays h WHERE h.holiday_date = (v_result AT TIME ZONE 'Asia/Tehran')::date) THEN
       v_added := v_added + 1;
     END IF;
   END LOOP;
@@ -116,6 +160,9 @@ CREATE POLICY staff_notifications_mark_own ON public.staff_notifications
   WITH CHECK (user_id = (SELECT auth.uid()));
 
 GRANT SELECT ON public.letter_priority_settings, public.letter_workflow_events, public.staff_notifications TO authenticated;
+DROP POLICY IF EXISTS letter_referrals_manager_read_all ON public.letter_referrals;
+CREATE POLICY letter_referrals_manager_read_all ON public.letter_referrals
+  FOR SELECT TO authenticated USING ((SELECT public.current_app_role()) = 'manager');
 GRANT UPDATE (read_at) ON public.staff_notifications TO authenticated;
 GRANT UPDATE (working_days, updated_at, updated_by) ON public.letter_priority_settings TO authenticated;
 
@@ -272,6 +319,42 @@ DROP TRIGGER IF EXISTS letters_sync_priority_deadlines ON public.letters;
 CREATE TRIGGER letters_sync_priority_deadlines
   AFTER UPDATE OF priority ON public.letters
   FOR EACH ROW EXECUTE FUNCTION public.sync_letter_priority_deadlines();
+
+
+CREATE OR REPLACE FUNCTION public.refresh_letter_deadlines()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $
+BEGIN
+  UPDATE public.letter_referrals r
+  SET due_at = public.calculate_letter_due_at(l.priority, r.created_at)
+  FROM public.letters l
+  WHERE l.id = r.letter_id
+    AND r.status = 'pending'
+    AND (TG_TABLE_NAME = 'letter_holidays' OR l.priority = NEW.priority);
+  UPDATE public.letters l
+  SET response_due_at = (
+    SELECT min(r.due_at) FROM public.letter_referrals r
+    WHERE r.letter_id = l.id AND r.status = 'pending'
+  )
+  WHERE EXISTS (
+    SELECT 1 FROM public.letter_referrals r
+    WHERE r.letter_id = l.id AND r.status = 'pending'
+  );
+  RETURN COALESCE(NEW, OLD);
+END;
+$;
+REVOKE ALL ON FUNCTION public.refresh_letter_deadlines() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS letter_priority_settings_refresh_deadlines ON public.letter_priority_settings;
+CREATE TRIGGER letter_priority_settings_refresh_deadlines
+  AFTER UPDATE OF working_days ON public.letter_priority_settings
+  FOR EACH ROW EXECUTE FUNCTION public.refresh_letter_deadlines();
+DROP TRIGGER IF EXISTS letter_holidays_refresh_deadlines ON public.letter_holidays;
+CREATE TRIGGER letter_holidays_refresh_deadlines
+  AFTER INSERT OR DELETE ON public.letter_holidays
+  FOR EACH ROW EXECUTE FUNCTION public.refresh_letter_deadlines();
 
 CREATE OR REPLACE FUNCTION public.dispatch_due_letter_notifications()
 RETURNS integer
