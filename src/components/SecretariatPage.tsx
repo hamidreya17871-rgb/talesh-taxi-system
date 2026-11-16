@@ -11,6 +11,7 @@ import LineInspectorReports from '@/components/LineInspectorReports';
 import DisciplinaryCommitteePanel from '@/components/DisciplinaryCommitteePanel';
 import DisciplinaryManagerApprovalPanel from '@/components/DisciplinaryManagerApprovalPanel';
 import OutgoingLetterWorkflowActions from '@/components/OutgoingLetterWorkflowActions';
+import LetterAdministrationPanel from '@/components/LetterAdministrationPanel';
 
 type Props = {
   profile: Profile;
@@ -162,6 +163,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
       <LineInspectorReports profile={profile} mode="staff" />
       {profile.is_disciplinary_committee && <DisciplinaryCommitteePanel profile={profile} />}
       {profile.role === 'manager' && <DisciplinaryManagerApprovalPanel profile={profile} />}
+      {isManager && <LetterAdministrationPanel profile={profile} onNotify={onNotify} />}
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold">دبیرخانه</h2>
