@@ -342,7 +342,7 @@ BEGIN
     SELECT 1 FROM public.letter_referrals r
     WHERE r.letter_id = l.id AND r.status = 'pending'
   );
-  RETURN COALESCE(NEW, OLD);
+  RETURN NULL;
 END;
 $;
 REVOKE ALL ON FUNCTION public.refresh_letter_deadlines() FROM PUBLIC, anon, authenticated;
