@@ -1,6 +1,6 @@
 import { formatPersianDate } from '@/lib/format';
 
-const LETTER_TEMPLATE_FILE = 'file_00000000b04481f4b5dfa592b07ecabc copy 3.png';
+const LETTER_TEMPLATE_FILE = '/file_00000000b04481f4b5dfa592b07ecabc.png';
 
 export const LETTER_INK = '#182b28';
 
@@ -27,10 +27,12 @@ export type LetterPageInput = {
   date: string;
   attachment?: string | null;
   contentHtml: string;
+  includeLetterhead?: boolean;
 };
 
 export function buildLetterPageHtml(title: string, input: LetterPageInput): string {
-  const templateUrl = `${window.location.origin}/${encodeURI(LETTER_TEMPLATE_FILE)}`;
+  const includeLetterhead = input.includeLetterhead !== false;
+  const templateUrl = `${window.location.origin}${LETTER_TEMPLATE_FILE}`;
   const dateText = formatPersianDate(input.date);
   const attachmentText = input.attachment?.trim() ? input.attachment.trim() : '-';
 
@@ -47,10 +49,14 @@ export function buildLetterPageHtml(title: string, input: LetterPageInput): stri
     .page { position: relative; width: 210mm; height: 297mm; overflow: hidden; background: #fff; }
     .template { position: absolute; left: 0; top: 0; width: 210mm; height: 297mm; }
     .field { position: absolute; left: 7mm; width: 34mm; height: 9mm; line-height: 9mm; text-align: center; font-size: 11pt; font-weight: 700; overflow: hidden; white-space: nowrap; }
+    .plain-meta { display: none; }
     .field-number { top: 8.8mm; }
     .field-date { top: 21.1mm; }
     .field-attachment { top: 33.9mm; }
     .content { position: absolute; left: 14mm; top: 80mm; width: 182mm; height: 182mm; overflow: hidden; font-size: 13pt; line-height: 1.9; }
+    .page.plain .template, .page.plain .field { display: none; }
+    .page.plain .plain-meta { display: flex; justify-content: space-between; gap: 8mm; margin: 18mm 14mm 0; padding-bottom: 6mm; border-bottom: 1px solid #bbb; font-size: 11pt; }
+    .page.plain .content { top: 36mm; height: 245mm; }
     .content h2 { font-size: 14pt; margin: 0 0 12px; text-align: center; }
     .content .correspondent { font-weight: 700; margin: 0 0 12px; }
     .content p { margin: 0 0 12px; text-align: justify; }
