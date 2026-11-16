@@ -424,17 +424,18 @@ async function handleImportDrivers(req: Request, body: Record<string, unknown>):
       const model = readText(row, "model", 100);
       const taxiRowNo = readText(row, "taxi_row_no", 20);
       const email = phoneToAccountEmail(phone);
-      const [profileByPhone, driverByPhone, driverByNationalCode, vehicleByPlate] = await Promise.all([
+      const [profileByPhone, driverByPhone, driverByNationalCode, vehicleByPlate, vehicleByTaxiRow] = await Promise.all([
         admin.from("profiles").select("user_id").eq("phone", phone).limit(1).maybeSingle(),
         admin.from("drivers").select("id").eq("phone", phone).limit(1).maybeSingle(),
         admin.from("drivers").select("id").eq("national_code", nationalCode).limit(1).maybeSingle(),
         admin.from("vehicles").select("id").eq("plate", plate).limit(1).maybeSingle(),
+        admin.from("vehicles").select("id").eq("taxi_row_no", taxiRowNo).limit(1).maybeSingle(),
       ]);
-      for (const result of [profileByPhone, driverByPhone, driverByNationalCode, vehicleByPlate]) {
+      for (const result of [profileByPhone, driverByPhone, driverByNationalCode, vehicleByPlate, vehicleByTaxiRow]) {
         if (result.error) throw result.error;
       }
-      if (profileByPhone.data || driverByPhone.data || driverByNationalCode.data || vehicleByPlate.data) {
-        skipped.push({ row: index + 2, full_name: fullName, phone, reason: "شماره موبایل، کد ملی یا پلاک تکراری است." });
+      if (profileByPhone.data || driverByPhone.data || driverByNationalCode.data || vehicleByPlate.data || vehicleByTaxiRow.data) {
+        skipped.push({ row: index + 2, full_name: fullName, phone, reason: "شماره موبایل، کد ملی، پلاک یا ردیف تاکسی تکراری است." });
         continue;
       }
       const user = await admin.auth.admin.createUser({
