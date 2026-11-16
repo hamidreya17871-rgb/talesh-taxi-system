@@ -3,9 +3,9 @@
 ## Security configuration before deployment
 
 - Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for the web build.
-- Configure `STAFF_REGISTRATION_CODE` as a Supabase Edge Function secret. The same server-side secret is required for first-manager bootstrap and staff registration; enter it only in the setup form. Do not put this value in frontend code or commit it.
+- Configure `STAFF_REGISTRATION_CODE` only as a Supabase Edge Function secret. It is used for first-manager bootstrap and expert registration; public staff registration must not create manager accounts. Additional managers must be created by an authenticated manager in the user-management panel. Never put this value in frontend code or commit it.
 - Deploy the `manage-staff` Edge Function after setting its secret.
-- Apply all SQL migrations in `supabase/migrations` in filename order. The latest migration removes the legacy anonymous access policies from fleet tables.
+- The live Supabase project currently records 22 applied migrations. The repository has one additional pending migration, `20261116100000_harden_secretariat_workflow.sql`; review and apply it only after a backup and before deploying the updated Secretariat UI. Fleet-table anonymous access is hardened by `20261114150000_harden_fleet_table_access.sql`.
 - Confirm the Supabase project has Row Level Security enabled and test each role (manager, expert, driver) before using real personal data.
 
 
@@ -38,7 +38,7 @@ In Android Studio, use **Build → Generate Signed Bundle / APK → APK**, creat
 
 ## Supabase release checklist
 
-1. Apply every migration in `supabase/migrations` in filename order, including the secretariat tables and the fleet-access hardening migration.
+1. Confirm the 22 migrations already recorded in Supabase. Then review and apply `20261116100000_harden_secretariat_workflow.sql` after a backup; do not replay migrations that are already recorded.
 2. Deploy `supabase/functions/manage-staff` and set `STAFF_REGISTRATION_CODE` as a server-side function secret.
 3. Verify the manager, expert and driver flows against the actual Supabase project with separate test accounts. Check anonymous access is denied for every personal-data table and both private storage buckets.
 4. Verify archive upload/download, letter creation and referral using real authenticated sessions before importing real records.
@@ -46,7 +46,7 @@ In Android Studio, use **Build → Generate Signed Bundle / APK → APK**, creat
 
 ## وضعیت استقرار
 
-پایگاه داده Supabase در پروژه مقصد ایجاد شده و ۲۱ migration به‌صورت امن اعمال شده‌اند. دسترسی `anon` به جدول‌های اطلاعاتی بسته است و RLS برای تمام ۱۲ جدول عمومی فعال است. با این حال Edge Function `manage-staff`، Secret راه‌اندازی مدیر اولیه، انتشار وب و آزمون نهایی هنوز باقی مانده‌اند. جزئیات را در `RELEASE-STATUS.md` ببینید.
+پایگاه داده Supabase فعال است و ۲۲ migration در تاریخچه آن ثبت شده‌اند؛ مخزن ۲۳ migration دارد و مهاجرت جدید دبیرخانه هنوز اجرا نشده است. دسترسی مستقیم `anon` به ۱۲ جدول عمومی بسته و RLS فعال است. Edge Function `manage-staff` نسخه ۱ فعال دارد، اما نسخه امن‌تر موجود در مخزن هنوز مستقر نشده؛ وجود Secret راه‌اندازی نیز از این اتصال قابل تأیید نیست. انتشار وب و آزمون نهایی همچنان باقی است. جزئیات را در `RELEASE-STATUS.md` ببینید.
 
 
 ## نصب روی گوشی

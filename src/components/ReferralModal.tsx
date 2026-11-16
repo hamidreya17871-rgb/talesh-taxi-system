@@ -33,23 +33,14 @@ export default function ReferralModal({ letter, staff, currentUserId, onSaved, o
     }
     setBusy(true);
     setError(null);
-    const { error: insertError } = await supabase.from('letter_referrals').insert({
-      letter_id: letter.id,
-      referred_to: referredTo,
-      action,
-      note: note.trim() || null,
+    const { error: referralError } = await supabase.rpc('create_letter_referral', {
+      p_letter_id: letter.id,
+      p_referred_to: referredTo,
+      p_action: action,
+      p_note: note.trim() || null,
     });
-    if (insertError) {
-      setError(GENERIC_ERROR);
-      setBusy(false);
-      return;
-    }
-    const { error: updateError } = await supabase
-      .from('letters')
-      .update({ status: 'ارجاع شده' })
-      .eq('id', letter.id);
-    if (updateError) {
-      setError(GENERIC_ERROR);
+    if (referralError) {
+      setError(referralError.message?.includes('امضا شده') ? 'این نامه امضا شده و امکان ارجاع مجدد ندارد.' : GENERIC_ERROR);
       setBusy(false);
       return;
     }

@@ -105,6 +105,22 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
     void load();
   }
 
+  async function completeReferral(referral: ReferralRow) {
+    setBusyId(referral.id);
+    const { data, error } = await supabase.from('letter_referrals').update({
+      status: 'done',
+      completed_by: profile.user_id,
+      completed_at: new Date().toISOString(),
+    }).eq('id', referral.id).eq('status', 'pending').select('id').maybeSingle();
+    setBusyId(null);
+    if (error || !data) {
+      onNotify('ثبت نتیجه ارجاع انجام نشد؛ احتمالاً وضعیت ارجاع تغییر کرده است.', 'error');
+      return;
+    }
+    onNotify('انجام ارجاع ثبت شد.');
+    void load();
+  }
+
   const normalizeSearch = (value: string) =>
     value
       .replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
@@ -260,9 +276,16 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                             {ACTION_LABELS[ref.action] ?? ref.action}
                             {ref.note ? ` · ${ref.note}` : ''}
                           </span>
-                          <span className={ref.status === 'done' ? 'text-brand-600' : 'text-gold-700'}>
-                            {ref.status === 'done' ? 'انجام شد' : 'در انتظار'}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={ref.status === 'done' ? 'text-brand-600' : 'text-gold-700'}>
+                              {ref.status === 'done' ? 'انجام شد' : 'در انتظار'}
+                            </span>
+                            {ref.status === 'pending' && (isManager || ref.referred_to === profile.user_id) && (
+                              <button type="button" className="btn-tiny" disabled={busyId === ref.id} onClick={() => void completeReferral(ref)}>
+                                ثبت انجام
+                              </button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
