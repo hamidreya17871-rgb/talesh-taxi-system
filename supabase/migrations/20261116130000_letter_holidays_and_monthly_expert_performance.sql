@@ -106,8 +106,126 @@ WHERE EXISTS (
 CREATE INDEX IF NOT EXISTS letter_referrals_monthly_performance_idx
   ON public.letter_referrals (referred_to, created_at, completed_at);
 
--- SECURITY INVOKER is intentional: RLS on profiles and letter_referrals remains
--- in force. Only an authenticated manager receives aggregate results.
+-- Keep the aggregate implementation in a non-exposed schema. It returns only
+-- performance aggregates and checks the authenticated manager inside the function.
+CREATE SCHEMA IF NOT EXISTS private;
+REVOKE ALL ON SCHEMA private FROM PUBLIC, anon;
+GRANT USAGE ON SCHEMA private TO authenticated;
+
+CREATE OR REPLACE FUNCTION private.get_monthly_secretariat_performance(
+  p_month_start date,
+  p_month_end date
+)
+RETURNS TABLE (
+  staff_user_id uuid,
+  staff_name text,
+  assigned_count bigint,
+  completed_count bigint,
+  pending_at_month_end bigint,
+  overdue_at_month_end bigint,
+  average_response_hours numeric,
+  on_time_completed bigint,
+  on_time_eligible bigint
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_month_start timestamptz;
+  v_month_end timestamptz;
+  v_as_of timestamptz;
+BEGIN
+  IF auth.uid() IS NULL
+     OR public.current_app_role() IS DISTINCT FROM 'manager'
+     OR NOT EXISTS (
+       SELECT 1
+       FROM public.profiles p
+       WHERE p.user_id = auth.uid()
+         AND p.role = 'manager'
+         AND p.is_active = true
+         AND p.approval_status = 'approved'
+     ) THEN
+    RAISE EXCEPTION 'گزارش عملکرد کارشناسان فقط برای مدیر فعال و تأییدشده مجاز است.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_month_start IS NULL OR p_month_end IS NULL OR p_month_start >= p_month_end THEN
+    RAISE EXCEPTION 'بازه ماه گزارش معتبر نیست.' USING ERRCODE = '22023';
+  END IF;
+
+  v_month_start := p_month_start::timestamp AT TIME ZONE 'Asia/Tehran';
+  v_month_end := p_month_end::timestamp AT TIME ZONE 'Asia/Tehran';
+  -- Past months are measured at their exclusive month-end boundary.
+  -- The current month is measured through the current instant, not a future month-end.
+  v_as_of := LEAST(v_month_end, now());
+
+  RETURN QUERY
+  SELECT
+    p.user_id AS staff_user_id,
+    p.full_name::text AS staff_name,
+    COUNT(r.id) FILTER (
+      WHERE r.created_at >= v_month_start AND r.created_at < v_month_end
+    ) AS assigned_count,
+    COUNT(r.id) FILTER (
+      WHERE r.completed_at >= v_month_start AND r.completed_at < v_month_end
+    ) AS completed_count,
+    COUNT(r.id) FILTER (
+      WHERE v_as_of > v_month_start
+        AND r.created_at < v_as_of
+        AND (
+          r.status = 'pending'
+          OR (r.status = 'done' AND r.completed_at >= v_as_of)
+        )
+    ) AS pending_at_month_end,
+    COUNT(r.id) FILTER (
+      WHERE v_as_of > v_month_start
+        AND r.created_at < v_as_of
+        AND r.due_at < v_as_of
+        AND (
+          r.status = 'pending'
+          OR (r.status = 'done' AND r.completed_at >= v_as_of)
+        )
+    ) AS overdue_at_month_end,
+    ROUND((
+      AVG(EXTRACT(EPOCH FROM (r.completed_at - r.created_at)) / 3600.0)
+      FILTER (
+        WHERE r.completed_at >= v_month_start
+          AND r.completed_at < v_month_end
+          AND r.completed_at >= r.created_at
+      )
+    )::numeric, 1) AS average_response_hours,
+    COUNT(r.id) FILTER (
+      WHERE r.completed_at >= v_month_start
+        AND r.completed_at < v_month_end
+        AND r.due_at IS NOT NULL
+        AND r.completed_at <= r.due_at
+    ) AS on_time_completed,
+    COUNT(r.id) FILTER (
+      WHERE r.completed_at >= v_month_start
+        AND r.completed_at < v_month_end
+        AND r.due_at IS NOT NULL
+    ) AS on_time_eligible
+  FROM public.profiles p
+  LEFT JOIN public.letter_referrals r
+    ON r.referred_to = p.user_id
+  WHERE p.role = 'expert'
+    AND p.is_active = true
+    AND p.approval_status = 'approved'
+    AND COALESCE(p.is_disciplinary_committee, false) = false
+  GROUP BY p.user_id, p.full_name
+  ORDER BY p.full_name;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION private.get_monthly_secretariat_performance(date, date)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION private.get_monthly_secretariat_performance(date, date)
+  TO authenticated;
+
+-- Public RPC wrapper is invoker-security; the private implementation performs
+-- the explicit manager check before reading staff/referral records.
 CREATE OR REPLACE FUNCTION public.get_monthly_secretariat_performance(
   p_month_start date,
   p_month_end date
@@ -128,88 +246,14 @@ STABLE
 SECURITY INVOKER
 SET search_path = ''
 AS $$
-  WITH bounds AS (
-    SELECT
-      (p_month_start::timestamp AT TIME ZONE 'Asia/Tehran') AS month_start,
-      (p_month_end::timestamp AT TIME ZONE 'Asia/Tehran') AS month_end
-  ),
-  experts AS (
-    SELECT p.user_id, p.full_name
-    FROM public.profiles p
-    WHERE p.role = 'expert'
-      AND p.is_active = true
-      AND p.approval_status = 'approved'
-      AND COALESCE(p.is_disciplinary_committee, false) = false
-  ),
-  metrics AS (
-    SELECT
-      r.referred_to,
-      count(*) FILTER (
-        WHERE (r.created_at AT TIME ZONE 'Asia/Tehran')::date >= p_month_start
-          AND (r.created_at AT TIME ZONE 'Asia/Tehran')::date < p_month_end
-      ) AS assigned_count,
-      count(*) FILTER (
-        WHERE r.completed_at IS NOT NULL
-          AND r.completed_at >= b.month_start
-          AND r.completed_at < b.month_end
-      ) AS completed_count,
-      count(*) FILTER (
-        WHERE r.created_at < b.month_end
-          AND (
-            (r.status = 'pending' AND (r.completed_at IS NULL OR r.completed_at >= b.month_end))
-            OR (r.status = 'done' AND r.completed_at IS NOT NULL AND r.completed_at >= b.month_end)
-          )
-      ) AS pending_at_month_end,
-      count(*) FILTER (
-        WHERE r.created_at < b.month_end
-          AND r.due_at < b.month_end
-          AND (
-            (r.status = 'pending' AND (r.completed_at IS NULL OR r.completed_at >= b.month_end))
-            OR (r.status = 'done' AND r.completed_at IS NOT NULL AND r.completed_at >= b.month_end)
-          )
-      ) AS overdue_at_month_end,
-      round(avg(extract(epoch FROM (r.completed_at - r.created_at)) / 3600.0) FILTER (
-        WHERE r.completed_at IS NOT NULL
-          AND r.completed_at >= b.month_start
-          AND r.completed_at < b.month_end
-      )::numeric, 1) AS average_response_hours,
-      count(*) FILTER (
-        WHERE r.completed_at IS NOT NULL
-          AND r.completed_at >= b.month_start
-          AND r.completed_at < b.month_end
-          AND r.due_at IS NOT NULL
-          AND r.completed_at <= r.due_at
-      ) AS on_time_completed,
-      count(*) FILTER (
-        WHERE r.completed_at IS NOT NULL
-          AND r.completed_at >= b.month_start
-          AND r.completed_at < b.month_end
-          AND r.due_at IS NOT NULL
-      ) AS on_time_eligible
-    FROM public.letter_referrals r
-    CROSS JOIN bounds b
-    WHERE r.created_at < b.month_end
-    GROUP BY r.referred_to
-  )
-  SELECT
-    e.user_id,
-    e.full_name,
-    COALESCE(m.assigned_count, 0),
-    COALESCE(m.completed_count, 0),
-    COALESCE(m.pending_at_month_end, 0),
-    COALESCE(m.overdue_at_month_end, 0),
-    m.average_response_hours,
-    COALESCE(m.on_time_completed, 0),
-    COALESCE(m.on_time_eligible, 0)
-  FROM experts e
-  LEFT JOIN metrics m ON m.referred_to = e.user_id
-  WHERE (SELECT public.current_app_role()) = 'manager'
-    AND p_month_start < p_month_end
-  ORDER BY e.full_name;
+  SELECT *
+  FROM private.get_monthly_secretariat_performance(p_month_start, p_month_end);
 $$;
 
-REVOKE ALL ON FUNCTION public.get_monthly_secretariat_performance(date, date) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.get_monthly_secretariat_performance(date, date) TO authenticated;
+REVOKE ALL ON FUNCTION public.get_monthly_secretariat_performance(date, date)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_monthly_secretariat_performance(date, date)
+  TO authenticated;
 
 
 -- Record deadline recalculations in the visible letter timeline.
