@@ -25,9 +25,26 @@ jobs:
         run: |
           npm audit --json > npm-audit.json || true
           node -e "const a=require('./npm-audit.json'); const rows=Object.entries(a.vulnerabilities||{}).map(([name,v])=>({name,severity:v.severity,range:v.range,fixAvailable:v.fixAvailable,via:(v.via||[]).map(x=>typeof x==='string'?x:x.title)})); console.log(JSON.stringify({summary:a.metadata?.vulnerabilities,packages:rows},null,2))"
+      - name: Check production server syntax
+        run: node --check server.mjs
       - name: Type check
         run: npm run typecheck
       - name: Lint
         run: npm run lint
       - name: Production build
         run: npm run build
+      - name: Smoke test production server
+        run: |
+          npm run start > /tmp/talesh-taxi-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:3000/healthz; then
+              echo
+              curl --fail --silent http://127.0.0.1:3000/ >/dev/null
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/talesh-taxi-server.log
+          exit 1
