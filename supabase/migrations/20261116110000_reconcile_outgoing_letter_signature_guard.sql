@@ -30,8 +30,20 @@ DECLARE
   v_role text;
   v_direction text;
 BEGIN
-  v_role := public.current_app_role();
-  IF auth.uid() IS NULL OR v_role IS NULL OR v_role NOT IN ('manager', 'expert') THEN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'دسترسی مجاز نیست.' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT p.role
+    INTO v_role
+  FROM public.profiles p
+  WHERE p.user_id = auth.uid()
+    AND p.role IN ('manager', 'expert')
+    AND p.is_active = true
+    AND p.approval_status = 'approved'
+    AND COALESCE(p.is_disciplinary_committee, false) = false;
+
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'دسترسی مجاز نیست.' USING ERRCODE = '42501';
   END IF;
   IF p_action IS NULL OR p_action NOT IN ('review', 'follow-up', 'signature') THEN
@@ -46,6 +58,7 @@ BEGIN
       AND p.role IN ('manager', 'expert')
       AND p.is_active = true
       AND p.approval_status = 'approved'
+      AND COALESCE(p.is_disciplinary_committee, false) = false
   ) THEN
     RAISE EXCEPTION 'گیرنده ارجاع فعال و تأییدشده نیست.' USING ERRCODE = '23514';
   END IF;
