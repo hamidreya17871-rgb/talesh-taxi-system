@@ -47,6 +47,7 @@ BEGIN
 END;
 $$;
 REVOKE ALL ON FUNCTION public.calculate_letter_due_at(text, timestamptz) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.set_letter_referral_deadline() FROM PUBLIC, anon, authenticated;
 
 -- The preceding migration already attached these triggers to the
 -- letter_priority_settings and letter_holidays tables. Replace their
