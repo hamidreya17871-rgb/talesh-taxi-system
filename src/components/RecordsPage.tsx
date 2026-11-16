@@ -37,8 +37,8 @@ function compareTaxiRows(a: FleetRecord, b: FleetRecord): number {
 
   const aNormalized = normalizeDigits(aRaw);
   const bNormalized = normalizeDigits(bRaw);
-  const aNumeric = /^\\d+$/.test(aNormalized) ? Number(aNormalized) : null;
-  const bNumeric = /^\\d+$/.test(bNormalized) ? Number(bNormalized) : null;
+  const aNumeric = /^\d+$/.test(aNormalized) ? Number(aNormalized) : null;
+  const bNumeric = /^\d+$/.test(bNormalized) ? Number(bNormalized) : null;
 
   if (aNumeric !== null && bNumeric !== null && aNumeric !== bNumeric) return aNumeric - bNumeric;
   if (aNumeric !== null && bNumeric === null) return -1;
