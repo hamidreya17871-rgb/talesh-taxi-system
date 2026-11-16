@@ -190,6 +190,7 @@ BEGIN
   SELECT l.priority INTO v_priority FROM public.letters l WHERE l.id = NEW.letter_id;
   v_due_at := public.calculate_letter_due_at(COALESCE(v_priority, 'normal'), NEW.created_at);
   NEW.due_at := v_due_at;
+  UPDATE public.letters SET response_due_at = v_due_at WHERE id = NEW.letter_id;
   RETURN NEW;
 END;
 $$;
