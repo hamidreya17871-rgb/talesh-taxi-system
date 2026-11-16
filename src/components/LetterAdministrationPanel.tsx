@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { CalendarDays, Download, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
+import { Download, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/staff';
 
