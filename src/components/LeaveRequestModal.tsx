@@ -28,6 +28,10 @@ export default function LeaveRequestModal({ driverId, onSaved, onClose, onNotify
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!startDate || !endDate) {
+      setError('لطفاً تاریخ شروع و پایان مرخصی را از تقویم انتخاب کنید.');
+      return;
+    }
     if (endDate < startDate) {
       setError('تاریخ پایان نباید قبل از تاریخ شروع باشد.');
       return;
@@ -92,7 +96,7 @@ export default function LeaveRequestModal({ driverId, onSaved, onClose, onNotify
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex min-w-0 flex-col gap-2">
                 <label htmlFor="leave-start" className="text-xs font-bold text-ink-700">شروع مرخصی</label>
-                <JalaliDateInput id="leave-start" value={startDate} onChange={setStartDate} required />
+                <JalaliDateInput id="leave-start" value={startDate} onChange={nextDate => { setStartDate(nextDate); if (endDate && nextDate > endDate) setEndDate(""); }} required />
               </div>
               <div className="flex min-w-0 flex-col gap-2">
                 <label htmlFor="leave-end" className="text-xs font-bold text-ink-700">پایان مرخصی</label>
