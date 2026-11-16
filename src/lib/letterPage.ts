@@ -63,11 +63,11 @@ export function buildLetterPageHtml(title: string, input: LetterPageInput): stri
   </style>
 </head>
 <body>
-  <div class="page">
-    <img class="template" src="${templateUrl}" alt="" />
-    <div class="field field-number">${escapeHtml(String(input.letterNo))}</div>
-    <div class="field field-date">${escapeHtml(dateText)}</div>
-    <div class="field field-attachment">${escapeHtml(attachmentText)}</div>
+  <div class="page${includeLetterhead ? '' : ' plain'}">
+    ${includeLetterhead ? `<img class="template" src="${templateUrl}" alt="" />` : ''}
+    ${includeLetterhead
+      ? `<div class="field field-number">${escapeHtml(String(input.letterNo))}</div><div class="field field-date">${escapeHtml(dateText)}</div><div class="field field-attachment">${escapeHtml(attachmentText)}</div>`
+      : `<div class="plain-meta"><span>شماره: ${escapeHtml(String(input.letterNo))}</span><span>تاریخ: ${escapeHtml(dateText)}</span><span>پیوست: ${escapeHtml(attachmentText)}</span></div>`}
     <div class="content">${input.contentHtml}</div>
   </div>
 </body>
