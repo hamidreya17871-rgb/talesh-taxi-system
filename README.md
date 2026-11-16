@@ -3,7 +3,7 @@
 ## Security configuration before deployment
 
 - Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for the web build.
-- Configure `STAFF_REGISTRATION_CODE` as a Supabase Edge Function secret. The same server-side secret is required for first-manager bootstrap and staff registration; enter it only in the setup form. Do not put this value in frontend code or commit it.
+- Configure `STAFF_REGISTRATION_CODE` only as a Supabase Edge Function secret. It is used for first-manager bootstrap and expert registration; public staff registration must not create manager accounts. Additional managers must be created by an authenticated manager in the user-management panel. Never put this value in frontend code or commit it.
 - Deploy the `manage-staff` Edge Function after setting its secret.
 - Apply all SQL migrations in `supabase/migrations` in filename order. The latest migration removes the legacy anonymous access policies from fleet tables.
 - Confirm the Supabase project has Row Level Security enabled and test each role (manager, expert, driver) before using real personal data.
