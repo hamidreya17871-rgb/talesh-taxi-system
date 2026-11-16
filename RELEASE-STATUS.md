@@ -7,8 +7,8 @@
 - مخزن اصلی: [hamidreya17871-rgb/talesh-taxi-system](https://github.com/hamidreya17871-rgb/talesh-taxi-system)، شاخه `main`.
 - سورس در ریشه مخزن ثبت شده است؛ در آخرین شمارش ۱۱۸ فایل قابل‌ردیابی وجود داشت.
 - فقط `.env.example` در مخزن است؛ فایل محیط محلی، کلید خصوصی، `node_modules` و خروجی build در درخت مخزن پیدا نشدند.
-- آخرین commit: [`c19d3b2`](https://github.com/hamidreya17871-rgb/talesh-taxi-system/commit/c19d3b2b8ad70ed6cc5efa716f06270e2a3517b9).
-- [GitHub Actions — اجرای کنترل کیفیت](https://github.com/hamidreya17871-rgb/talesh-taxi-system/actions/runs/43826234417) برای آخرین commit موفق است: `npm ci`، `typecheck`، `lint` و `build`.
+- آخرین commit کد: [`b54cfa9`](https://github.com/hamidreya17871-rgb/talesh-taxi-system/commit/b54cfa9af5fa68ce3c330fa17e5063d864c33c39).
+- [GitHub Actions — اجرای کنترل کیفیت](https://github.com/hamidreya17871-rgb/talesh-taxi-system/actions/runs/43826529220) برای این commit موفق است: `npm ci`، `typecheck`، `lint` و `build`.
 - گردش‌کار یک‌باره ورود ZIP حذف شد؛ گردش‌کار CI با مجوز فقط‌خواندنی باقی مانده است.
 - فهرست خودروها در رابط کاربری بر اساس شماره ردیف تاکسی، به ترتیب عددی صعودی، مرتب می‌شود و ارقام فارسی و عربی را هم می‌شناسد.
 
