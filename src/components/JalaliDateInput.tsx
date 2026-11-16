@@ -100,19 +100,12 @@ export default function JalaliDateInput({
 
   return (
     <div ref={rootRef} className="relative w-full" dir="rtl">
-      <input
-        aria-label={`تاریخ ${id}`}
-        tabIndex={-1}
-        required={required}
-        value={value}
-        readOnly
-        className="pointer-events-none absolute h-px w-px opacity-0"
-      />
       <button
         id={id}
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
+        aria-required={required}
         aria-controls={`${id}-calendar`}
         onClick={() => setOpen(current => !current)}
         className={`flex min-h-[48px] w-full items-center justify-between gap-2 rounded-xl border bg-white px-3 py-2.5 text-right shadow-sm transition hover:border-brand-400 hover:bg-brand-50/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${value ? 'border-brand-200 text-ink-900' : 'border-ink-300 text-ink-500'}`}
