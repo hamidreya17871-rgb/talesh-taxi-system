@@ -379,10 +379,12 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                     <Printer size={13} />
                     بدون سربرگ
                   </button>
-                  <button type="button" className="btn-tiny" onClick={() => setReferralLetter(letter)}>
-                    <ArrowRightLeft size={13} />
-                    ارجاع
-                  </button>
+                  {!(letter.direction === 'outgoing' && ['امضا شده', 'مختومه'].includes(letter.status)) && (
+                    <button type="button" className="btn-tiny" onClick={() => setReferralLetter(letter)}>
+                      <ArrowRightLeft size={13} />
+                      ارجاع
+                    </button>
+                  )}
                   {isManager && (
                     <button type="button" className="btn-tiny btn-tiny-danger" disabled={busyId === letter.id} onClick={() => void remove(letter)}>
                       <Trash2 size={13} />
