@@ -99,7 +99,7 @@ $;
 REVOKE ALL ON FUNCTION public.get_unread_driver_message_count() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_unread_driver_message_count() TO authenticated;
 
-DO $
+DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime')
      AND NOT EXISTS (
