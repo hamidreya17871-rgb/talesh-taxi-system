@@ -38,6 +38,7 @@ const ACTION_ERROR = 'عملیات انجام نشد. لطفاً دوباره ت
 const ACTION_LABELS: Record<string, string> = { review: 'بررسی', 'follow-up': 'پیگیری', signature: 'امضا' };
 const PRIORITY_LABELS: Record<string, string> = { normal: 'عادی', urgent: 'فوری', immediate: 'آنی' };
 const EVENT_LABELS: Record<string, string> = { letter_registered: 'ثبت نامه', priority_changed: 'تغییر فوریت', status_changed: 'تغییر وضعیت', referred: 'ارجاع به کارشناس', referral_completed: 'ثبت انجام ارجاع' };
+const formatTehranDateTime = (value: string) => new Date(value).toLocaleString('fa-IR', { timeZone: 'Asia/Tehran' });
 
 export default function SecretariatPage({ profile, onNotify }: Props) {
   const [letters, setLetters] = useState<LetterRecord[] | null>(null);
@@ -263,7 +264,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                   <span className="rounded-full bg-ink-100 px-3 py-1 text-xs">{letter.status}</span>
                 </div>
 
-                <div className="flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-ink-100 px-2.5 py-1">فوریت: {PRIORITY_LABELS[letter.priority ?? 'normal'] ?? 'عادی'}</span>{letter.response_due_at && <span className="rounded-full bg-gold-50 px-2.5 py-1 text-gold-700">مهلت پاسخ: {new Date(letter.response_due_at).toLocaleString('fa-IR')}</span>}</div>
+                <div className="flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-ink-100 px-2.5 py-1">فوریت: {PRIORITY_LABELS[letter.priority ?? 'normal'] ?? 'عادی'}</span>{letter.response_due_at && <span className="rounded-full bg-gold-50 px-2.5 py-1 text-gold-700">مهلت پاسخ: {formatTehranDateTime(letter.response_due_at)}</span>}</div>
                 {letter.body && <p className="line-clamp-2 text-sm text-ink-600">{letter.body}</p>}
 
                 {(letter.expert_reviewed_at || letter.manager_signed_at || letter.manager_order_note || letter.sent_at || letter.delivery_receipt_path) && (
@@ -285,7 +286,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                       {(workflowEvents.get(letter.id) ?? []).map(event => (
                         <li key={event.id} className="text-xs">
                           <p className="font-medium">{EVENT_LABELS[event.event_type] ?? event.event_type}</p>
-                          <p className="mt-0.5 text-ink-500">{new Date(event.created_at).toLocaleString('fa-IR')}</p>
+                          <p className="mt-0.5 text-ink-500">{formatTehranDateTime(event.created_at)}</p>
                           {typeof event.details.note === 'string' && <p className="mt-0.5 text-ink-600">{event.details.note}</p>}
                         </li>
                       ))}
@@ -304,7 +305,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                             <span className="font-medium">{name ?? 'کارشناس'}</span>
                             {' — '}
                             {ACTION_LABELS[ref.action] ?? ref.action}
-                            {ref.note ? ` · ${ref.note}` : ''}{ref.due_at ? ` · سررسید: ${new Date(ref.due_at).toLocaleString('fa-IR')}` : ''}
+                            {ref.note ? ` · ${ref.note}` : ''}{ref.due_at ? ` · سررسید: ${formatTehranDateTime(ref.due_at)}` : ''}
                           </span>
                           <div className="flex items-center gap-2">
                             <span className={ref.status === 'done' ? 'text-brand-600' : 'text-gold-700'}>
