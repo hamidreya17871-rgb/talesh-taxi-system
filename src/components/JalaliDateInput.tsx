@@ -23,13 +23,19 @@ type JalaliDateInputProps = {
 const WEEK_DAYS = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'];
 
 function localTodayIso(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Tehran',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const part = (type: string) => Number(parts.find(item => item.type === type)?.value ?? 1);
+  return `${part('year')}-${String(part('month')).padStart(2, '0')}-${String(part('day')).padStart(2, '0')}`;
 }
 
 function currentJalaliDate(): JalaliDate {
-  const now = new Date();
-  return gregorianToJalali(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  const [year, month, day] = localTodayIso().split('-').map(Number);
+  return gregorianToJalali(year, month, day);
 }
 
 function shiftMonth(date: JalaliDate, amount: number): JalaliDate {
