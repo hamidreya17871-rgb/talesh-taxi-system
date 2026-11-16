@@ -202,7 +202,7 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
     anchor.href = url;
     anchor.download = `secretariat-performance-${year}-${String(month).padStart(2, '0')}.csv`;
     anchor.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   function printReport() {
