@@ -45,7 +45,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
     setLoadError(null);
     try {
       const [lettersResult, referralsResult, staffResult] = await Promise.all([
-        supabase.from('letters').select('*').order('created_at', { ascending: false }),
+        supabase.from('letters').select('*, signer:signed_by(full_name)').order('created_at', { ascending: false }),
         supabase
           .from('letter_referrals')
           .select('id, letter_id, referred_to, action, note, status, created_at, reviewer:referred_to(full_name)')
@@ -85,6 +85,20 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
       return;
     }
     onNotify('نامه حذف شد');
+    void load();
+  }
+
+  async function completeReferral(referral: ReferralRow) {
+    const { error } = await supabase.from('letter_referrals').update({
+      status: 'done',
+      completed_by: profile.user_id,
+      completed_at: new Date().toISOString(),
+    }).eq('id', referral.id).eq('status', 'pending');
+    if (error) {
+      onNotify('ثبت نتیجه ارجاع انجام نشد.', 'error');
+      return;
+    }
+    onNotify('انجام ارجاع ثبت شد.');
     void load();
   }
 
@@ -155,7 +169,14 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                       {letter.correspondent ? ` · ${letter.correspondent}` : ''}
                     </p>
                   </div>
-                  <span className="rounded-full bg-ink-100 px-3 py-1 text-xs">{letter.status}</span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="rounded-full bg-ink-100 px-3 py-1 text-xs">{letter.status}</span>
+                    {letter.status === 'امضا شده' && letter.signed_at && (
+                      <span className="text-[11px] text-ink-600">
+                        امضای نهایی: {Array.isArray(letter.signer) ? letter.signer[0]?.full_name : letter.signer?.full_name ?? 'مدیر'} · {new Date(letter.signed_at).toLocaleDateString('fa-IR')}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {letter.body && <p className="line-clamp-2 text-sm text-ink-600">{letter.body}</p>}
@@ -173,9 +194,16 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                             {ACTION_LABELS[ref.action] ?? ref.action}
                             {ref.note ? ` · ${ref.note}` : ''}
                           </span>
-                          <span className={ref.status === 'done' ? 'text-brand-600' : 'text-gold-700'}>
-                            {ref.status === 'done' ? 'انجام شد' : 'در انتظار'}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={ref.status === 'done' ? 'text-brand-600' : 'text-gold-700'}>
+                              {ref.status === 'done' ? 'انجام شد' : 'در انتظار'}
+                            </span>
+                            {ref.status === 'pending' && (isManager || ref.referred_to === profile.user_id) && (
+                              <button type="button" className="btn-tiny" onClick={() => void completeReferral(ref)}>
+                                ثبت انجام
+                              </button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -183,10 +211,12 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                 )}
 
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className="btn-tiny" onClick={() => setEditor(letter)}>
-                    <Pencil size={13} />
-                    ویرایش
-                  </button>
+                  {letter.status !== 'امضا شده' && (
+                    <button type="button" className="btn-tiny" onClick={() => setEditor(letter)}>
+                      <Pencil size={13} />
+                      ویرایش
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="btn-tiny"
@@ -210,7 +240,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                     ارجاع
                   </button>
                   {isManager && (
-                    <button type="button" className="btn-tiny btn-tiny-danger" disabled={busyId === letter.id} onClick={() => void remove(letter)}>
+                    <button type="button" className="btn-tiny btn-tiny-danger" disabled={busyId === letter.id || letter.status === 'امضا شده'} onClick={() => void remove(letter)}>
                       <Trash2 size={13} />
                       حذف
                     </button>
@@ -225,6 +255,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
       {editor !== undefined && (
         <LetterFormModal
           letter={editor}
+          canSign={isManager && !!editor && (referrals.get(editor.id) ?? []).length > 0 && (referrals.get(editor.id) ?? []).every(ref => ref.status === 'done')}
           onNotify={onNotify}
           onClose={() => setEditor(undefined)}
           onSaved={() => {
