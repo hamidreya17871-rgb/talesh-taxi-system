@@ -2,36 +2,6 @@
 -- and monthly expert performance reporting.
 -- Additive only: existing letters and referrals are preserved.
 
-CREATE TABLE IF NOT EXISTS public.letter_official_holidays (
-  holiday_date date PRIMARY KEY,
-  title text NOT NULL CHECK (length(btrim(title)) BETWEEN 1 AND 200),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  created_by uuid REFERENCES public.profiles(user_id) ON DELETE SET NULL
-);
-
-ALTER TABLE public.letter_official_holidays ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS letter_official_holidays_manager_read ON public.letter_official_holidays;
-CREATE POLICY letter_official_holidays_manager_read
-  ON public.letter_official_holidays
-  FOR SELECT TO authenticated
-  USING ((SELECT public.current_app_role()) = 'manager');
-DROP POLICY IF EXISTS letter_official_holidays_manager_insert ON public.letter_official_holidays;
-CREATE POLICY letter_official_holidays_manager_insert
-  ON public.letter_official_holidays
-  FOR INSERT TO authenticated
-  WITH CHECK (
-    (SELECT public.current_app_role()) = 'manager'
-    AND created_by = (SELECT auth.uid())
-  );
-DROP POLICY IF EXISTS letter_official_holidays_manager_delete ON public.letter_official_holidays;
-CREATE POLICY letter_official_holidays_manager_delete
-  ON public.letter_official_holidays
-  FOR DELETE TO authenticated
-  USING ((SELECT public.current_app_role()) = 'manager');
-
-REVOKE ALL ON public.letter_official_holidays FROM PUBLIC, anon, authenticated;
-GRANT SELECT, INSERT, DELETE ON public.letter_official_holidays TO authenticated;
-
 -- Calculate in Iran local calendar time. Thursday (4) and Friday (5)
 -- are non-working days; dates in the manager-maintained holiday table are skipped.
 CREATE OR REPLACE FUNCTION public.calculate_letter_due_at(
@@ -66,7 +36,7 @@ BEGIN
     v_local_date := v_local_date + 1;
     IF extract(isodow FROM v_local_date)::integer NOT IN (4, 5)
        AND NOT EXISTS (
-         SELECT 1 FROM public.letter_official_holidays h
+         SELECT 1 FROM public.letter_holidays h
          WHERE h.holiday_date = v_local_date
        ) THEN
       v_added := v_added + 1;
@@ -78,8 +48,10 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.calculate_letter_due_at(text, timestamptz) FROM PUBLIC, anon, authenticated;
 
--- Recalculate only open referrals after a holiday or a priority duration changes.
-CREATE OR REPLACE FUNCTION public.refresh_open_letter_deadlines()
+-- The preceding migration already attached these triggers to the
+-- letter_priority_settings and letter_holidays tables. Replace their
+-- function body here so changed deadlines reset their notification marker.
+CREATE OR REPLACE FUNCTION public.refresh_letter_deadlines()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -87,18 +59,15 @@ SET search_path = ''
 AS $$
 BEGIN
   UPDATE public.letter_referrals r
-  SET due_at = public.calculate_letter_due_at(
-        COALESCE((SELECT l.priority FROM public.letters l WHERE l.id = r.letter_id), 'normal'),
-        r.created_at
-      ),
+  SET due_at = public.calculate_letter_due_at(l.priority, r.created_at),
       due_notified_at = CASE
-        WHEN r.due_at IS DISTINCT FROM public.calculate_letter_due_at(
-          COALESCE((SELECT l.priority FROM public.letters l WHERE l.id = r.letter_id), 'normal'),
-          r.created_at
-        ) THEN NULL
+        WHEN r.due_at IS DISTINCT FROM public.calculate_letter_due_at(l.priority, r.created_at)
+          THEN NULL
         ELSE r.due_notified_at
       END
-  WHERE r.status = 'pending';
+  FROM public.letters l
+  WHERE l.id = r.letter_id
+    AND r.status = 'pending';
 
   UPDATE public.letters l
   SET response_due_at = (
@@ -110,21 +79,10 @@ BEGIN
     SELECT 1 FROM public.letter_referrals r
     WHERE r.letter_id = l.id AND r.status = 'pending'
   );
-
   RETURN NULL;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.refresh_open_letter_deadlines() FROM PUBLIC, anon, authenticated;
-
-DROP TRIGGER IF EXISTS letter_holidays_refresh_deadlines ON public.letter_official_holidays;
-CREATE TRIGGER letter_holidays_refresh_deadlines
-  AFTER INSERT OR UPDATE OR DELETE ON public.letter_official_holidays
-  FOR EACH ROW EXECUTE FUNCTION public.refresh_open_letter_deadlines();
-
-DROP TRIGGER IF EXISTS letter_priority_settings_refresh_deadlines ON public.letter_priority_settings;
-CREATE TRIGGER letter_priority_settings_refresh_deadlines
-  AFTER UPDATE OF working_days ON public.letter_priority_settings
-  FOR EACH ROW EXECUTE FUNCTION public.refresh_open_letter_deadlines();
+REVOKE ALL ON FUNCTION public.refresh_letter_deadlines() FROM PUBLIC, anon, authenticated;
 
 -- Apply the updated holiday-aware calculation to all currently open referrals.
 UPDATE public.letter_referrals r
