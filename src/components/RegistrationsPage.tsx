@@ -132,11 +132,17 @@ export default function RegistrationsPage({ onNotify, canImport }: Props) {
     if (!selectedIds.length || bulkBusy) return;
     setBulkBusy(true);
     try {
-      const result = await callStaffApi<{ success_count: number; failed_count: number }>('review-registrations', {
-        user_ids: selectedIds,
-        decision,
-      });
-      onNotify(`بررسی گروهی تمام شد؛ ${result.success_count} مورد موفق و ${result.failed_count} مورد ناموفق.`, result.failed_count ? 'error' : 'success');
+      let successCount = 0;
+      let failedCount = 0;
+      for (let offset = 0; offset < selectedIds.length; offset += 50) {
+        const result = await callStaffApi<{ success_count: number; failed_count: number }>('review-registrations', {
+          user_ids: selectedIds.slice(offset, offset + 50),
+          decision,
+        });
+        successCount += result.success_count;
+        failedCount += result.failed_count;
+      }
+      onNotify(`بررسی گروهی تمام شد؛ ${successCount} مورد موفق و ${failedCount} مورد ناموفق.`, failedCount ? 'error' : 'success');
       setSelectedIds([]);
       await load();
     } catch (cause) {
