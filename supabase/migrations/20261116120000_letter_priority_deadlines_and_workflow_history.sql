@@ -297,7 +297,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $ 
+AS $$
 BEGIN
   IF NEW.priority IS DISTINCT FROM OLD.priority THEN
     UPDATE public.letter_referrals r
@@ -313,7 +313,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$;
+$$;
 REVOKE ALL ON FUNCTION public.sync_letter_priority_deadlines() FROM PUBLIC, anon, authenticated;
 DROP TRIGGER IF EXISTS letters_sync_priority_deadlines ON public.letters;
 CREATE TRIGGER letters_sync_priority_deadlines
