@@ -201,7 +201,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                               {ref.status === 'done' ? 'انجام شد' : 'در انتظار'}
                             </span>
                             {ref.status === 'pending' && (isManager || ref.referred_to === profile.user_id) && (
-                              <button type="button" className="btn-tiny" onClick={() => void completeReferral(ref)}>
+                              <button type="button" className="btn-tiny" disabled={busyId === ref.id} onClick={() => void completeReferral(ref)}>
                                 ثبت انجام
                               </button>
                             )}
