@@ -105,6 +105,8 @@ export default function RegistrationsPage({ onNotify, canImport }: Props) {
   const [items, setItems] = useState<PendingRegistration[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [rows, setRows] = useState<ImportRow[]>([]);
   const [importError, setImportError] = useState<string | null>(null);
@@ -118,12 +120,34 @@ export default function RegistrationsPage({ onNotify, canImport }: Props) {
     try {
       const result = await callStaffApi<{ items: PendingRegistration[] }>('list-registrations');
       setItems(result.items);
+      setSelectedIds(current => current.filter(id => result.items.some(item => item.user_id === id)));
     } catch (cause) {
       setLoadError(cause instanceof Error ? cause.message : 'عملیات انجام نشد.');
     }
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  async function bulkDecide(decision: Decision) {
+    if (!selectedIds.length || bulkBusy) return;
+    setBulkBusy(true);
+    try {
+      const result = await callStaffApi<{ success_count: number; failed_count: number }>('review-registrations', {
+        user_ids: selectedIds,
+        decision,
+      });
+      onNotify(`بررسی گروهی تمام شد؛ ${result.success_count} مورد موفق و ${result.failed_count} مورد ناموفق.`, result.failed_count ? 'error' : 'success');
+      setSelectedIds([]);
+      await load();
+    } catch (cause) {
+      onNotify(cause instanceof Error ? cause.message : 'عملیات گروهی انجام نشد.', 'error');
+    }
+    setBulkBusy(false);
+  }
+
+  function toggleSelected(userId: string) {
+    setSelectedIds(current => current.includes(userId) ? current.filter(id => id !== userId) : [...current, userId]);
+  }
 
   async function decide(item: PendingRegistration, decision: Decision) {
     setBusyId(item.user_id);
@@ -271,9 +295,35 @@ export default function RegistrationsPage({ onNotify, canImport }: Props) {
       )}
       {items && items.length === 0 && <p className="py-16 text-center text-ink-600">درخواست در انتظار بررسی وجود ندارد.</p>}
       {items && items.length > 0 && (
+        <>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={items.length > 0 && items.every(item => selectedIds.includes(item.user_id))}
+              onChange={event => setSelectedIds(event.target.checked ? items.map(item => item.user_id) : [])}
+            />
+            انتخاب همه درخواست‌ها
+          </label>
+          {selectedIds.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-ink-600">{selectedIds.length} مورد انتخاب شده</span>
+              <button type="button" className="btn" disabled={bulkBusy} onClick={() => void bulkDecide('approve')}>
+                <Check size={16} /> تأیید گروهی
+              </button>
+              <button type="button" className="btn btn-secondary" disabled={bulkBusy} onClick={() => void bulkDecide('reject')}>
+                <X size={16} /> رد گروهی
+              </button>
+            </div>
+          )}
+        </div>
         <div className="grid gap-4 md:grid-cols-2">
           {items.map(item => (
             <article key={item.user_id} className="panel flex flex-col gap-4">
+              <label className="flex items-center gap-2 text-xs text-ink-600">
+                <input type="checkbox" checked={selectedIds.includes(item.user_id)} onChange={() => toggleSelected(item.user_id)} />
+                انتخاب برای بررسی گروهی
+              </label>
               <div>
                 <h3 className="font-bold">{item.full_name}</h3>
                 <p dir="ltr" className="mt-1 text-sm text-ink-600">{item.phone}</p>
@@ -295,6 +345,7 @@ export default function RegistrationsPage({ onNotify, canImport }: Props) {
             </article>
           ))}
         </div>
+        </>
       )}
     </section>
   );
