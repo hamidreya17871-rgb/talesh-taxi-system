@@ -67,8 +67,8 @@ export default function LeaveLetterModal({ request, onClose, onNotify }: Props) 
   });
   const body = customBody ?? defaultBody;
 
-  function handlePrint() {
-    if (!printLeaveLetter(request.letter_no, body)) onNotify(PRINT_BLOCKED, 'error');
+  function handlePrint(includeLetterhead: boolean) {
+    if (!printLeaveLetter(request.letter_no, body, includeLetterhead)) onNotify(PRINT_BLOCKED, 'error');
   }
 
   return (
@@ -124,9 +124,13 @@ export default function LeaveLetterModal({ request, onClose, onNotify }: Props) 
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             انصراف
           </button>
-          <button type="button" className="btn" onClick={handlePrint}>
+          <button type="button" className="btn" onClick={() => handlePrint(true)}>
             <Printer size={16} />
-            چاپ نامه
+            چاپ با سربرگ
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={() => handlePrint(false)}>
+            <Printer size={16} />
+            چاپ بدون سربرگ
           </button>
         </div>
       </div>
