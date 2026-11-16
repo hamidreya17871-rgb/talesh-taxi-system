@@ -133,9 +133,8 @@ WHERE EXISTS (
 CREATE INDEX IF NOT EXISTS letter_referrals_monthly_performance_idx
   ON public.letter_referrals (referred_to, created_at, completed_at);
 
--- Keep the aggregate implementation in a non-exposed schema. It returns only
--- performance aggregates and checks the authenticated manager inside the function.
--- SECURITY INVOKER keeps the existing RLS policies active. Managers can
+-- Expose only a narrow aggregate RPC. SECURITY INVOKER keeps the existing RLS
+-- policies active; the function also filters to managers. Managers can
 -- read all staff and referrals; non-managers receive no aggregate rows.
 CREATE OR REPLACE FUNCTION public.get_monthly_secretariat_performance(
   p_month_start date,
