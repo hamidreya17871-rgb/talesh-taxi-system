@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   remediate:
-    if: hashFiles('RUN_NPM_AUDIT_FIX') != ''
+    if: github.event.head_commit.message == 'Trigger one-time dependency remediation'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
