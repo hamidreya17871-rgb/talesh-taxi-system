@@ -130,6 +130,7 @@ DECLARE
   v_referral_id uuid;
   v_type text;
   v_details jsonb;
+  v_changed_fields text[] := ARRAY[]::text[];
 BEGIN
   IF TG_TABLE_NAME = 'letters' THEN
     v_letter_id := NEW.id;
@@ -144,7 +145,15 @@ BEGIN
         v_type := 'status_changed';
         v_details := jsonb_build_object('from', OLD.status, 'to', NEW.status);
       ELSE
-        RETURN NEW;
+        IF NEW.subject IS DISTINCT FROM OLD.subject THEN v_changed_fields := array_append(v_changed_fields, 'subject'); END IF;
+        IF NEW.body IS DISTINCT FROM OLD.body THEN v_changed_fields := array_append(v_changed_fields, 'body'); END IF;
+        IF NEW.correspondent IS DISTINCT FROM OLD.correspondent THEN v_changed_fields := array_append(v_changed_fields, 'correspondent'); END IF;
+        IF NEW.letter_no IS DISTINCT FROM OLD.letter_no THEN v_changed_fields := array_append(v_changed_fields, 'letter_no'); END IF;
+        IF NEW.letter_date IS DISTINCT FROM OLD.letter_date THEN v_changed_fields := array_append(v_changed_fields, 'letter_date'); END IF;
+        IF NEW.attachment_path IS DISTINCT FROM OLD.attachment_path THEN v_changed_fields := array_append(v_changed_fields, 'attachment_path'); END IF;
+        IF cardinality(v_changed_fields) = 0 THEN RETURN NEW; END IF;
+        v_type := 'letter_edited';
+        v_details := jsonb_build_object('changed_fields', v_changed_fields);
       END IF;
     END IF;
   ELSE
@@ -175,7 +184,7 @@ REVOKE ALL ON FUNCTION public.audit_letter_workflow_event() FROM PUBLIC, anon, a
 
 DROP TRIGGER IF EXISTS letters_workflow_audit ON public.letters;
 CREATE TRIGGER letters_workflow_audit
-  AFTER INSERT OR UPDATE OF status, priority ON public.letters
+  AFTER INSERT OR UPDATE ON public.letters
   FOR EACH ROW EXECUTE FUNCTION public.audit_letter_workflow_event();
 DROP TRIGGER IF EXISTS referrals_workflow_audit ON public.letter_referrals;
 CREATE TRIGGER referrals_workflow_audit
