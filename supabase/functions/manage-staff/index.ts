@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const ROLES = ["manager", "expert", "driver"];
-const STAFF_SIGNUP_ROLES = ["manager", "expert"];
+const STAFF_SIGNUP_ROLES = ["expert"];
 const STAFF_REGISTRATION_CODE = Deno.env.get("STAFF_REGISTRATION_CODE") ?? "";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PHONE_PATTERN = /^09\d{9}$/;
@@ -284,7 +284,6 @@ async function handleRegisterStaff(body: Record<string, unknown>): Promise<Respo
   if (typeof role !== "string" || !STAFF_SIGNUP_ROLES.includes(role)) throw invalid();
 
   const email = phoneToAccountEmail(phone);
-  await releaseRemovedDriverPhone(phone);
   const userId = await createAuthUser(email, password);
   await insertProfile(userId, {
     email,
@@ -312,7 +311,6 @@ async function handleRegisterDriver(body: Record<string, unknown>): Promise<Resp
   const taxiRowNo = readText(body, "taxi_row_no", 20);
 
   const email = phoneToAccountEmail(phone);
-  await releaseRemovedDriverPhone(phone);
   const userId = await createAuthUser(email, password);
   let driverId: string | null = null;
   try {
