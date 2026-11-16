@@ -10,6 +10,7 @@ export type LetterheadData = {
   attachment?: string | null;
   direction: 'incoming' | 'outgoing';
   includeLetterhead?: boolean;
+  paperSize?: 'A4' | 'A5';
 };
 
 export function buildLetterHtml(data: LetterheadData): string {
@@ -25,6 +26,7 @@ export function buildLetterHtml(data: LetterheadData): string {
     attachment: data.attachment,
     contentHtml,
     includeLetterhead: data.includeLetterhead,
+    paperSize: data.paperSize,
   });
 }
 
