@@ -31,8 +31,17 @@ AS $$
 DECLARE
   v_as_of timestamptz;
 BEGIN
-  IF auth.uid() IS NULL OR public.current_app_role() IS DISTINCT FROM 'manager' THEN
-    RAISE EXCEPTION 'گزارش عملکرد کارشناسان فقط برای مدیر سازمان مجاز است.'
+  IF auth.uid() IS NULL
+     OR public.current_app_role() IS DISTINCT FROM 'manager'
+     OR NOT EXISTS (
+       SELECT 1
+       FROM public.profiles p
+       WHERE p.user_id = auth.uid()
+         AND p.role = 'manager'
+         AND p.is_active = true
+         AND p.approval_status = 'approved'
+     ) THEN
+    RAISE EXCEPTION 'گزارش عملکرد کارشناسان فقط برای مدیر فعال و تأییدشده مجاز است.'
       USING ERRCODE = '42501';
   END IF;
 
