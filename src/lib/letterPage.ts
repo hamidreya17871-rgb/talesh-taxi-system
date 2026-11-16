@@ -28,10 +28,14 @@ export type LetterPageInput = {
   attachment?: string | null;
   contentHtml: string;
   includeLetterhead?: boolean;
+  paperSize?: 'A4' | 'A5';
 };
 
 export function buildLetterPageHtml(title: string, input: LetterPageInput): string {
   const includeLetterhead = input.includeLetterhead !== false;
+  const paperSize = input.paperSize ?? 'A4';
+  const pageWidth = paperSize === 'A5' ? '148mm' : '210mm';
+  const pageHeight = paperSize === 'A5' ? '210mm' : '297mm';
   const templateUrl = `${window.location.origin}${LETTER_TEMPLATE_FILE}`;
   const dateText = formatPersianDate(input.date);
   const attachmentText = input.attachment?.trim() ? input.attachment.trim() : '-';
@@ -42,21 +46,21 @@ export function buildLetterPageHtml(title: string, input: LetterPageInput): stri
   <meta charset="utf-8" />
   <title>${escapeHtml(title)}</title>
   <style>
-    @page { size: A4; margin: 0; }
+    @page { size: ${paperSize} ${paperSize === 'A5' ? 'portrait' : 'portrait'}; margin: 0; }
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
     body { font-family: Tahoma, Arial, sans-serif; color: ${LETTER_INK}; }
-    .page { position: relative; width: 210mm; height: 297mm; overflow: hidden; background: #fff; }
-    .template { position: absolute; left: 0; top: 0; width: 210mm; height: 297mm; }
+    .page { position: relative; width: ${pageWidth}; height: ${pageHeight}; overflow: hidden; background: #fff; }
+    .template { position: absolute; left: 0; top: 0; width: ${pageWidth}; height: ${pageHeight}; }
     .field { position: absolute; left: 6mm; width: 52mm; height: 9mm; line-height: 9mm; text-align: right; padding-right: 3mm; font-size: 11pt; font-weight: 700; overflow: hidden; white-space: nowrap; }
     .plain-meta { display: none; }
     .field-number { top: 8.8mm; }
     .field-date { top: 21.1mm; }
     .field-attachment { top: 33.9mm; }
-    .content { position: absolute; left: 14mm; top: 80mm; width: 182mm; height: 182mm; overflow: hidden; font-size: 13pt; line-height: 1.9; }
+    .content { position: absolute; left: 10mm; top: ${paperSize === 'A5' ? '58mm' : '80mm'}; width: ${paperSize === 'A5' ? '128mm' : '182mm'}; height: ${paperSize === 'A5' ? '130mm' : '182mm'}; overflow: hidden; font-size: 13pt; line-height: 1.9; }
     .page.plain .template, .page.plain .field { display: none; }
-    .page.plain .plain-meta { display: flex; justify-content: space-between; gap: 8mm; margin: 18mm 14mm 0; padding-bottom: 6mm; border-bottom: 1px solid #bbb; font-size: 11pt; }
-    .page.plain .content { top: 36mm; height: 245mm; }
+    .page.plain .plain-meta { display: flex; justify-content: space-between; gap: 4mm; margin: 12mm 10mm 0; padding-bottom: 6mm; border-bottom: 1px solid #bbb; font-size: 11pt; }
+    .page.plain .content { top: ${paperSize === 'A5' ? '32mm' : '36mm'}; height: ${paperSize === 'A5' ? '165mm' : '245mm'}; }
     .content h2 { font-size: 14pt; margin: 0 0 12px; text-align: center; }
     .content .correspondent { font-weight: 700; margin: 0 0 12px; }
     .content p { margin: 0 0 12px; text-align: justify; }
