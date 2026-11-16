@@ -76,6 +76,10 @@ BEGIN
     RAISE EXCEPTION 'نامه پیدا نشد، بایگانی شده یا امکان ارجاع ندارد.' USING ERRCODE = '23514';
   END IF;
 
+  IF v_direction = 'outgoing' AND v_status IN ('امضا شده', 'مختومه') THEN
+    RAISE EXCEPTION 'نامه امضا شده یا مختومه امکان ارجاع مجدد ندارد.' USING ERRCODE = '23514';
+  END IF;
+
   IF v_direction = 'outgoing'
      AND v_status IN ('صادر شده', 'در انتظار پاسخ')
      AND p_action <> 'follow-up' THEN
