@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const ROLES = ["manager", "expert", "driver"];
-const STAFF_SIGNUP_ROLES = ["manager", "expert"];
+const STAFF_SIGNUP_ROLES = ["expert"];
 const STAFF_REGISTRATION_CODE = Deno.env.get("STAFF_REGISTRATION_CODE") ?? "";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PHONE_PATTERN = /^09\d{9}$/;
@@ -145,19 +145,6 @@ async function createAuthUser(email: string, password: string): Promise<string> 
   return data.user.id;
 }
 
-async function releaseRemovedDriverPhone(phone: string): Promise<void> {
-  const { data: profile, error } = await admin
-    .from("profiles")
-    .select("user_id, role, driver_id")
-    .eq("phone", phone)
-    .maybeSingle();
-  if (error) throw error;
-  if (!profile || profile.role !== "driver" || profile.driver_id) return;
-  const { error: profileError } = await admin.from("profiles").delete().eq("user_id", profile.user_id);
-  if (profileError) throw profileError;
-  const { error: authError } = await admin.auth.admin.deleteUser(profile.user_id);
-  if (authError) throw authError;
-}
 
 type ProfileValues = {
   email: string;
@@ -207,7 +194,6 @@ async function handleCreate(req: Request, body: Record<string, unknown>): Promis
   const fullName = readText(body, "full_name", 100);
   const role = readRole(body);
   const driverId = await readDriverId(body, role);
-  await releaseRemovedDriverPhone(phone);
   const userId = await createAuthUser(phoneToAccountEmail(phone), password);
   await insertProfile(userId, {
     email: phoneToAccountEmail(phone),
@@ -300,7 +286,6 @@ async function handleRegisterStaff(body: Record<string, unknown>): Promise<Respo
   if (typeof role !== "string" || !STAFF_SIGNUP_ROLES.includes(role)) throw invalid();
 
   const email = phoneToAccountEmail(phone);
-  await releaseRemovedDriverPhone(phone);
   const userId = await createAuthUser(email, password);
   await insertProfile(userId, {
     email,
@@ -328,7 +313,6 @@ async function handleRegisterDriver(body: Record<string, unknown>): Promise<Resp
   const taxiRowNo = readText(body, "taxi_row_no", 20);
 
   const email = phoneToAccountEmail(phone);
-  await releaseRemovedDriverPhone(phone);
   const userId = await createAuthUser(email, password);
   let driverId: string | null = null;
   try {
