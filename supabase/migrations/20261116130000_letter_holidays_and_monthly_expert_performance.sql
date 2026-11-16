@@ -36,7 +36,7 @@ BEGIN
     v_local_date := v_local_date + 1;
     IF extract(isodow FROM v_local_date)::integer NOT IN (4, 5)
        AND NOT EXISTS (
-         SELECT 1 FROM public.letter_holidays h
+         SELECT 1 FROM public.letter_official_holidays h
          WHERE h.holiday_date = v_local_date
        ) THEN
       v_added := v_added + 1;
@@ -50,7 +50,7 @@ REVOKE ALL ON FUNCTION public.calculate_letter_due_at(text, timestamptz) FROM PU
 REVOKE ALL ON FUNCTION public.set_letter_referral_deadline() FROM PUBLIC, anon, authenticated;
 
 -- The preceding migration already attached these triggers to the
--- letter_priority_settings and letter_holidays tables. Replace their
+-- letter_priority_settings and letter_official_holidays tables. Replace their
 -- function body here so changed deadlines reset their notification marker.
 CREATE OR REPLACE FUNCTION public.refresh_letter_deadlines()
 RETURNS trigger
