@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BarChart3, CalendarDays, Download, Plus, Save, Settings2, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { formatNumber } from '@/lib/format';
+import { formatNumber, formatPersianDate } from '@/lib/format';
 import { isoToJalali, JALALI_MONTHS, jalaliToIso } from '@/lib/jalali';
 import JalaliDateInput from '@/components/JalaliDateInput';
 import type { Profile } from '@/lib/staff';
@@ -38,9 +38,15 @@ const DEFAULT_SETTINGS: PrioritySetting[] = [
   { priority: 'immediate', working_days: 1 },
 ];
 
-const currentJalali = isoToJalali(new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit',
-}).format(new Date())) ?? { year: 1405, month: 8, day: 1 };
+function tehranTodayIso() {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const part = (type: string) => parts.find(item => item.type === type)?.value ?? '01';
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+const currentJalali = isoToJalali(tehranTodayIso()) ?? { year: 1405, month: 8, day: 1 };
 
 function monthBounds(year: number, month: number) {
   const start = jalaliToIso({ year, month, day: 1 });
@@ -300,7 +306,7 @@ export default function SecretariatManagementPanel({ profile, onNotify }: Props)
         <div className="flex flex-col gap-2">
           {holidays.map(holiday => (
             <div key={holiday.holiday_date} className="flex items-center justify-between gap-3 rounded-lg border border-ink-100 px-3 py-2 text-sm">
-              <div><span className="font-medium">{holiday.title}</span><span className="mr-2 text-xs text-ink-500">{holiday.holiday_date}</span></div>
+              <div><span className="font-medium">{holiday.title}</span><span className="mr-2 text-xs text-ink-500">{formatPersianDate(holiday.holiday_date)}</span></div>
               <button type="button" className="btn-tiny btn-tiny-danger" onClick={() => void removeHoliday(holiday)} aria-label={`حذف تعطیلی ${holiday.title}`}><Trash2 size={14} />حذف</button>
             </div>
           ))}
