@@ -31,15 +31,16 @@ const PRIORITIES = [
 ];
 
 const monthNow = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit' }).formatToParts(new Date());
+  return `${parts.find(part => part.type === 'year')?.value}-${parts.find(part => part.type === 'month')?.value}`;
 };
 
 const monthBounds = (month: string) => {
   const [year, monthNumber] = month.split('-').map(Number);
+  const nextMonth = monthNumber === 12 ? `${year + 1}-01` : `${year}-${String(monthNumber + 1).padStart(2, '0')}`;
   return {
-    start: new Date(year, monthNumber - 1, 1).toISOString(),
-    end: new Date(year, monthNumber, 1).toISOString(),
+    start: new Date(`${month}-01T00:00:00+03:30`).toISOString(),
+    end: new Date(`${nextMonth}-01T00:00:00+03:30`).toISOString(),
   };
 };
 
