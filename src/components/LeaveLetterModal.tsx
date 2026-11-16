@@ -28,6 +28,7 @@ export default function LeaveLetterModal({ request, onClose, onNotify }: Props) 
   const [province, setProvince] = useState(request.destination_province ?? '');
   const [city, setCity] = useState(request.destination_city ?? '');
   const [attachment, setAttachment] = useState('');
+  const [paperSize, setPaperSize] = useState<'A4' | 'A5'>('A4');
   const [customBody, setCustomBody] = useState<string | null>(null);
   const [vehicleError, setVehicleError] = useState<string | null>(null);
 
@@ -69,7 +70,7 @@ export default function LeaveLetterModal({ request, onClose, onNotify }: Props) 
   const body = customBody ?? defaultBody;
 
   function handlePrint(includeLetterhead: boolean) {
-    if (!printLeaveLetter(request.letter_no, body, includeLetterhead, attachment)) onNotify(PRINT_BLOCKED, 'error');
+    if (!printLeaveLetter(request.letter_no, body, includeLetterhead, attachment, paperSize)) onNotify(PRINT_BLOCKED, 'error');
   }
 
   return (
@@ -101,6 +102,14 @@ export default function LeaveLetterModal({ request, onClose, onNotify }: Props) 
           <LetterDateField id="letter-start" label="از تاریخ" value={startDate} onChange={setStartDate} />
           <LetterDateField id="letter-end" label="تا تاریخ" value={endDate} onChange={setEndDate} />
           <LetterField id="letter-days" label="تعداد روز" value={String(days)} onChange={value => setDays(Math.max(1, Math.floor(Number(value)) || 1))} type="number" ltr />
+        </div>
+
+        <div className="mt-5 flex flex-col gap-[7px]">
+          <label htmlFor="leave-letter-paper-size" className="text-xs text-ink-600">اندازه کاغذ</label>
+          <select id="leave-letter-paper-size" value={paperSize} onChange={event => setPaperSize(event.target.value as 'A4' | 'A5')} className="field-input">
+            <option value="A4">A4 — ۲۱۰ × ۲۹۷ میلی‌متر</option>
+            <option value="A5">A5 — ۱۴۸ × ۲۱۰ میلی‌متر</option>
+          </select>
         </div>
 
         <div className="mt-5 flex flex-col gap-[7px]">
