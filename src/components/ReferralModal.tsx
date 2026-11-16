@@ -37,7 +37,7 @@ export default function ReferralModal({ letter, staff, currentUserId, onSaved, o
     const { error: referralError } = await supabase.rpc('create_letter_referral', {
       p_letter_id: letter.id,
       p_referred_to: referredTo,
-      p_action: action,
+      p_action: followUpOnly ? 'follow-up' : action,
       p_note: note.trim() || null,
     });
     if (referralError) {
@@ -75,7 +75,7 @@ export default function ReferralModal({ letter, staff, currentUserId, onSaved, o
 
           <div className="flex flex-col gap-[7px]">
             <label htmlFor="referral-action" className="text-xs text-ink-600">نوع اقدام</label>
-            <select id="referral-action" value={action} onChange={e => setAction(e.target.value as 'review' | 'follow-up' | 'signature')} className="field-input">
+            <select id="referral-action" value={followUpOnly ? "follow-up" : action} onChange={e => setAction(e.target.value as 'review' | 'follow-up' | 'signature')} className="field-input">
               {followUpOnly ? (
                 <option value="follow-up">پیگیری</option>
               ) : (
