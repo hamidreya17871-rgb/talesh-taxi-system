@@ -4,6 +4,7 @@ import { buildDefaultLetterBody, printLeaveLetter } from '@/lib/leaveLetter';
 import JalaliDateInput from '@/components/JalaliDateInput';
 import type { LeaveRequest } from '@/lib/leave';
 import { supabase } from '@/lib/supabase';
+import { callStaffApi } from '@/lib/staffApi';
 
 type Props = {
   request: LeaveRequest;
@@ -37,8 +38,12 @@ export default function LeaveLetterModal({ request, onClose, onNotify }: Props) 
     let active = true;
     (async () => {
       if (request.reviewed_by) {
-        const { data: reviewer } = await supabase.from('profiles').select('signature_data_url').eq('user_id', request.reviewed_by).maybeSingle();
-        if (active) setReviewerSignature(reviewer?.signature_data_url ?? null);
+        try {
+          const result = await callStaffApi<{ items: Array<{ user_id: string; signature_data_url?: string | null }> }>('list-staff');
+          if (active) setReviewerSignature(result.items.find(item => item.user_id === request.reviewed_by)?.signature_data_url ?? null);
+        } catch {
+          if (active) setReviewerSignature(null);
+        }
       }
       const { data, error } = await supabase
         .from('vehicles')
