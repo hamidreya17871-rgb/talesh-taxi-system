@@ -29,13 +29,13 @@ export default function DashboardStats({ stats }: { stats: DashboardStat[] }) {
         return (
           <div
             key={stat.key}
-            className="panel flex items-start justify-between gap-3 p-[19px] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_#163c3218] max-[650px]:p-[13px]"
+            className="panel flex min-h-[112px] items-start justify-between gap-3 p-4 transition duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-[0_12px_30px_#163c3218] max-[650px]:min-h-[96px] max-[650px]:gap-2 max-[650px]:p-3"
           >
             <div className="min-w-0">
-              <p className="text-[13px] leading-[1.5] text-ink-600 max-[650px]:text-xs">{stat.label}</p>
-              <p className="mt-2 text-[27px] font-bold leading-[1.2] max-[650px]:text-[22px]">{formatNumber(stat.value)}</p>
+              <p className="text-xs font-medium leading-6 text-ink-600 max-[650px]:text-xs">{stat.label}</p>
+              <p className="mt-1 text-[26px] font-extrabold leading-tight tabular-nums max-[650px]:text-[22px]">{formatNumber(stat.value)}</p>
             </div>
-            <div className={`grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[14px] max-[650px]:h-9 max-[650px]:w-9 ${TONE_CLASSES[stat.tone]}`}>
+            <div className={`grid h-[42px] w-[42px] shrink-0 place-items-center rounded-xl max-[650px]:h-9 max-[650px]:w-9 ${TONE_CLASSES[stat.tone]}`}>
               <Icon size={20} />
             </div>
           </div>
