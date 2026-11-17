@@ -23,11 +23,15 @@ type Props = {
   canUpload: boolean;
 };
 
-function getAllowedMime(file: File): string | null {
-  const extension = file.name.toLowerCase().split('.').pop();
-  if (file.type === 'application/pdf' || extension === 'pdf') return 'application/pdf';
-  if (file.type === 'image/jpeg' || ['jpg', 'jpeg'].includes(extension ?? '')) return 'image/jpeg';
-  if (file.type === 'image/png' || extension === 'png') return 'image/png';
+async function getAllowedMime(file: File): Promise<string | null> {
+  if (file.size <= 0 || file.size > MAX_FILE_SIZE) return null;
+  const bytes = new Uint8Array(await file.slice(0, 1024).arrayBuffer());
+  const has = (signature: number[], offset = 0) =>
+    signature.every((value, index) => bytes[offset + index] === value);
+
+  if (bytes.some((_, index) => has([0x25, 0x50, 0x44, 0x46, 0x2d], index))) return 'application/pdf';
+  if (has([0xff, 0xd8, 0xff])) return 'image/jpeg';
+  if (has([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png';
   return null;
 }
 
@@ -36,7 +40,7 @@ export async function uploadLetterAttachments(letterId: string, files: File[]) {
   const errors: string[] = [];
 
   for (const file of files) {
-    const mimeType = getAllowedMime(file);
+    const mimeType = await getAllowedMime(file);
     if (!mimeType || file.size <= 0 || file.size > MAX_FILE_SIZE) {
       failedFiles.push(file);
       errors.push(`${file.name}: نوع یا حجم فایل مجاز نیست.`);
@@ -119,17 +123,24 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
     return () => { active = false; };
   }, [letterId]);
 
-  function addFiles(fileList: FileList | null) {
+  async function addFiles(fileList: FileList | null) {
     if (!fileList) return;
     const next = Array.from(fileList);
-    const valid = next.filter(file => {
-      const allowed = Boolean(getAllowedMime(file)) && file.size > 0 && file.size <= MAX_FILE_SIZE;
-      if (!allowed) setMessage('فقط فایل PDF، JPG یا PNG تا حجم ۱۰ مگابایت پذیرفته می‌شود.');
-      return allowed;
-    });
+    const checked = await Promise.all(next.map(async file => ({
+      file,
+      mimeType: await getAllowedMime(file),
+    })));
+    const valid = checked.filter(item => item.mimeType !== null).map(item => item.file);
+    if (valid.length !== next.length) {
+      setMessage('فقط PDF، JPG یا PNG واقعی تا حجم ۱۰ مگابایت پذیرفته می‌شود.');
+    }
+    if (attachments.length + queuedFiles.length + valid.length > 20) {
+      setMessage('برای هر نامه حداکثر ۲۰ پیوست مجاز است.');
+      return;
+    }
     if (valid.length) {
       onQueuedFilesChange([...queuedFiles, ...valid]);
-      setMessage('');
+      if (valid.length === next.length) setMessage('');
     }
   }
 
