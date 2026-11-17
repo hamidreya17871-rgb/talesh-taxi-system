@@ -305,7 +305,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                   letterId={letter.id}
                   queuedFiles={[]}
                   onQueuedFilesChange={() => undefined}
-                  canUpload={false}
+                  canUpload={profile.role !== 'driver' && !letter.manager_signed_at && !['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status)}
                 />
 
                 {(letter.expert_reviewed_at || letter.manager_signed_at || letter.manager_order_note || letter.sent_at || letter.delivery_receipt_path) && (
