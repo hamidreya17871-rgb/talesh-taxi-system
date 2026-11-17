@@ -645,7 +645,7 @@ async function handleActivateImportedDriver(body: Record<string, unknown>): Prom
 }
 
 async function handleSaveSignature(req: Request, body: Record<string, unknown>): Promise<Response> {
-  const userId = await requireOrganizationStaff(req);
+  const userId = await requireStaff(req, ["manager", "expert"]);
   const signature = body.signature_data_url;
   if (typeof signature !== "string" || signature.length > 120000 || !/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/.test(signature)) {
     throw invalid();
