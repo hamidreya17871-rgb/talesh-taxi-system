@@ -12,6 +12,7 @@ export type Profile = {
   is_disciplinary_committee?: boolean;
   approval_status: 'pending' | 'approved' | 'rejected';
   created_at: string;
+  signature_data_url?: string | null;
 };
 
 export const ROLE_LABELS: Record<StaffRole, string> = {
