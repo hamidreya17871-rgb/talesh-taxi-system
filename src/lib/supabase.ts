@@ -1,7 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() ?? '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() ?? '';
+// Supabase publishable keys are designed for browser clients. RLS and server-side
+// authorization remain the security boundary; never place a service-role key here.
+const DEFAULT_SUPABASE_URL = 'https://xrhzsafezpwdztjytkob.supabase.co';
+const DEFAULT_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_FNHTbG5T_N3EA3tYDpM3DA_QlONmgXW';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || DEFAULT_SUPABASE_URL;
+const supabaseKey =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() ||
+  DEFAULT_SUPABASE_PUBLISHABLE_KEY;
 
 function isValidSupabaseUrl(value: string): boolean {
   try {
@@ -12,16 +20,10 @@ function isValidSupabaseUrl(value: string): boolean {
   }
 }
 
-/**
- * Missing public build configuration must never crash module initialization.
- * The UI checks this flag and renders a clear setup screen before using the
- * fallback client. The fallback is deliberately non-functional and contains
- * no credential.
- */
 export const isSupabaseConfigured =
-  isValidSupabaseUrl(supabaseUrl) && Boolean(supabaseAnonKey);
+  isValidSupabaseUrl(supabaseUrl) && Boolean(supabaseKey);
 
 export const supabase = createClient(
   isSupabaseConfigured ? supabaseUrl : 'https://configuration-missing.supabase.co',
-  isSupabaseConfigured ? supabaseAnonKey : 'configuration-missing-anon-key',
+  isSupabaseConfigured ? supabaseKey : 'configuration-missing-anon-key',
 );
