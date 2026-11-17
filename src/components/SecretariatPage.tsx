@@ -200,24 +200,24 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
             <RefreshCw size={16} />
             به‌روزرسانی
           </button>
-          <button type="button" className="btn" onClick={() => setEditor(null)}>
+          {!showArchived && <button type="button" className="btn" onClick={() => setEditor(null)}>
             <Plus size={16} />
             نامه جدید
-          </button>
+          </button>}
         </div>
       </header>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="panel">
-          <p className="text-xs text-ink-600">کل مکاتبات</p>
+          <p className="text-xs text-ink-600">{showArchived ? 'نامه‌های بایگانی‌شده' : 'کل مکاتبات فعال'}</p>
           <p className="mt-1 text-2xl font-bold">{letters?.length ?? '—'}</p>
         </div>
         <div className="panel">
-          <p className="text-xs text-ink-600">نامه‌های وارده</p>
+          <p className="text-xs text-ink-600">{showArchived ? 'وارده بایگانی‌شده' : 'نامه‌های وارده'}</p>
           <p className="mt-1 text-2xl font-bold">{(letters ?? []).filter(l => l.direction === 'incoming').length}</p>
         </div>
         <div className="panel">
-          <p className="text-xs text-ink-600">در جریان اقدام</p>
+          <p className="text-xs text-ink-600">{showArchived ? 'نامه‌های خروجی بایگانی‌شده' : 'در جریان اقدام'}</p>
           <p className="mt-1 text-2xl font-bold">{pendingCount}</p>
         </div>
       </div>
@@ -358,7 +358,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                             <span className={ref.status === 'done' ? 'text-brand-600' : 'text-gold-700'}>
                               {ref.status === 'done' ? 'انجام شد' : 'در انتظار'}
                             </span>
-                            {ref.status === 'pending' && (isManager || ref.referred_to === profile.user_id) && (
+                            {!showArchived && ref.status === 'pending' && (isManager || ref.referred_to === profile.user_id) && (
                               <button type="button" className="btn-tiny" disabled={busyId === ref.id} onClick={() => void completeReferral(ref)}>
                                 ثبت انجام
                               </button>
@@ -371,7 +371,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                 )}
 
                 <div className="flex flex-wrap gap-2">
-                  {!(letter.direction === 'outgoing' && ['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status)) && <button type="button" className="btn-tiny" onClick={() => setEditor(letter)}>
+                  {!showArchived && !(letter.direction === 'outgoing' && ['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status)) && <button type="button" className="btn-tiny" onClick={() => setEditor(letter)}>
                     <Pencil size={13} />
                     ویرایش
                   </button>}
