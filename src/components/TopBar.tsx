@@ -83,9 +83,12 @@ export default function TopBar({ title, profile, onSignOut, onMenuClick, onMessa
 
   return (
     <header className="sticky top-0 z-20 flex min-h-[76px] items-center justify-between gap-3 border-b border-ink-200/80 bg-white/95 px-7 shadow-[0_2px_12px_#163c3208] backdrop-blur max-[650px]:h-16 max-[650px]:px-4">
-      <div>
-        <h1 className="text-lg font-bold text-ink-900 max-[650px]:text-sm">{title}</h1>
-        <p className="text-xs text-ink-600 max-[650px]:hidden">سامانه مدیریت حمل‌ونقل و تاکسیرانی تالش</p>
+      <div className="flex min-w-0 items-center gap-3">
+        <img src="/file_00000000b04481f4b5dfa592b07ecabc.png" alt="نشان رسمی تاکسیرانی تالش" className="h-11 w-11 shrink-0 rounded-xl bg-white object-contain p-0.5 shadow-sm" />
+        <div className="min-w-0">
+          <h1 className="text-lg font-bold text-ink-900 max-[650px]:text-sm">{title}</h1>
+          <p className="text-xs text-ink-600 max-[650px]:hidden">سامانه مدیریت حمل‌ونقل و تاکسیرانی تالش</p>
+        </div>
       </div>
       <div className="flex items-center gap-2.5">
         {profile.role === 'driver' && (
