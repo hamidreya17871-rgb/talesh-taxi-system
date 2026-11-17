@@ -2,6 +2,12 @@ import { formatPersianDate } from '@/lib/format';
 
 const LETTERHEAD_FILE = '/file_00000000b04481f4b5dfa592b07ecabc.png';
 
+function getLetterheadUrl(): string {
+  // The print document is opened as about:blank; use an absolute same-origin URL
+  // so the browser never resolves the letterhead against the blank document URL.
+  return new URL(LETTERHEAD_FILE, window.location.origin).toString();
+}
+
 export const LETTER_INK = '#182b28';
 
 export function escapeHtml(value: string): string {
@@ -70,7 +76,7 @@ export function buildLetterPageHtml(title: string, input: LetterPageInput): stri
 </head>
 <body>
   <div class="page${includeLetterhead ? '' : ' plain'}">
-    ${includeLetterhead ? `<img class="template-image" src="${LETTERHEAD_FILE}" alt="سربرگ رسمی سازمان مدیریت حمل و نقل شهرداری تالش" /><div class="field field-number">${escapeHtml(String(input.letterNo))}</div><div class="field field-date">${escapeHtml(dateText)}</div><div class="field field-attachment">${escapeHtml(attachmentText)}</div>` : `<div class="plain-meta"><span>شماره: ${escapeHtml(String(input.letterNo))}</span><span>تاریخ: ${escapeHtml(dateText)}</span><span>پیوست: ${escapeHtml(attachmentText)}</span></div>`}
+    ${includeLetterhead ? `<img class="template-image" src="${getLetterheadUrl()}" alt="سربرگ رسمی سازمان مدیریت حمل و نقل شهرداری تالش" /><div class="field field-number">${escapeHtml(String(input.letterNo))}</div><div class="field field-date">${escapeHtml(dateText)}</div><div class="field field-attachment">${escapeHtml(attachmentText)}</div>` : `<div class="plain-meta"><span>شماره: ${escapeHtml(String(input.letterNo))}</span><span>تاریخ: ${escapeHtml(dateText)}</span><span>پیوست: ${escapeHtml(attachmentText)}</span></div>`}
     <div class="content">${input.contentHtml}</div>
   </div>
 </body>
@@ -96,12 +102,16 @@ export function openLetterPrintWindow(html: string): boolean {
       if (html.includes('class="template-image"')) {
         const image = printWindow.document.querySelector<HTMLImageElement>('.template-image');
         if (!image) throw new Error('تصویر سربرگ رسمی پیدا نشد.');
-        if (typeof image.decode === 'function') await image.decode();
-        else if (!image.complete) await new Promise<void>((resolve, reject) => {
+        if (!image.complete) await new Promise<void>((resolve, reject) => {
           image.addEventListener('load', () => resolve(), { once: true });
           image.addEventListener('error', () => reject(new Error('بارگذاری سربرگ ناموفق بود.')), { once: true });
         });
-        if (!image.complete || image.naturalWidth === 0) throw new Error('تصویر سربرگ رسمی بارگذاری نشد؛ چاپ متوقف شد.');
+        if (image.naturalWidth === 0) throw new Error('تصویر سربرگ رسمی بارگذاری نشد؛ چاپ متوقف شد.');
+        if (typeof image.decode === 'function') {
+          await image.decode().catch(() => {
+            if (image.naturalWidth === 0) throw new Error('رمزگشایی تصویر سربرگ ناموفق بود.');
+          });
+        }
       }
       if (printWindow.document.fonts?.ready) await printWindow.document.fonts.ready;
       if (printWindow.closed) return;
