@@ -105,14 +105,16 @@ CREATE TRIGGER letters_admin_audit
   AFTER INSERT OR UPDATE OR DELETE ON public.letters
   FOR EACH ROW EXECUTE FUNCTION public.write_admin_record_audit();
 
-CREATE OR REPLACE FUNCTION public.permanently_delete_archived_letter(p_letter_id uuid)
+DROP FUNCTION IF EXISTS public.permanently_delete_archived_letter(uuid);
+
+CREATE OR REPLACE FUNCTION public.permanently_delete_archived_letter(p_letter_id uuid, p_actor_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-  v_actor uuid := auth.uid();
+  v_actor uuid := p_actor_id;
   v_letter public.letters%ROWTYPE;
   v_role text;
   v_paths text[];
@@ -149,6 +151,7 @@ BEGIN
     UNION ALL SELECT a.storage_path FROM public.letter_attachments a WHERE a.letter_id = p_letter_id
   ) AS stored_files;
 
+  PERFORM set_config('request.jwt.claim.sub', v_actor::text, true);
   PERFORM set_config('app.allow_archived_letter_delete', 'on', true);
   DELETE FROM public.letters WHERE id = p_letter_id;
 
@@ -160,5 +163,5 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.permanently_delete_archived_letter(uuid) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.permanently_delete_archived_letter(uuid) TO authenticated;
+REVOKE ALL ON FUNCTION public.permanently_delete_archived_letter(uuid, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.permanently_delete_archived_letter(uuid, uuid) TO service_role;
