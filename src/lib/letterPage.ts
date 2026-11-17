@@ -81,43 +81,72 @@ export function buildLetterPageHtml(title: string, input: LetterPageInput): stri
 export function openLetterPrintWindow(html: string): boolean {
   const printWindow = window.open('', '_blank', 'width=900,height=1000');
   if (!printWindow) return false;
-  // Open synchronously to avoid mobile popup blockers, then embed the official
-  // stationery image as a data URL so about:blank/WebView cannot lose its path.
+
+  const showPrintError = (message: string) => {
+    if (printWindow.closed) return;
+    printWindow.document.open();
+    printWindow.document.write(`<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font-family:Tahoma,Arial,sans-serif;padding:32px;text-align:center;line-height:2"> ${escapeHtml(message)} </body></html>`);
+    printWindow.document.close();
+  };
+
+  const writeAndPrint = async (documentHtml: string, expectedLetterhead: boolean) => {
+    try {
+      printWindow.document.open();
+      printWindow.document.write(documentHtml);
+      printWindow.document.close();
+
+      if (expectedLetterhead) {
+        const image = printWindow.document.querySelector<HTMLImageElement>('.template');
+        if (!image) throw new Error('تصویر سربرگ در قالب چاپ پیدا نشد.');
+        if (typeof image.decode === 'function') {
+          await image.decode();
+        } else if (!image.complete) {
+          await new Promise<void>((resolve, reject) => {
+            image.addEventListener('load', () => resolve(), { once: true });
+            image.addEventListener('error', () => reject(new Error('بارگذاری تصویر سربرگ ناموفق بود.')), { once: true });
+          });
+        }
+        if (!image.complete || image.naturalWidth === 0) {
+          throw new Error('تصویر سربرگ کامل بارگذاری نشد؛ برای جلوگیری از چاپ ناقص، چاپ متوقف شد.');
+        }
+      }
+
+      if (printWindow.document.fonts?.ready) await printWindow.document.fonts.ready;
+      if (printWindow.closed) return;
+      printWindow.focus();
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          if (!printWindow.closed) printWindow.print();
+        });
+      });
+    } catch (error) {
+      showPrintError(error instanceof Error ? error.message : 'آماده‌سازی چاپ ناموفق بود. دوباره تلاش کنید.');
+    }
+  };
+
+  const expectedLetterhead = html.includes('class="template"');
+  if (!expectedLetterhead) {
+    void writeAndPrint(html, false);
+    return true;
+  }
+
   const templateUrl = new URL(LETTER_TEMPLATE_FILE, window.location.href).href;
-  void fetch(templateUrl, { cache: 'no-cache' })
+  void fetch(templateUrl, { cache: 'no-store' })
     .then(response => {
-      if (!response.ok) throw new Error('Letterhead image could not be loaded');
+      if (!response.ok) throw new Error('دریافت تصویر سربرگ رسمی ناموفق بود.');
+      const contentType = response.headers.get('content-type') ?? '';
+      if (!contentType.startsWith('image/')) throw new Error('فایل سربرگ، تصویر معتبر نیست.');
       return response.blob();
     })
     .then(blob => new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Invalid image data'));
-      reader.onerror = () => reject(new Error('Image read failed'));
+      reader.onload = () => typeof reader.result === 'string'
+        ? resolve(reader.result)
+        : reject(new Error('خواندن تصویر سربرگ ناموفق بود.'));
+      reader.onerror = () => reject(new Error('خواندن تصویر سربرگ ناموفق بود.'));
       reader.readAsDataURL(blob);
     }))
-    .catch(() => '')
-    .then(dataUrl => {
-      printWindow.document.open();
-      if (!dataUrl) {
-        printWindow.document.write('<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><body style="font-family:Tahoma,Arial,sans-serif;padding:32px;text-align:center">تصویر سربرگ رسمی بارگذاری نشد. برای جلوگیری از چاپ اشتباه، چاپ متوقف شد. اتصال اینترنت را بررسی و دوباره تلاش کنید.</body></html>');
-        printWindow.document.close();
-        return;
-      }
-      const printableHtml = html.replace(templateUrl, dataUrl);
-      printWindow.document.write(printableHtml);
-      printWindow.document.close();
-      const images = Array.from(printWindow.document.images);
-      const ready = Promise.all(images.map(image => {
-        if (image.complete && image.naturalWidth > 0) return Promise.resolve();
-        return new Promise<void>(resolve => {
-          image.addEventListener('load', () => resolve(), { once: true });
-          image.addEventListener('error', () => resolve(), { once: true });
-        });
-      }));
-      void ready.then(() => {
-        printWindow.focus();
-        window.setTimeout(() => printWindow.print(), 500);
-      });
-    });
+    .then(dataUrl => writeAndPrint(html.replace(templateUrl, dataUrl), true))
+    .catch(error => showPrintError(error instanceof Error ? error.message : 'تصویر سربرگ بارگذاری نشد؛ چاپ انجام نشد.'));
   return true;
 }
