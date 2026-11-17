@@ -444,6 +444,70 @@ async function sha256Hex(value: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, "0")).join("");
 }
 
+async function handleCreateSingleDriver(req: Request, body: Record<string, unknown>): Promise<Response> {
+  await requireStaff(req, ["manager"]);
+  const phone = readPhone(body);
+  const nationalCode = normalizeDigits(readText(body, "national_code", 10));
+  if (!NATIONAL_CODE_PATTERN.test(nationalCode)) throw new RequestError("کد ملی باید ۱۰ رقم باشد.", 400);
+  const fullName = readText(body, "full_name", 100);
+  const plate = normalizeDigits(readText(body, "plate", 40));
+  if (!PLATE_PATTERN.test(plate)) throw new RequestError("شماره پلاک معتبر نیست.", 400);
+  const model = readText(body, "model", 100);
+  const taxiRowNo = normalizeDigits(readText(body, "taxi_row_no", 20));
+  const [driverPhone, driverNational, profilePhone, vehiclePlate, vehicleRow] = await Promise.all([
+    admin.from("drivers").select("id").eq("phone", phone).maybeSingle(),
+    admin.from("drivers").select("id").eq("national_code", nationalCode).maybeSingle(),
+    admin.from("profiles").select("user_id").eq("phone", phone).maybeSingle(),
+    admin.from("vehicles").select("id").eq("plate", plate).maybeSingle(),
+    admin.from("vehicles").select("id").eq("taxi_row_no", taxiRowNo).maybeSingle(),
+  ]);
+  for (const result of [driverPhone, driverNational, profilePhone, vehiclePlate, vehicleRow]) {
+    if (result.error) throw result.error;
+  }
+  if (driverPhone.data || driverNational.data || profilePhone.data || vehiclePlate.data || vehicleRow.data) {
+    throw new RequestError("شماره موبایل، کد ملی، پلاک یا ردیف تاکسی قبلاً ثبت شده است.", 409);
+  }
+
+  const email = phoneToAccountEmail(phone);
+  const userId = await createAuthUser(email, randomUrlToken(32));
+  let driverId: string | null = null;
+  try {
+    const driver = await admin.from("drivers").insert({
+      name: fullName, national_code: nationalCode, phone, status: PENDING_DRIVER_STATUS,
+    }).select("id").single();
+    if (driver.error) throw driver.error;
+    driverId = driver.data.id;
+
+    const vehicle = await admin.from("vehicles").insert({
+      plate, model, driver_name: fullName, taxi_row_no: taxiRowNo,
+      driver_id: driverId, status: "نیازمند بررسی",
+    });
+    if (vehicle.error) throw vehicle.error;
+
+    const profile = await admin.from("profiles").insert({
+      user_id: userId, email, phone, full_name: fullName, role: "driver",
+      driver_id: driverId, is_active: false, approval_status: "pending",
+    });
+    if (profile.error) throw profile.error;
+
+    const activationCode = randomUrlToken(24);
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { error: tokenError } = await admin.rpc("store_driver_activation_token", {
+      p_user_id: userId, p_code_hash: await sha256Hex(activationCode), p_expires_at: expiresAt,
+    });
+    if (tokenError) throw tokenError;
+    return json({ name: fullName, phone, activation_code: activationCode, expires_at: expiresAt });
+  } catch (error) {
+    await admin.from("profiles").delete().eq("user_id", userId);
+    if (driverId) {
+      await admin.from("vehicles").delete().eq("driver_id", driverId);
+      await admin.from("drivers").delete().eq("id", driverId);
+    }
+    await admin.auth.admin.deleteUser(userId);
+    throw error;
+  }
+}
+
 async function handleIssueExistingDriverCodes(req: Request): Promise<Response> {
   await requireStaff(req, ["manager"]);
   const { data: drivers, error: driversError } = await admin
@@ -787,7 +851,7 @@ Deno.serve(async (req: Request) => {
         return await handleDeleteExpert(req, body);
       case "register-driver":
         return await handleRegisterDriver(req, body);
-      case "issue-existing-driver-codes":
+      case "create-driver-single":\n        return await handleCreateSingleDriver(req, body);\n      case "issue-existing-driver-codes":
         return await handleIssueExistingDriverCodes(req);
       case "import-drivers":
         return await handleImportDrivers(req, body);
