@@ -23,6 +23,7 @@ import TopBar from '@/components/TopBar';
 import { useFleetData } from '@/hooks/useFleetData';
 import { useSession } from '@/hooks/useSession';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import PreviewDemo from '@/components/PreviewDemo';
 import { useToast } from '@/hooks/useToast';
 import {
   ENTITY_KEYS,
@@ -47,21 +48,7 @@ type EditorState = { entity: EntityKey; record: FleetRecord | null };
 export default function App() {
   const { status: sessionStatus, profile, signOut } = useSession();
 
-  if (!isSupabaseConfigured) {
-    return (
-      <div className="grid min-h-screen place-items-center p-5" dir="rtl">
-        <div className="panel w-full max-w-lg text-center">
-          <h1 className="mb-3 text-xl font-extrabold">تنظیمات اتصال پیش‌نمایش کامل نیست</h1>
-          <p className="text-ink-600">
-            متغیرهای اتصال Supabase برای محیط Preview در دسترس نیستند.
-            نسخه اصلی سامانه تغییری نکرده است. برای فعال شدن این نسخه باید
-            VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY در تنظیمات محیط Preview
-            پروژه Cloudflare تعریف شوند.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (!isSupabaseConfigured) return <PreviewDemo />;
 
   if (sessionStatus === 'loading') {
     return <p className="py-24 text-center text-ink-600">در حال بارگذاری…</p>;
