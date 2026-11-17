@@ -2,8 +2,6 @@ import { formatPersianDate, todayIso } from '@/lib/format';
 import { municipalSealSvg } from '@/lib/municipalSeal';
 import { buildLetterPageHtml, openLetterPrintWindow, paragraphsHtml, LETTER_INK } from '@/lib/letterPage';
 
-const SEAL_INK = '#1f3fd0';
-
 export type LeaveLetterFields = {
   driverName: string;
   vehicleModel: string;
