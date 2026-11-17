@@ -9,6 +9,7 @@ import { LEAVE_STATUS_LABELS, type LeaveRequest } from '@/lib/leave';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/staff';
 import LineInspectorReports from '@/components/LineInspectorReports';
+import OrganizationContactCard from '@/components/OrganizationContactCard';
 
 type Props = {
   data: FleetData;
@@ -103,6 +104,8 @@ export default function DriverDashboard({ data, profile, onNavigate }: Props) {
           مشاهده مرخصی‌ها
         </button>
       </div>
+
+      <OrganizationContactCard />
 
       <div className="panel flex flex-col gap-3">
         <h3 className="font-bold">آخرین تخلفات</h3>
