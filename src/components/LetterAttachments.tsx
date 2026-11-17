@@ -142,6 +142,27 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
     return () => { active = false; };
   }, [letterId]);
 
+  async function refreshAttachments() {
+    if (!letterId) return;
+    const { data, error } = await supabase
+      .from('letter_attachments')
+      .select('id, storage_path, file_name, mime_type, file_size, created_at, document_type')
+      .eq('letter_id', letterId)
+      .order('created_at', { ascending: true });
+    if (error || !data) {
+      setMessage('فایل بارگذاری شد، اما دریافت فهرست پیوست‌ها انجام نشد.');
+      return;
+    }
+    const rows = data as AttachmentRow[];
+    const withUrls = await Promise.all(rows.map(async row => {
+      const { data: signed, error: signedError } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUrl(row.storage_path, 900);
+      return { ...row, signedUrl: signedError ? null : signed?.signedUrl ?? null };
+    }));
+    setAttachments(withUrls);
+  }
+
   async function addFiles(fileList: FileList | null) {
     if (!fileList) return;
     const next = Array.from(fileList);
@@ -155,6 +176,16 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
     }
     if (attachments.length + queuedFiles.length + valid.length > 20) {
       setMessage('برای هر نامه حداکثر ۲۰ پیوست مجاز است.');
+      return;
+    }
+    if (valid.length && letterId) {
+      setLoading(true);
+      setMessage('در حال بارگذاری پیوست برای همین نامه…');
+      const result = await uploadLetterAttachments(letterId, valid, documentType);
+      await refreshAttachments();
+      setLoading(false);
+      setMessage(result.errors.length ? result.errors.join(' ') : 'پیوست با موفقیت به همین نامه متصل شد.');
+      if (result.failedFiles.length) onQueuedFilesChange([...queuedFiles, ...result.failedFiles]);
       return;
     }
     if (valid.length) {
@@ -184,7 +215,7 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
           <div className="flex flex-wrap gap-2">
             <label className="btn btn-secondary cursor-pointer">
               <Camera size={16} />
-              عکس‌برداری / افزودن صفحه
+              عکس‌برداری با دوربین
               <input
                 type="file"
                 accept="image/jpeg,image/png"
@@ -195,7 +226,19 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
             </label>
             <label className="btn btn-secondary cursor-pointer">
               <Upload size={16} />
-              انتخاب PDF یا تصویر
+              انتخاب فایل PDF یا تصویر
+
+              <input
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
+                multiple
+                className="hidden"
+                onChange={event => { addFiles(event.target.files); event.currentTarget.value = ''; }}
+              />
+            </label>
+            <label className="btn btn-secondary cursor-pointer">
+              <FileText size={16} />
+              دریافت فایل اسکن‌شده از رایانه
               <input
                 type="file"
                 accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
