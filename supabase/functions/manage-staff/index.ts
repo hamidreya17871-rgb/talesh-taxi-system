@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const ROLES = ["manager", "expert", "driver"];
+const ROLES = ["admin", "manager", "expert", "driver"];
 const STAFF_SIGNUP_ROLES = ["expert"];
 const STAFF_REGISTRATION_CODE = Deno.env.get("STAFF_REGISTRATION_CODE") ?? "";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -114,7 +114,7 @@ async function requireStaff(req: Request, allowedRoles: string[]): Promise<strin
     .eq("user_id", userData.user.id)
     .maybeSingle();
   if (error) throw error;
-  if (!profile || !allowedRoles.includes(profile.role) || !profile.is_active || profile.approval_status !== "approved") {
+  if (!profile || !(allowedRoles.includes(profile.role) || (profile.role === "admin" && allowedRoles.includes("manager"))) || !profile.is_active || profile.approval_status !== "approved") {
     throw new RequestError("دسترسی مجاز نیست.", 403);
   }
   return userData.user.id;
@@ -189,11 +189,18 @@ async function handleBootstrap(body: Record<string, unknown>): Promise<Response>
 }
 
 async function handleCreate(req: Request, body: Record<string, unknown>): Promise<Response> {
-  await requireStaff(req, ["manager"]);
+  const callerId = await requireStaff(req, ["manager"]);
+  const caller = await admin.from("profiles").select("role").eq("user_id", callerId).single();
+  if (caller.error) throw caller.error;
   const phone = readPhone(body);
   const password = readPassword(body.password);
   const fullName = readText(body, "full_name", 100);
   const role = readRole(body);
+  if (role === "admin") {
+    const { count, error } = await admin.from("profiles").select("user_id", { count: "exact", head: true }).eq("role", "admin").eq("is_active", true).eq("approval_status", "approved");
+    if (error) throw error;
+    if (caller.data.role !== "admin" && (count ?? 0) > 0) throw new RequestError("ایجاد مدیرکل جدید فقط با تأیید مدیرکل فعلی مجاز است.", 403);
+  }
   const driverId = await readDriverId(body, role);
   const userId = await createAuthUser(phoneToAccountEmail(phone), password);
   await insertProfile(userId, {
@@ -237,20 +244,32 @@ async function handleUpdate(req: Request, body: Record<string, unknown>): Promis
 
   const { data: target, error: targetError } = await admin
     .from("profiles")
-    .select("user_id")
+    .select("user_id, role")
     .eq("user_id", userId)
     .maybeSingle();
   if (targetError) throw targetError;
   if (!target) throw new RequestError("کاربر پیدا نشد.", 404);
 
+  const callerProfile = await admin.from("profiles").select("role").eq("user_id", callerId).single();
+  if (callerProfile.error) throw callerProfile.error;
   const fullName = readText(body, "full_name", 100);
   const role = readRole(body);
   const driverId = await readDriverId(body, role);
   if (typeof body.is_active !== "boolean") throw invalid();
   const isActive = body.is_active;
 
-  if (userId === callerId && (role !== "manager" || !isActive)) {
-    throw new RequestError("شما نمی‌توانید نقش یا وضعیت حساب خود را تغییر دهید.", 400);
+  if (userId === callerId) throw new RequestError("تغییر نقش یا غیرفعال‌سازی حساب خودتان مجاز نیست.", 400);
+  if (target.role === "admin" && callerProfile.data.role !== "admin") throw new RequestError("فقط مدیرکل می‌تواند حساب مدیرکل را تغییر دهد.", 403);
+  if (target.role === "manager" && callerProfile.data.role !== "admin" && (role !== "manager" || !isActive)) throw new RequestError("تغییر نقش یا غیرفعال‌سازی مدیر سازمان فقط برای مدیرکل مجاز است.", 403);
+  if (target.role === "manager" && (role !== "manager" || !isActive)) {
+    const { count, error } = await admin.from("profiles").select("user_id", { count: "exact", head: true }).eq("role", "manager").eq("is_active", true).eq("approval_status", "approved");
+    if (error) throw error;
+    if ((count ?? 0) <= 1) throw new RequestError("تنزل یا غیرفعال‌سازی آخرین مدیر سازمان مجاز نیست.", 409);
+  }
+  if (role === "admin" && callerProfile.data.role !== "admin") {
+    const { count, error } = await admin.from("profiles").select("user_id", { count: "exact", head: true }).eq("role", "admin").eq("is_active", true).eq("approval_status", "approved");
+    if (error) throw error;
+    if ((count ?? 0) > 0) throw new RequestError("تعیین مدیرکل جدید فقط با تأیید مدیرکل فعلی مجاز است.", 403);
   }
 
   if (body.password) {
