@@ -1,0 +1,63 @@
+name: Android APK
+
+on:
+  push:
+    branches: [release/android-pwa-packaging-20261117]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install web dependencies
+        run: npm ci
+      - name: Install Capacitor toolchain without changing project lockfile
+        run: npm install --no-save --package-lock=false @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
+      - name: Validate public Supabase build configuration
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_PWA_HOSTS: talesh-taxi-system.pages.dev,web-application-deve-0r9y.bolt.host
+        run: |
+          test -n "$VITE_SUPABASE_URL" || (echo "::error::Set GitHub Actions secret VITE_SUPABASE_URL"; exit 1)
+          test -n "$VITE_SUPABASE_ANON_KEY" || (echo "::error::Set GitHub Actions secret VITE_SUPABASE_ANON_KEY"; exit 1)
+          echo "VITE_SUPABASE_URL=$VITE_SUPABASE_URL" >> "$GITHUB_ENV"
+          echo "VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY" >> "$GITHUB_ENV"
+          echo "VITE_PWA_HOSTS=$VITE_PWA_HOSTS" >> "$GITHUB_ENV"
+      - name: Build web application
+        run: npm run build
+      - name: Generate Capacitor Android project
+        run: |
+          cat > capacitor.config.json <<'EOF'
+          {
+            "appId": "ir.talesh.taxi",
+            "appName": "تاکسیرانی تالش",
+            "webDir": "dist",
+            "server": { "androidScheme": "https" }
+          }
+          EOF
+          npx cap add android
+          npx cap sync android
+      - name: Build installable debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: talesh-taxi-android-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
