@@ -5,8 +5,8 @@ import { createClient } from '@supabase/supabase-js';
 const DEFAULT_SUPABASE_URL = 'https://xrhzsafezpwdztjytkob.supabase.co';
 const DEFAULT_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_FNHTbG5T_N3EA3tYDpM3DA_QlONmgXW';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || DEFAULT_SUPABASE_URL;
-const supabaseKey =
+export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || DEFAULT_SUPABASE_URL;
+export const supabasePublicKey =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ||
   import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() ||
   DEFAULT_SUPABASE_PUBLISHABLE_KEY;
@@ -21,9 +21,9 @@ function isValidSupabaseUrl(value: string): boolean {
 }
 
 export const isSupabaseConfigured =
-  isValidSupabaseUrl(supabaseUrl) && Boolean(supabaseKey);
+  isValidSupabaseUrl(supabaseUrl) && Boolean(supabasePublicKey);
 
 export const supabase = createClient(
   isSupabaseConfigured ? supabaseUrl : 'https://configuration-missing.supabase.co',
-  isSupabaseConfigured ? supabaseKey : 'configuration-missing-anon-key',
+  isSupabaseConfigured ? supabasePublicKey : 'configuration-missing-anon-key',
 );
