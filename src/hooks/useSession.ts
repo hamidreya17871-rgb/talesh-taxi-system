@@ -31,6 +31,11 @@ export function useSession() {
 
   useEffect(() => {
     let active = true;
+    let authEventSeen = false;
+    let currentUserId: string | null = null;
+    let loadingUserId: string | null = null;
+    let requestVersion = 0;
+
     if (!isSupabaseConfigured) {
       setStatus('error');
       return () => { active = false; };
@@ -38,65 +43,82 @@ export function useSession() {
 
     async function applySession(session: Session | null) {
       if (!active) return;
+
       if (!session) {
+        requestVersion += 1;
+        currentUserId = null;
+        loadingUserId = null;
         readyUserIdRef.current = null;
         setProfile(null);
         setStatus('signed-out');
         return;
       }
+
       const userId = session.user.id;
+      currentUserId = userId;
       if (readyUserIdRef.current === userId) return;
+      if (loadingUserId === userId) return;
+
+      const version = ++requestVersion;
+      loadingUserId = userId;
+      readyUserIdRef.current = null;
+      setProfile(null);
+      setStatus('loading');
 
       try {
         const { data, error } = await withTimeout(
           supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle(),
         );
-        if (!active) return;
+        if (!active || version !== requestVersion || currentUserId !== userId) return;
         if (error) throw error;
+
         if (!data) {
-          readyUserIdRef.current = null;
           setProfile(null);
           setStatus('inactive');
-          return;
-        }
-        if (data.approval_status === 'rejected') {
-          readyUserIdRef.current = null;
+        } else if (data.approval_status === 'rejected') {
           setProfile(null);
           setStatus('rejected');
-          return;
-        }
-        if (data.approval_status !== 'approved') {
-          readyUserIdRef.current = null;
+        } else if (data.approval_status !== 'approved') {
           setProfile(null);
           setStatus('pending');
-          return;
-        }
-        if (!data.is_active) {
-          readyUserIdRef.current = null;
+        } else if (!data.is_active) {
           setProfile(null);
           setStatus('inactive');
-          return;
+        } else {
+          readyUserIdRef.current = userId;
+          setProfile(data as Profile);
+          setStatus('ready');
         }
-        readyUserIdRef.current = userId;
-        setProfile(data as Profile);
-        setStatus('ready');
       } catch {
-        if (active) setStatus('error');
+        if (active && version === requestVersion && currentUserId === userId) {
+          readyUserIdRef.current = null;
+          setProfile(null);
+          setStatus('error');
+        }
+      } finally {
+        if (version === requestVersion && loadingUserId === userId) {
+          loadingUserId = null;
+        }
       }
     }
 
-    void withTimeout(supabase.auth.getSession())
-      .then(({ data }) => applySession(data.session))
-      .catch(() => {
-        if (active) setStatus('error');
-      });
-
+    // Subscribe first so a slow getSession() cannot overwrite a newer auth event.
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      authEventSeen = true;
       void applySession(session);
     });
 
+    void withTimeout(supabase.auth.getSession())
+      .then(({ data }) => {
+        if (active && !authEventSeen) void applySession(data.session);
+      })
+      .catch(() => {
+        if (active && !authEventSeen) setStatus('error');
+      });
+
     return () => {
       active = false;
+      requestVersion += 1;
       listener.subscription.unsubscribe();
     };
   }, []);
