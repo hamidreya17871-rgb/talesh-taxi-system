@@ -11,7 +11,7 @@ const pwaHosts = (
   'talesh-taxi-system.pages.dev,web-application-deve-0r9y.bolt.host'
 )
   .split(',')
-  .map(host => host.trim().toLowerCase())
+  .map((host: string) => host.trim().toLowerCase())
   .filter(Boolean);
 
 if (
