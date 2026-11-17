@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/staff';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 export type SessionStatus = 'loading' | 'signed-out' | 'ready' | 'pending' | 'rejected' | 'inactive' | 'error';
 
@@ -11,6 +12,10 @@ export function useSession() {
   const readyUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setStatus('error');
+      return;
+    }
     let active = true;
 
     async function applySession(session: Session | null) {
