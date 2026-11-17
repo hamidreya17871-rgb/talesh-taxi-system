@@ -50,3 +50,54 @@ CREATE POLICY citizen_submit_violation_report
   );
 
 DROP FUNCTION public.can_submit_citizen_violation_report(text);
+
+
+-- The active-staff predicate accepts an arbitrary user UUID and is only an
+-- internal RLS helper. Move it out of the PostgREST-exposed public schema.
+CREATE OR REPLACE FUNCTION private.is_active_staff_user(p_user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles AS p
+    WHERE p.user_id = p_user_id
+      AND p.role IN ('manager', 'expert')
+      AND p.is_active
+      AND p.approval_status = 'approved'
+  )
+$function$;
+
+REVOKE ALL ON FUNCTION private.is_active_staff_user(uuid)
+  FROM PUBLIC, anon, authenticated;
+GRANT USAGE ON SCHEMA private TO authenticated;
+GRANT EXECUTE ON FUNCTION private.is_active_staff_user(uuid) TO authenticated;
+
+-- Preserve the current committee restriction while switching the helper.
+DROP POLICY IF EXISTS staff_insert_letter_referrals ON public.letter_referrals;
+CREATE POLICY staff_insert_letter_referrals
+  ON public.letter_referrals
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    created_by = auth.uid()
+    AND private.is_active_staff_user(referred_to)
+    AND (
+      public.current_app_role() = 'manager'
+      OR (
+        public.current_app_role() = 'expert'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM public.profiles AS p
+          WHERE p.user_id = auth.uid()
+            AND p.is_disciplinary_committee
+        )
+      )
+    )
+  );
+
+REVOKE ALL ON FUNCTION public.is_active_staff_user(uuid)
+  FROM PUBLIC, anon, authenticated;
+DROP FUNCTION public.is_active_staff_user(uuid);
