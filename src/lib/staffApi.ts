@@ -1,8 +1,9 @@
-import { supabase } from '@/lib/supabase';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const GENERIC_ERROR = 'عملیات انجام نشد. لطفاً دوباره تلاش کنید.';
 
 export async function callStaffApi<T>(action: string, body: Record<string, unknown> = {}): Promise<T> {
+  if (!isSupabaseConfigured) throw new Error('تنظیمات اتصال سامانه کامل نیست.');
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token ?? anonKey;
