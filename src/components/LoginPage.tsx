@@ -103,7 +103,7 @@ export default function LoginPage() {
     <div className="relative grid min-h-screen place-items-center overflow-hidden bg-[radial-gradient(ellipse_at_top_right,_#dcefe7_0%,_transparent_42%),radial-gradient(ellipse_at_bottom_left,_#f7ecd6_0%,_transparent_38%),#f3f6f5] p-5">
       <div className="relative z-10 w-full max-w-[440px] rounded-[26px] border border-white/80 bg-white/95 p-7 shadow-[0_24px_70px_#123b3518] backdrop-blur animate-pop-in max-[650px]:rounded-2xl max-[650px]:p-5">
         <div className="mb-7 flex flex-col items-center gap-3 text-center">
-          <img src="/talesh-taxi-logo.svg" alt="نشان رسمی سازمان حمل‌ونقل و تاکسیرانی تالش" className="h-24 w-24 rounded-2xl object-contain shadow-lg shadow-brand-800/15" />
+          <img src="/talesh-taxi-logo.svg" onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = "/file_00000000b04481f4b5dfa592b07ecabc.png"; }} alt="نشان رسمی سازمان حمل‌ونقل و تاکسیرانی تالش" className="h-24 w-24 rounded-2xl object-contain shadow-lg shadow-brand-800/15" />
           <div>
             <h1 className="text-xl font-extrabold tracking-tight text-brand-900">سامانه تاکسیرانی تالش</h1>
             <p className="mt-2 text-sm text-ink-600">{subtitle}</p>
