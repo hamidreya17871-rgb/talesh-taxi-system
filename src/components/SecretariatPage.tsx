@@ -122,7 +122,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
   }
 
   async function remove(letter: LetterRecord) {
-    if (!window.confirm('این نامه از فهرست فعال خارج و به بایگانی منتقل شود؟ سابقه و ارجاع‌ها حفظ می‌شوند.')) return;
+    if (!window.confirm('این نامه از فهرست فعال حذف و به بایگانی قابل‌بازگردانی منتقل شود؟ سوابق و پیوست‌ها حذف نمی‌شوند.')) return;
     setBusyId(letter.id);
     const { error } = await supabase.from('letters').update({ deleted_at: new Date().toISOString(), deleted_by: profile.user_id }).eq('id', letter.id);
     setBusyId(null);
@@ -130,7 +130,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
       onNotify(ACTION_ERROR, 'error');
       return;
     }
-    onNotify('نامه به بایگانی منتقل شد؛ سوابق و ارجاع‌ها محفوظ است');
+    onNotify('نامه از فهرست فعال حذف شد و در بایگانی قابل‌بازگردانی است.');
     void load();
   }
 
@@ -305,7 +305,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                   letterId={letter.id}
                   queuedFiles={[]}
                   onQueuedFilesChange={() => undefined}
-                  canUpload={profile.role !== 'driver' && !letter.manager_signed_at && !['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status)}
+                  canUpload={!showArchived && profile.role !== 'driver' && !letter.manager_signed_at && !['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status)}
                 />
 
                 {(letter.expert_reviewed_at || letter.manager_signed_at || letter.manager_order_note || letter.sent_at || letter.delivery_receipt_path) && (
@@ -318,7 +318,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                   </div>
                 )}
 
-                <OutgoingLetterWorkflowActions letter={letter} profile={profile} onSaved={() => void load()} onNotify={onNotify} />
+                {!showArchived && <OutgoingLetterWorkflowActions letter={letter} profile={profile} onSaved={() => void load()} onNotify={onNotify} />}
 
                 {(workflowEvents.get(letter.id) ?? []).length > 0 && (
                   <details className="border-t border-ink-100 pt-2">
@@ -415,7 +415,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                     <Printer size={13} />
                     بدون سربرگ
                   </button>
-                  {!(letter.direction === 'outgoing' && ['امضا شده', 'مختومه'].includes(letter.status)) && (
+                  {!showArchived && !(letter.direction === 'outgoing' && ['امضا شده', 'مختومه'].includes(letter.status)) && (
                     <button type="button" className="btn-tiny" onClick={() => setReferralLetter(letter)}>
                       <ArrowRightLeft size={13} />
                       ارجاع
@@ -430,7 +430,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                   {!showArchived && profile.role !== 'driver' && !letter.manager_signed_at && !['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status) && (
                     <button type="button" className="btn-tiny btn-tiny-danger" disabled={busyId === letter.id} onClick={() => void remove(letter)}>
                       <Trash2 size={13} />
-                      {isManager ? 'انتقال به بایگانی' : 'حذف پیش‌نویس'}
+                      حذف از فهرست
                     </button>
                   )}
                 </div>
