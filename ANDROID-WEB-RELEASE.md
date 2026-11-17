@@ -8,17 +8,11 @@
 - خروجی: `dist`
 - دامنه فعلی: `https://talesh-taxi-system.pages.dev`
 
-انتشار وب از اتصال Git موجود در Cloudflare Pages انجام می‌شود؛ گردش‌کار تکراری Deploy در GitHub حذف شده تا دو سیستم هم‌زمان روی Production ننویسند. با push به شاخه Production، Cloudflare همان build تعریف‌شده را منتشر می‌کند.
-
-در تنظیمات Production خود Cloudflare باید `VITE_SUPABASE_URL` و `VITE_SUPABASE_ANON_KEY` و `VITE_PWA_HOSTS` مقدار معتبر داشته باشند. اگر تنظیمات Supabase خالی باشند، برنامه به‌جای صفحه سفید پیام راهنمای پیکربندی نمایش می‌دهد.
+انتشار وب از اتصال Git موجود در Cloudflare Pages انجام می‌شود. با push به شاخه Production، Cloudflare نسخه جدید را build و منتشر می‌کند. آدرس و کلید عمومی فعال Supabase به‌عنوان پیش‌فرض عمومی در برنامه تعریف شده‌اند؛ در صورت نیاز می‌توان آن‌ها را با متغیرهای محیطی Cloudflare بازنویسی کرد. هیچ service-role یا secret key در کد مرورگر قرار ندارد.
 
 ## Android APK
 
-گردش‌کار `Android APK` پس از push به شاخه آماده‌سازی، وب‌اپ را build کرده و پروژه Android را با Capacitor 7 تولید می‌کند. فایل `app-debug.apk` به‌عنوان Artifact در GitHub Actions ذخیره می‌شود و برای نصب آزمایشی روی Android قابل استفاده است.
-
-برای build اندروید، دو GitHub Actions Secret زیر لازم است:
-- `VITE_SUPABASE_URL`: آدرس پروژه Supabase
-- `VITE_SUPABASE_ANON_KEY`: کلید عمومی publishable/anon؛ هرگز service-role نباشد
+گردش‌کار `Android APK` به‌صورت خودکار در push به شاخه آماده‌سازی و در Pull Request به شاخه Production اجرا می‌شود. وب‌اپ را build می‌کند، پروژه Android را با Capacitor 7 تولید می‌کند و APK قابل نصب آزمایشی را به‌صورت Artifact در GitHub Actions ذخیره می‌کند. برای build آزمایشی به Secrets اضافی نیاز نیست؛ برنامه از کلید عمومی Supabase استفاده می‌کند.
 
 این APK نسخه Debug و دارای امضای توسعه است؛ برای توزیع عمومی/نهایی مناسب نیست. برای نسخه Release باید keystore متعلق به سازمان به‌صورت امن در GitHub Secrets اضافه و workflow امضای Release تکمیل شود. فایل keystore یا رمز آن را در مخزن یا چت قرار ندهید.
 
@@ -33,4 +27,4 @@
 
 - مدیر اولیه و حساب‌های ورود رانندگان باید به‌صورت امن راه‌اندازی شوند.
 - RLS، نقش‌ها، Storage و تاریخچه migrationها باید در محیط پشتیبان/آزمایشی بررسی شوند.
-- ساخت APK و انتشار نهایی فقط پس از اجرای موفق workflow و نصب واقعی تأییدشده محسوب می‌شوند.
+- APK نهایی فقط پس از اجرای موفق workflow و نصب واقعی تأییدشده محسوب می‌شود.
