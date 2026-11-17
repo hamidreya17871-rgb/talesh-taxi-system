@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Camera, Download, FileText, Image as ImageIcon, Paperclip, Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -102,6 +102,7 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
   const [attachments, setAttachments] = useState<DisplayAttachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const processingRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -164,33 +165,38 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
   }
 
   async function addFiles(fileList: FileList | null) {
-    if (!fileList || loading) return;
-    const next = Array.from(fileList);
-    const checked = await Promise.all(next.map(async file => ({
-      file,
-      mimeType: await getAllowedMime(file),
-    })));
-    const valid = checked.filter(item => item.mimeType !== null).map(item => item.file);
-    const rejectedCount = next.length - valid.length;
-    if (rejectedCount > 0) setMessage(`${rejectedCount} فایل به علت نوع یا حجم نامعتبر پذیرفته نشد.`);
-    if (attachments.length + queuedFiles.length + valid.length > 20) {
-      setMessage('برای هر نامه حداکثر ۲۰ پیوست مجاز است.');
-      return;
-    }
-    if (valid.length && letterId) {
-      setLoading(true);
-      setMessage('در حال بارگذاری پیوست برای همین نامه…');
-      const result = await uploadLetterAttachments(letterId, valid, documentType);
-      await refreshAttachments();
+    if (!fileList || loading || processingRef.current) return;
+    processingRef.current = true;
+    setLoading(true);
+    try {
+      const next = Array.from(fileList);
+      const checked = await Promise.all(next.map(async file => ({
+        file,
+        mimeType: await getAllowedMime(file),
+      })));
+      const valid = checked.filter(item => item.mimeType !== null).map(item => item.file);
+      const rejectedCount = next.length - valid.length;
+      if (rejectedCount > 0) setMessage(`${rejectedCount} فایل به علت نوع یا حجم نامعتبر پذیرفته نشد.`);
+      if (attachments.length + queuedFiles.length + valid.length > 20) {
+        setMessage('برای هر نامه حداکثر ۲۰ پیوست مجاز است.');
+        return;
+      }
+      if (valid.length && letterId) {
+        setMessage('در حال بارگذاری پیوست برای همین نامه…');
+        const result = await uploadLetterAttachments(letterId, valid, documentType);
+        await refreshAttachments();
+        const uploadMessage = result.errors.length ? result.errors.join(' ') : `${valid.length - result.failedFiles.length} پیوست با موفقیت به همین نامه متصل شد.`;
+        setMessage([rejectedCount ? `${rejectedCount} فایل نامعتبر رد شد.` : '', uploadMessage].filter(Boolean).join(' '));
+        if (result.failedFiles.length) onQueuedFilesChange([...queuedFiles, ...result.failedFiles]);
+        return;
+      }
+      if (valid.length) {
+        onQueuedFilesChange([...queuedFiles, ...valid]);
+        if (valid.length === next.length) setMessage('');
+      }
+    } finally {
+      processingRef.current = false;
       setLoading(false);
-      const uploadMessage = result.errors.length ? result.errors.join(' ') : `${valid.length - result.failedFiles.length} پیوست با موفقیت به همین نامه متصل شد.`;
-      setMessage([rejectedCount ? `${rejectedCount} فایل نامعتبر رد شد.` : '', uploadMessage].filter(Boolean).join(' '));
-      if (result.failedFiles.length) onQueuedFilesChange([...queuedFiles, ...result.failedFiles]);
-      return;
-    }
-    if (valid.length) {
-      onQueuedFilesChange([...queuedFiles, ...valid]);
-      if (valid.length === next.length) setMessage('');
     }
   }
 
@@ -243,6 +249,7 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
               دریافت فایل اسکن‌شده از رایانه
               <input
                 type="file"
+                disabled={loading}
                 accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
                 multiple
                 className="hidden"
