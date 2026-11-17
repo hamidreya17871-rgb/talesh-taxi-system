@@ -14,10 +14,10 @@
 
 ## متغیرهای محیطی Production
 
-این متغیرها را در تنظیمات Pages وارد کنید:
+مقادیر عمومی پیش‌فرض Supabase و دامنه‌های مجاز PWA در سورس تعریف شده‌اند؛ بنابراین خالی بودن Environment Variables باعث توقف build یا صفحه سفید نمی‌شود. در صورت نیاز به override، این متغیرها را در تنظیمات Production پروژه Pages تعریف کنید:
 
 - `VITE_SUPABASE_URL=https://xrhzsafezpwdztjytkob.supabase.co`
-- `VITE_SUPABASE_ANON_KEY=<Supabase publishable key beginning with sb_publishable_>`
+- `VITE_SUPABASE_PUBLISHABLE_KEY=<Supabase publishable key beginning with sb_publishable_>`
 - `VITE_PWA_HOSTS=talesh-taxi-system.pages.dev,web-application-deve-0r9y.bolt.host`
 
 `VITE_PWA_HOSTS` فهرست hostnameهای دقیق و جداشده با ویرگول است که اجازه ثبت Service Worker دارند. فقط دامنه‌های production را وارد کنید؛ دامنه‌های preview را اضافه نکنید. برای دامنه اختصاصی جدید، hostname آن را به این فهرست اضافه کنید.
