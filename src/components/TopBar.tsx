@@ -130,7 +130,7 @@ export default function TopBar({ title, profile, onSignOut, onMenuClick, onMessa
             )}
           </div>
         )}
-        <button type="button" className="btn-tiny" onClick={() => setSignatureModalOpen(true)} aria-label="تنظیم امضای پروفایل"><PenLine size={15}/><span className="max-[650px]:hidden">امضای پروفایل</span></button>
+        {(profile.role === "manager" || profile.role === "expert") && <button type="button" className="btn-tiny" onClick={() => setSignatureModalOpen(true)} aria-label="تنظیم امضای پروفایل"><PenLine size={15}/><span className="max-[650px]:hidden">امضای پروفایل</span></button>}
         <button type="button" onClick={() => (profile.role === "manager" || profile.role === "expert") && setSignatureModalOpen(true)} title="تنظیم امضای دیجیتال" className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-brand-100 bg-brand-50 font-bold text-brand-700">{profile.full_name.charAt(0)}</button>
         <div className="text-[13px] leading-[1.6] max-[650px]:hidden">
           <p className="font-bold">{profile.full_name}</p>
