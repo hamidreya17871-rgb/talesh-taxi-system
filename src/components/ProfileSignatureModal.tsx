@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Eraser, Save, X } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { callStaffApi } from '@/lib/staffApi';
 import type { Profile } from '@/lib/staff';
 
 type Props = { profile: Profile; onClose: () => void; onSaved: (signature: string) => void };
@@ -63,9 +63,14 @@ export default function ProfileSignatureModal({ profile, onClose, onSaved }: Pro
     if (!canvas || !signature) { setError('ابتدا امضای خود را روی کادر رسم کنید.'); return; }
     setBusy(true); setError('');
     const image = canvas.toDataURL('image/png');
-    const { error: saveError } = await supabase.from('profiles').update({ signature_data_url: image }).eq('user_id', profile.user_id);
+    try {
+      await callStaffApi('save-signature', { signature_data_url: image });
+    } catch {
+      setBusy(false);
+      setError('ذخیره امضا انجام نشد. لطفاً دوباره تلاش کنید.');
+      return;
+    }
     setBusy(false);
-    if (saveError) { setError('ذخیره امضا انجام نشد. دسترسی پایگاه داده را بررسی کنید.'); return; }
     onSaved(image);
     onClose();
   }
