@@ -1,7 +1,7 @@
 import { formatPersianDate } from '@/lib/format';
 
-const LOGO_FILE = '/talesh-taxi-logo.svg';
-const FALLBACK_LOGO_FILE = '/file_00000000b04481f4b5dfa592b07ecabc.png';
+const LOGO_FILE = '/icons/icon-512.png';
+const FALLBACK_LOGO_FILE = '/icons/icon-192.png';
 
 export const LETTER_INK = '#182b28';
 
