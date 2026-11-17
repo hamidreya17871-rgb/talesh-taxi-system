@@ -260,6 +260,11 @@ async function handleUpdate(req: Request, body: Record<string, unknown>): Promis
 
   if (userId === callerId) throw new RequestError("تغییر نقش یا غیرفعال‌سازی حساب خودتان مجاز نیست.", 400);
   if (target.role === "admin" && callerProfile.data.role !== "admin") throw new RequestError("فقط مدیرکل می‌تواند حساب مدیرکل را تغییر دهد.", 403);
+  if (target.role === "admin" && (role !== "admin" || !isActive)) {
+    const { count, error } = await admin.from("profiles").select("user_id", { count: "exact", head: true }).eq("role", "admin").eq("is_active", true).eq("approval_status", "approved");
+    if (error) throw error;
+    if ((count ?? 0) <= 1) throw new RequestError("تنزل یا غیرفعال‌سازی آخرین مدیرکل مجاز نیست.", 409);
+  }
   if (target.role === "manager" && callerProfile.data.role !== "admin" && (role !== "manager" || !isActive)) throw new RequestError("تغییر نقش یا غیرفعال‌سازی مدیر سازمان فقط برای مدیرکل مجاز است.", 403);
   if (target.role === "manager" && (role !== "manager" || !isActive)) {
     const { count, error } = await admin.from("profiles").select("user_id", { count: "exact", head: true }).eq("role", "manager").eq("is_active", true).eq("approval_status", "approved");
@@ -773,7 +778,7 @@ async function handleListStaff(req: Request): Promise<Response> {
   const { data, error } = await admin
     .from("profiles")
     .select("user_id, full_name, role, signature_data_url")
-    .in("role", ["manager", "expert"])
+    .in("role", ["admin", "manager", "expert"])
     .eq("approval_status", "approved")
     .eq("is_active", true)
     .order("full_name", { ascending: true });
