@@ -195,7 +195,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
           <p className="mt-1 text-sm text-ink-600">{showArchived ? "بازیابی نامه‌های بایگانی‌شده" : "مدیریت نامه‌های ورودی و خروجی با سربرگ سازمان"}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {isManager && <button type="button" className="btn btn-secondary" onClick={() => setShowArchived(value => !value)}>{showArchived ? "مشاهده نامه‌های فعال" : "نامه‌های بایگانی‌شده"}</button>}
+          {profile.role !== 'driver' && <button type="button" className="btn btn-secondary" onClick={() => { setSearch(''); setStatusFilter('all'); setShowArchived(value => !value); }}>{showArchived ? "بازگشت به نامه‌های فعال" : "بایگانی نامه‌ها"}</button>}
           <button type="button" className="btn btn-secondary" onClick={() => void load()}>
             <RefreshCw size={16} />
             به‌روزرسانی
@@ -421,17 +421,20 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                       ارجاع
                     </button>
                   )}
-                  {isManager && (showArchived ? (
+                  {showArchived && profile.role !== 'driver' && (
                     <button type="button" className="btn-tiny" disabled={busyId === letter.id} onClick={() => void restore(letter)}>
                       <RotateCcw size={13} />
-                      بازیابی نامه
+                      بازگردانی به دبیرخانه
                     </button>
-                  ) : (
-                    <button type="button" className="btn-tiny btn-tiny-danger" disabled={busyId === letter.id} onClick={() => void remove(letter)}>
-                      <Trash2 size={13} />
-                      بایگانی نامه
-                    </button>
-                  ))}
+                  )}
+                  {!showArchived && (
+                    (isManager || (profile.role === 'expert' && !letter.manager_signed_at && !['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status))) && (
+                      <button type="button" className="btn-tiny btn-tiny-danger" disabled={busyId === letter.id} onClick={() => void remove(letter)}>
+                        <Trash2 size={13} />
+                        {isManager ? 'انتقال به بایگانی' : 'حذف پیش‌نویس'}
+                      </button>
+                    )
+                  )}
                 </div>
               </article>
             );
