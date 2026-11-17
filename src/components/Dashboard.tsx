@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
+import OrganizationContactCard from '@/components/OrganizationContactCard';
 import DashboardStats from '@/components/DashboardStats';
 import Notice from '@/components/Notice';
 import ExpertsPanel from '@/components/ExpertsPanel';
@@ -173,6 +174,7 @@ export default function Dashboard({ data, isManager, onNavigate }: DashboardProp
             )}
             <p className="mt-3 text-xs text-ink-600">اطلاعات روی سرور ذخیره می‌شوند و از هر دستگاهی در دسترس هستند.</p>
           </section>
+          <OrganizationContactCard />
           {isManager && <ExpertsPanel onNavigate={onNavigate} />}
         </div>
       </div>
