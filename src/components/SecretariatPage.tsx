@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRightLeft, Pencil, Plus, Printer, RefreshCw, Search, Trash2 } from 'lucide-react';
+import { ArrowRightLeft, Pencil, Plus, Printer, RefreshCw, Search, Trash2, RotateCcw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { callStaffApi } from '@/lib/staffApi';
 import LetterFormModal, { letterDateText, type LetterRecord } from '@/components/LetterFormModal';
@@ -13,6 +13,7 @@ import DisciplinaryCommitteePanel from '@/components/DisciplinaryCommitteePanel'
 import DisciplinaryManagerApprovalPanel from '@/components/DisciplinaryManagerApprovalPanel';
 import OutgoingLetterWorkflowActions from '@/components/OutgoingLetterWorkflowActions';
 import SecretariatManagementPanel from '@/components/SecretariatManagementPanel';
+import AdministrativeWritingAssistant from '@/components/AdministrativeWritingAssistant';
 
 type Props = {
   profile: Profile;
@@ -63,6 +64,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [paperSize, setPaperSize] = useState<'A4' | 'A5'>('A4');
+  const [showArchived, setShowArchived] = useState(false);
 
   const isManager = profile.role === 'manager';
   const isCommitteeOnly = profile.role === 'expert' && Boolean(profile.is_disciplinary_committee);
@@ -72,7 +74,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
     setLoadError(null);
     try {
       const [lettersResult, referralsResult, eventsResult, staffResult] = await Promise.all([
-        supabase.from('letters').select('*').is('deleted_at', null).order('created_at', { ascending: false }),
+        (showArchived ? supabase.from('letters').select('*').not('deleted_at', 'is', null) : supabase.from('letters').select('*').is('deleted_at', null)).order('created_at', { ascending: false }),
         supabase
           .from('letter_referrals')
           .select('id, letter_id, referred_to, action, note, status, created_at, due_at, reviewer:referred_to(full_name)')
@@ -105,7 +107,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
     } catch {
       setLoadError(LOAD_ERROR);
     }
-  }, [isCommitteeOnly]);
+  }, [isCommitteeOnly, showArchived]);
 
   useEffect(() => {
     void load();
@@ -129,6 +131,19 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
       return;
     }
     onNotify('نامه به بایگانی منتقل شد؛ سوابق و ارجاع‌ها محفوظ است');
+    void load();
+  }
+
+  async function restore(letter: LetterRecord) {
+    if (!window.confirm('این نامه از بایگانی خارج و دوباره در فهرست فعال نمایش داده شود؟')) return;
+    setBusyId(letter.id);
+    const { error } = await supabase.from('letters').update({ deleted_at: null, deleted_by: null }).eq('id', letter.id);
+    setBusyId(null);
+    if (error) {
+      onNotify('بازیابی نامه انجام نشد. لطفاً دوباره تلاش کنید.', 'error');
+      return;
+    }
+    onNotify('نامه با موفقیت بازیابی شد.');
     void load();
   }
 
@@ -173,12 +188,14 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
       {profile.is_disciplinary_committee && <DisciplinaryCommitteePanel profile={profile} />}
       {profile.role === 'manager' && <DisciplinaryManagerApprovalPanel profile={profile} />}
       {isManager && <SecretariatManagementPanel profile={profile} onNotify={onNotify} />}
+      <AdministrativeWritingAssistant />
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold">دبیرخانه</h2>
-          <p className="mt-1 text-sm text-ink-600">مدیریت نامه‌های ورودی و خروجی با سربرگ سازمان</p>
+          <p className="mt-1 text-sm text-ink-600">{showArchived ? "بازیابی نامه‌های بایگانی‌شده" : "مدیریت نامه‌های ورودی و خروجی با سربرگ سازمان"}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {profile.role !== 'driver' && <button type="button" className="btn btn-secondary" onClick={() => { setSearch(''); setStatusFilter('all'); setShowArchived(value => !value); }}>{showArchived ? "بازگشت به نامه‌های فعال" : "بایگانی نامه‌ها"}</button>}
           <button type="button" className="btn btn-secondary" onClick={() => void load()}>
             <RefreshCw size={16} />
             به‌روزرسانی
@@ -288,7 +305,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                   letterId={letter.id}
                   queuedFiles={[]}
                   onQueuedFilesChange={() => undefined}
-                  canUpload={false}
+                  canUpload={profile.role !== 'driver' && !letter.manager_signed_at && !['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status)}
                 />
 
                 {(letter.expert_reviewed_at || letter.manager_signed_at || letter.manager_order_note || letter.sent_at || letter.delivery_receipt_path) && (
@@ -404,10 +421,16 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                       ارجاع
                     </button>
                   )}
-                  {isManager && (
+                  {showArchived && profile.role !== 'driver' && (
+                    <button type="button" className="btn-tiny" disabled={busyId === letter.id} onClick={() => void restore(letter)}>
+                      <RotateCcw size={13} />
+                      بازگردانی به دبیرخانه
+                    </button>
+                  )}
+                  {!showArchived && profile.role !== 'driver' && !letter.manager_signed_at && !['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status) && (
                     <button type="button" className="btn-tiny btn-tiny-danger" disabled={busyId === letter.id} onClick={() => void remove(letter)}>
                       <Trash2 size={13} />
-                      بایگانی نامه
+                      {isManager ? 'انتقال به بایگانی' : 'حذف پیش‌نویس'}
                     </button>
                   )}
                 </div>

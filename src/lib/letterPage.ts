@@ -36,7 +36,7 @@ export function buildLetterPageHtml(title: string, input: LetterPageInput): stri
   const paperSize = input.paperSize ?? 'A4';
   const pageWidth = paperSize === 'A5' ? '148mm' : '210mm';
   const pageHeight = paperSize === 'A5' ? '210mm' : '297mm';
-  const templateUrl = `${window.location.origin}${LETTER_TEMPLATE_FILE}`;
+  const templateUrl = new URL(LETTER_TEMPLATE_FILE, window.location.href).href;
   const dateText = formatPersianDate(input.date);
   const attachmentText = input.attachment?.trim() ? input.attachment.trim() : '-';
 
@@ -48,10 +48,10 @@ export function buildLetterPageHtml(title: string, input: LetterPageInput): stri
   <style>
     @page { size: ${paperSize} ${paperSize === 'A5' ? 'portrait' : 'portrait'}; margin: 0; }
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; }
+    html, body { margin: 0; padding: 0; width: ${pageWidth}; height: ${pageHeight}; }
     body { font-family: Tahoma, Arial, sans-serif; color: ${LETTER_INK}; }
     .page { position: relative; width: ${pageWidth}; height: ${pageHeight}; overflow: hidden; background: #fff; }
-    .template { position: absolute; left: 0; top: 0; width: ${pageWidth}; height: ${pageHeight}; }
+    .template { position: absolute; display: block; left: 0; top: 0; width: ${pageWidth}; height: ${pageHeight}; object-fit: fill; }
     .field { position: absolute; left: 6mm; width: 52mm; height: 9mm; line-height: 9mm; text-align: right; padding-right: 3mm; font-size: 11pt; font-weight: 700; overflow: hidden; white-space: nowrap; }
     .plain-meta { display: none; }
     .field-number { top: 8.8mm; }
@@ -81,10 +81,43 @@ export function buildLetterPageHtml(title: string, input: LetterPageInput): stri
 export function openLetterPrintWindow(html: string): boolean {
   const printWindow = window.open('', '_blank', 'width=900,height=1000');
   if (!printWindow) return false;
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
-  printWindow.focus();
-  printWindow.addEventListener('load', () => printWindow.print(), { once: true });
+  // Open synchronously to avoid mobile popup blockers, then embed the official
+  // stationery image as a data URL so about:blank/WebView cannot lose its path.
+  const templateUrl = new URL(LETTER_TEMPLATE_FILE, window.location.href).href;
+  void fetch(templateUrl, { cache: 'no-cache' })
+    .then(response => {
+      if (!response.ok) throw new Error('Letterhead image could not be loaded');
+      return response.blob();
+    })
+    .then(blob => new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Invalid image data'));
+      reader.onerror = () => reject(new Error('Image read failed'));
+      reader.readAsDataURL(blob);
+    }))
+    .catch(() => '')
+    .then(dataUrl => {
+      printWindow.document.open();
+      if (!dataUrl) {
+        printWindow.document.write('<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><body style="font-family:Tahoma,Arial,sans-serif;padding:32px;text-align:center">تصویر سربرگ رسمی بارگذاری نشد. برای جلوگیری از چاپ اشتباه، چاپ متوقف شد. اتصال اینترنت را بررسی و دوباره تلاش کنید.</body></html>');
+        printWindow.document.close();
+        return;
+      }
+      const printableHtml = html.replace(templateUrl, dataUrl);
+      printWindow.document.write(printableHtml);
+      printWindow.document.close();
+      const images = Array.from(printWindow.document.images);
+      const ready = Promise.all(images.map(image => {
+        if (image.complete && image.naturalWidth > 0) return Promise.resolve();
+        return new Promise<void>(resolve => {
+          image.addEventListener('load', () => resolve(), { once: true });
+          image.addEventListener('error', () => resolve(), { once: true });
+        });
+      }));
+      void ready.then(() => {
+        printWindow.focus();
+        window.setTimeout(() => printWindow.print(), 500);
+      });
+    });
   return true;
 }

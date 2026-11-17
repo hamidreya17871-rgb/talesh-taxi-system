@@ -12,6 +12,7 @@ type AttachmentRow = {
   mime_type: string;
   file_size: number;
   created_at: string;
+  document_type?: string;
 };
 
 type DisplayAttachment = AttachmentRow & { signedUrl: string | null };
@@ -21,6 +22,8 @@ type Props = {
   queuedFiles: File[];
   onQueuedFilesChange: (files: File[]) => void;
   canUpload: boolean;
+  documentType?: string;
+  onDocumentTypeChange?: (value: string) => void;
 };
 
 async function getAllowedMime(file: File): Promise<string | null> {
@@ -35,7 +38,7 @@ async function getAllowedMime(file: File): Promise<string | null> {
   return null;
 }
 
-export async function uploadLetterAttachments(letterId: string, files: File[]) {
+export async function uploadLetterAttachments(letterId: string, files: File[], documentType = 'attachment') {
   const failedFiles: File[] = [];
   const errors: string[] = [];
 
@@ -67,6 +70,7 @@ export async function uploadLetterAttachments(letterId: string, files: File[]) {
       file_name: file.name,
       mime_type: mimeType,
       file_size: file.size,
+      document_type: documentType,
     });
 
     if (rowError) {
@@ -79,7 +83,22 @@ export async function uploadLetterAttachments(letterId: string, files: File[]) {
   return { failedFiles, errors };
 }
 
-export default function LetterAttachments({ letterId, queuedFiles, onQueuedFilesChange, canUpload }: Props) {
+const DOCUMENT_TYPES = [
+  ['incoming_letter', 'نامه وارده'],
+  ['outgoing_letter', 'نامه صادره'],
+  ['attachment', 'پیوست نامه'],
+  ['meeting_minutes', 'صورت‌جلسه'],
+  ['inspection_report', 'گزارش بازرسی'],
+  ['leave_request', 'درخواست مرخصی'],
+  ['driver_document', 'مدرک راننده'],
+  ['vehicle_document', 'مدرک خودرو'],
+  ['other', 'سایر اسناد'],
+] as const;
+
+const documentTypeLabel = (value?: string) =>
+  DOCUMENT_TYPES.find(([key]) => key === value)?.[1] ?? 'پیوست نامه';
+
+export default function LetterAttachments({ letterId, queuedFiles, onQueuedFilesChange, canUpload, documentType = 'attachment', onDocumentTypeChange }: Props) {
   const [attachments, setAttachments] = useState<DisplayAttachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -95,7 +114,7 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
     void (async () => {
       const { data, error } = await supabase
         .from('letter_attachments')
-        .select('id, storage_path, file_name, mime_type, file_size, created_at')
+        .select('id, storage_path, file_name, mime_type, file_size, created_at, document_type')
         .eq('letter_id', letterId)
         .order('created_at', { ascending: true });
 
@@ -123,6 +142,27 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
     return () => { active = false; };
   }, [letterId]);
 
+  async function refreshAttachments() {
+    if (!letterId) return;
+    const { data, error } = await supabase
+      .from('letter_attachments')
+      .select('id, storage_path, file_name, mime_type, file_size, created_at, document_type')
+      .eq('letter_id', letterId)
+      .order('created_at', { ascending: true });
+    if (error || !data) {
+      setMessage('فایل بارگذاری شد، اما دریافت فهرست پیوست‌ها انجام نشد.');
+      return;
+    }
+    const rows = data as AttachmentRow[];
+    const withUrls = await Promise.all(rows.map(async row => {
+      const { data: signed, error: signedError } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUrl(row.storage_path, 900);
+      return { ...row, signedUrl: signedError ? null : signed?.signedUrl ?? null };
+    }));
+    setAttachments(withUrls);
+  }
+
   async function addFiles(fileList: FileList | null) {
     if (!fileList) return;
     const next = Array.from(fileList);
@@ -136,6 +176,16 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
     }
     if (attachments.length + queuedFiles.length + valid.length > 20) {
       setMessage('برای هر نامه حداکثر ۲۰ پیوست مجاز است.');
+      return;
+    }
+    if (valid.length && letterId) {
+      setLoading(true);
+      setMessage('در حال بارگذاری پیوست برای همین نامه…');
+      const result = await uploadLetterAttachments(letterId, valid, documentType);
+      await refreshAttachments();
+      setLoading(false);
+      setMessage(result.errors.length ? result.errors.join(' ') : 'پیوست با موفقیت به همین نامه متصل شد.');
+      if (result.failedFiles.length) onQueuedFilesChange([...queuedFiles, ...result.failedFiles]);
       return;
     }
     if (valid.length) {
@@ -154,12 +204,18 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
       {canUpload && (
         <>
           <p className="text-xs leading-6 text-ink-600">
-            با گوشی هر صفحه را جداگانه عکس بگیرید و «افزودن صفحه بعد» را بزنید. با کامپیوتر، فایل PDF یا تصویر خروجی اسکنر را انتخاب کنید.
+            ابتدا نوع سند را مشخص کنید؛ سپس با گوشی عکس بگیرید یا فایل PDF و تصویر اسکنر را انتخاب کنید.
           </p>
+          <label className="flex flex-col gap-1 text-xs text-ink-600">
+            نوع سند
+            <select className="field-input" value={documentType} onChange={event => onDocumentTypeChange?.(event.target.value)}>
+              {DOCUMENT_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
           <div className="flex flex-wrap gap-2">
             <label className="btn btn-secondary cursor-pointer">
               <Camera size={16} />
-              عکس‌برداری / افزودن صفحه
+              عکس‌برداری با دوربین
               <input
                 type="file"
                 accept="image/jpeg,image/png"
@@ -170,7 +226,19 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
             </label>
             <label className="btn btn-secondary cursor-pointer">
               <Upload size={16} />
-              انتخاب PDF یا تصویر
+              انتخاب فایل PDF یا تصویر
+
+              <input
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
+                multiple
+                className="hidden"
+                onChange={event => { addFiles(event.target.files); event.currentTarget.value = ''; }}
+              />
+            </label>
+            <label className="btn btn-secondary cursor-pointer">
+              <FileText size={16} />
+              دریافت فایل اسکن‌شده از رایانه
               <input
                 type="file"
                 accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
@@ -204,6 +272,7 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
               <div className="flex min-w-0 items-center gap-2 text-xs">
                 {item.mime_type === 'application/pdf' ? <FileText size={17} /> : <ImageIcon size={17} />}
                 <span className="truncate">{item.file_name}</span>
+                <span className="shrink-0 rounded bg-ink-100 px-2 py-0.5">{documentTypeLabel(item.document_type)}</span>
                 <span className="shrink-0 text-ink-500">{(item.file_size / 1024 / 1024).toFixed(1)} MB</span>
               </div>
               {item.signedUrl ? (
