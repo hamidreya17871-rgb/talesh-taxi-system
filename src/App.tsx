@@ -17,6 +17,7 @@ import SecretariatPage from '@/components/SecretariatPage';
 import ArchivePage from '@/components/ArchivePage';
 import UsersPage from '@/components/UsersPage';
 import SettingsPage from '@/components/SettingsPage';
+import ProfilePage from '@/components/ProfilePage';
 import Sidebar from '@/components/Sidebar';
 import Toast from '@/components/Toast';
 import TopBar from '@/components/TopBar';
@@ -135,10 +136,10 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
 
   const roleItems = navItemsForRole(profile.role);
   const items = profile.is_disciplinary_committee
-    ? roleItems.filter(item => item.key === 'secretariat' || item.key === 'archive')
+    ? roleItems.filter(item => item.key === 'secretariat' || item.key === 'archive' || item.key === 'profile')
     : roleItems;
   const mobileKeys: PageKey[] = profile.is_disciplinary_committee
-    ? ['secretariat', 'archive']
+    ? ['secretariat', 'archive', 'profile']
     : mobileNavKeysForRole(profile.role);
   const pageLabel = navItems.find(item => item.key === page)?.label ?? '';
   const readOnly = profile.role === 'driver';
@@ -269,6 +270,7 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
         <StaffMessagesPage drivers={data.drivers} canDelete={profile.role === 'manager'} onNotify={showToast} />
       );
     }
+    if (page === 'profile') return <ProfilePage profile={profile} />;
     if (page === 'settings') {
       return <SettingsPage onBackup={handleBackup} onRestore={file => void handleRestore(file)} />;
     }
