@@ -100,15 +100,15 @@ export default function LoginPage() {
             : 'ورود به سامانه';
 
   return (
-    <div className="grid min-h-screen place-items-center p-[18px]">
-      <div className="panel w-full max-w-[420px] p-7 animate-pop-in">
-        <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <div className="grid h-14 w-14 place-items-center rounded-2xl bg-gold-400 text-brand-800">
+    <div className="relative grid min-h-screen place-items-center overflow-hidden bg-[radial-gradient(ellipse_at_top_right,_#dcefe7_0%,_transparent_42%),radial-gradient(ellipse_at_bottom_left,_#f7ecd6_0%,_transparent_38%),#f3f6f5] p-5">
+      <div className="relative z-10 w-full max-w-[440px] rounded-[26px] border border-white/80 bg-white/95 p-7 shadow-[0_24px_70px_#123b3518] backdrop-blur animate-pop-in max-[650px]:rounded-2xl max-[650px]:p-5">
+        <div className="mb-7 flex flex-col items-center gap-3 text-center">
+          <div className="grid h-16 w-16 place-items-center rounded-[20px] bg-brand-800 text-gold-300 shadow-lg shadow-brand-800/15">
             <CarTaxiFront size={28} strokeWidth={2.2} />
           </div>
           <div>
-            <h1 className="text-lg font-bold">تاکسیرانی تالش</h1>
-            <p className="mt-1 text-xs text-ink-600">{subtitle}</p>
+            <h1 className="text-xl font-extrabold tracking-tight text-brand-900">سامانه تاکسیرانی تالش</h1>
+            <p className="mt-2 text-sm text-ink-600">{subtitle}</p>
           </div>
         </div>
 
@@ -120,7 +120,7 @@ export default function LoginPage() {
         {mode === 'citizen-report' && <CitizenViolationReportForm onBack={() => switchMode('login')} />}
 
         {(mode === 'login' || mode === 'setup') && (
-          <form onSubmit={mode === 'setup' ? handleSetup : handleLogin} className="flex flex-col gap-[13px]">
+          <form onSubmit={mode === 'setup' ? handleSetup : handleLogin} className="flex flex-col gap-4">
             {mode === 'setup' && (
               <>
                 <div className="flex flex-col gap-[7px]">
