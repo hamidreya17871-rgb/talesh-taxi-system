@@ -884,7 +884,8 @@ Deno.serve(async (req: Request) => {
       case "permanently-delete-archived-letter":
         return await handlePermanentlyDeleteArchivedLetter(req, body);
       case "create-driver-single":
-        return await handleCreateSingleDriver(req, body);\n      case "issue-existing-driver-codes":
+        return await handleCreateSingleDriver(req, body);
+      case "issue-existing-driver-codes":
         return await handleIssueExistingDriverCodes(req);
       case "import-drivers":
         return await handleImportDrivers(req, body);
