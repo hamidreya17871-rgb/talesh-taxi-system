@@ -648,7 +648,7 @@ async function handleListStaff(req: Request): Promise<Response> {
   await requireOrganizationStaff(req);
   const { data, error } = await admin
     .from("profiles")
-    .select("user_id, full_name")
+    .select("user_id, full_name, signature_data_url")
     .in("role", ["manager", "expert"])
     .eq("approval_status", "approved")
     .eq("is_active", true)
