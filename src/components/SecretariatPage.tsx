@@ -427,13 +427,11 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                       بازگردانی به دبیرخانه
                     </button>
                   )}
-                  {!showArchived && (
-                    (isManager || (profile.role === 'expert' && !letter.manager_signed_at && !['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status))) && (
-                      <button type="button" className="btn-tiny btn-tiny-danger" disabled={busyId === letter.id} onClick={() => void remove(letter)}>
-                        <Trash2 size={13} />
-                        {isManager ? 'انتقال به بایگانی' : 'حذف پیش‌نویس'}
-                      </button>
-                    )
+                  {!showArchived && profile.role !== 'driver' && !letter.manager_signed_at && !['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status) && (
+                    <button type="button" className="btn-tiny btn-tiny-danger" disabled={busyId === letter.id} onClick={() => void remove(letter)}>
+                      <Trash2 size={13} />
+                      {isManager ? 'انتقال به بایگانی' : 'حذف پیش‌نویس'}
+                    </button>
                   )}
                 </div>
               </article>
