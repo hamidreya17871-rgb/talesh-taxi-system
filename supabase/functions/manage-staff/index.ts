@@ -480,7 +480,7 @@ async function handleCreateSingleDriver(req: Request, body: Record<string, unkno
   const nationalCode = normalizeDigits(readText(body, "national_code", 10));
   if (!NATIONAL_CODE_PATTERN.test(nationalCode)) throw new RequestError("کد ملی باید ۱۰ رقم باشد.", 400);
   const fullName = readText(body, "full_name", 100);
-  const plate = normalizeDigits(readText(body, "plate", 40));
+  const plate = readText(body, "plate", 40);
   if (!PLATE_PATTERN.test(plate)) throw new RequestError("شماره پلاک معتبر نیست.", 400);
   const model = readText(body, "model", 100);
   const taxiRowNo = normalizeDigits(readText(body, "taxi_row_no", 20));
