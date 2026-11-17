@@ -10,7 +10,7 @@ export default function Sidebar({ items, page, onNavigate }: SidebarProps) {
   return (
     <aside className="sticky top-0 flex h-screen w-[252px] shrink-0 flex-col overflow-y-auto border-l border-white/10 bg-brand-800 px-3.5 py-6 shadow-[4px_0_24px_#0c2a2510] text-brand-50 max-[1000px]:w-[224px] max-[650px]:hidden">
       <div className="flex items-center gap-3 border-b border-white/15 px-2 pb-6 pt-1">
-        <img src="/talesh-taxi-logo.svg" onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = "/file_00000000b04481f4b5dfa592b07ecabc.png"; }} alt="نشان تاکسیرانی تالش" className="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-0.5" />
+        <img src="/icons/icon-512.png" alt="نشان تاکسیرانی تالش" className="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-0.5" />
         <div>
           <p className="text-sm font-bold leading-[1.9] text-white">تاکسیرانی تالش</p>
           <p className="text-xs text-brand-200">سامانه مدیریت حمل‌ونقل</p>
