@@ -58,7 +58,7 @@ export default function ProfilePage({ profile }: Props) {
             <div><h3 className="font-bold">امضای کاربری</h3><p className="mt-1 text-sm text-ink-600">امضای ذخیره‌شده شما برای گردش و تأیید اسناد سازمانی در دسترس خواهد بود.</p></div>
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700"><PenLine size={19}/></span>
           </div>
-          {signature ? <img src={signature} alt="امضای ذخیره‌شده مدیر" className="max-h-24 max-w-[260px] rounded-lg border border-ink-100 bg-white object-contain p-2"/> : <p className="rounded-lg bg-gold-50 p-3 text-sm text-gold-800">هنوز امضایی ثبت نشده است.</p>}
+          {signature ? <img src={signature} alt="امضای ذخیره‌شده کاربر" className="max-h-24 max-w-[260px] rounded-lg border border-ink-100 bg-white object-contain p-2"/> : <p className="rounded-lg bg-gold-50 p-3 text-sm text-gold-800">هنوز امضایی ثبت نشده است.</p>}
           <button type="button" className="btn self-start" onClick={() => setSignatureOpen(true)}><PenLine size={16}/>{signature ? 'طراحی یا تغییر امضا' : 'طراحی و ثبت امضا'}</button>
         </section>
       )}
