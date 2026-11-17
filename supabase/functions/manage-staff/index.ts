@@ -445,11 +445,11 @@ async function sha256Hex(value: string): Promise<string> {
 }
 
 async function handlePermanentlyDeleteArchivedLetter(req: Request, body: Record<string, unknown>): Promise<Response> {
-  await requireStaff(req, ["manager"]);
+  const actorId = await requireStaff(req, ["manager"]);
   const letterId = body.letter_id;
   if (typeof letterId !== "string" || !UUID_PATTERN.test(letterId)) throw invalid();
 
-  const { data, error } = await admin.rpc("permanently_delete_archived_letter", { p_letter_id: letterId });
+  const { data, error } = await admin.rpc("permanently_delete_archived_letter", { p_letter_id: letterId, p_actor_id: actorId });
   if (error) {
     if (error.message.includes("سطل بازیافت")) throw new RequestError("نامه در سطل بازیافت پیدا نشد یا قبلاً حذف شده است.", 404);
     if (error.message.includes("دسترسی") || error.code === "42501") throw new RequestError("حذف دائمی فقط برای مدیر سازمان مجاز است.", 403);
