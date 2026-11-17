@@ -36,6 +36,10 @@ export default function LeaveLetterModal({ request, onClose, onNotify }: Props) 
   useEffect(() => {
     let active = true;
     (async () => {
+      if (request.reviewed_by) {
+        const { data: reviewer } = await supabase.from('profiles').select('signature_data_url').eq('user_id', request.reviewed_by).maybeSingle();
+        if (active) setReviewerSignature(reviewer?.signature_data_url ?? null);
+      }
       const { data, error } = await supabase
         .from('vehicles')
         .select('model, plate')
