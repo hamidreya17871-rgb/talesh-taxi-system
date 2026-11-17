@@ -27,8 +27,8 @@ export function buildLeaveLetterHtml(letterNo: number, body: string, includeLett
     ${paragraphsHtml(body)}
     <div class="signatory">
       <div>اسحاق قربانی</div>
-      <div>سرپرست سازمان مدیریت حمل و نقل</div>
-      <div>شهرداری تالش</div>
+      <div>سرپرست سازمان مدیریت</div>
+      <div>حمل و نقل شهرداری تالش</div>
       ${signatureHtml}
       <div class="seal">${municipalSealSvg('leave-permit')}</div>
     </div>
