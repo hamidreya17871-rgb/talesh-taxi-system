@@ -164,16 +164,15 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
   }
 
   async function addFiles(fileList: FileList | null) {
-    if (!fileList) return;
+    if (!fileList || loading) return;
     const next = Array.from(fileList);
     const checked = await Promise.all(next.map(async file => ({
       file,
       mimeType: await getAllowedMime(file),
     })));
     const valid = checked.filter(item => item.mimeType !== null).map(item => item.file);
-    if (valid.length !== next.length) {
-      setMessage('فقط PDF، JPG یا PNG واقعی تا حجم ۱۰ مگابایت پذیرفته می‌شود.');
-    }
+    const rejectedCount = next.length - valid.length;
+    if (rejectedCount > 0) setMessage(`${rejectedCount} فایل به علت نوع یا حجم نامعتبر پذیرفته نشد.`);
     if (attachments.length + queuedFiles.length + valid.length > 20) {
       setMessage('برای هر نامه حداکثر ۲۰ پیوست مجاز است.');
       return;
@@ -184,7 +183,8 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
       const result = await uploadLetterAttachments(letterId, valid, documentType);
       await refreshAttachments();
       setLoading(false);
-      setMessage(result.errors.length ? result.errors.join(' ') : 'پیوست با موفقیت به همین نامه متصل شد.');
+      const uploadMessage = result.errors.length ? result.errors.join(' ') : `${valid.length - result.failedFiles.length} پیوست با موفقیت به همین نامه متصل شد.`;
+      setMessage([rejectedCount ? `${rejectedCount} فایل نامعتبر رد شد.` : '', uploadMessage].filter(Boolean).join(' '));
       if (result.failedFiles.length) onQueuedFilesChange([...queuedFiles, ...result.failedFiles]);
       return;
     }
@@ -218,6 +218,7 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
               عکس‌برداری با دوربین
               <input
                 type="file"
+                disabled={loading}
                 accept="image/jpeg,image/png"
                 capture="environment"
                 className="hidden"
@@ -230,6 +231,7 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
 
               <input
                 type="file"
+                disabled={loading}
                 accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
                 multiple
                 className="hidden"
@@ -263,7 +265,7 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
       )}
 
       {loading && <p className="text-xs text-ink-500">در حال دریافت پیوست‌ها…</p>}
-      {message && <p className="text-xs text-error-500">{message}</p>}
+      {message && <p role="status" aria-live="polite" className="text-xs text-ink-600">{message}</p>}
       {attachments.length > 0 && (
         <div className="flex flex-col gap-2">
           <p className="text-xs font-bold">اسناد ثبت‌شده ({attachments.length})</p>
