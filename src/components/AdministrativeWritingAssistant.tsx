@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Clipboard, FileText, WandSparkles } from 'lucide-react';
+import { Clipboard, Wand2 } from 'lucide-react';
 
 type DocumentKind = 'letter' | 'reply' | 'minutes' | 'agenda' | 'report' | 'summary' | 'actions';
 
@@ -43,7 +43,7 @@ export default function AdministrativeWritingAssistant() {
   return (
     <section className="panel flex flex-col gap-3">
       <div className="flex items-center gap-2">
-        <WandSparkles size={18} className="text-brand-600" />
+        <Wand2 size={18 className="text-brand-600" />
         <div>
           <h3 className="font-bold">دستیار تدوین اسناد اداری</h3>
           <p className="text-xs text-ink-600">آماده‌سازی دستور دقیق برای نگارش و بازبینی پیش‌نویس‌ها</p>
