@@ -12,7 +12,7 @@ export default function Sidebar({ items, page, onNavigate }: SidebarProps) {
       <div className="flex items-center gap-3 border-b border-white/15 px-2 pb-6 pt-1">
         <img src="/icons/icon-512.png" alt="نشان تاکسیرانی تالش" className="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-0.5" />
         <div>
-          <p className="text-sm font-bold leading-[1.9] text-white">تاکسیرانی تالش</p>
+          <p className="text-sm font-bold leading-[1.9] text-white">سازمان تاکسیرانی تالش</p>
           <p className="text-xs text-brand-200">سامانه مدیریت حمل‌ونقل</p>
         </div>
       </div>
