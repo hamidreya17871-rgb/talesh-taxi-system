@@ -162,7 +162,7 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
               عکس‌برداری / افزودن صفحه
               <input
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png"
                 capture="environment"
                 className="hidden"
                 onChange={event => { addFiles(event.target.files); event.currentTarget.value = ''; }}
