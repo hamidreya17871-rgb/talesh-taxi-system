@@ -17,11 +17,19 @@ CREATE INDEX IF NOT EXISTS letter_attachments_letter_id_created_at_idx
 ALTER TABLE public.letter_attachments ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.letter_attachments FROM anon, PUBLIC;
 GRANT SELECT, INSERT, DELETE ON public.letter_attachments TO authenticated;
+REVOKE TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON TABLE public.letter_attachments FROM authenticated;
 
 DROP POLICY IF EXISTS letter_attachments_staff_select ON public.letter_attachments;
 CREATE POLICY letter_attachments_staff_select ON public.letter_attachments
   FOR SELECT TO authenticated
-  USING (public.current_app_role() IN ('manager','expert'));
+  USING (
+    public.current_app_role() IN ('manager','expert')
+    AND EXISTS (
+      SELECT 1
+      FROM public.letters AS l
+      WHERE l.id = public.letter_attachments.letter_id
+    )
+  );
 
 DROP POLICY IF EXISTS letter_attachments_staff_insert ON public.letter_attachments;
 CREATE POLICY letter_attachments_staff_insert ON public.letter_attachments
