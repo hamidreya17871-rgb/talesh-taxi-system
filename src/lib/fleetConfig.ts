@@ -11,6 +11,7 @@ import {
   Settings,
   UserCheck,
   UserCog,
+  UserCircle,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -19,7 +20,7 @@ import type { StaffRole } from '@/lib/staff';
 export const ENTITY_KEYS = ['drivers', 'vehicles', 'licenses', 'documents', 'reminders', 'violations'] as const;
 
 export type EntityKey = (typeof ENTITY_KEYS)[number];
-export type PageKey = 'dashboard' | 'requests' | 'leave' | 'messages' | 'secretariat' | 'archive' | 'users' | 'settings' | EntityKey;
+export type PageKey = 'dashboard' | 'requests' | 'leave' | 'messages' | 'secretariat' | 'archive' | 'users' | 'settings' | 'profile' | EntityKey;
 
 export type RecordValue = string | number | null;
 export type RecordPayload = Record<string, RecordValue>;
@@ -200,6 +201,7 @@ const DRIVER_LABELS: Partial<Record<PageKey, string>> = {
 
 export const navItems: NavItem[] = [
   { key: 'dashboard', label: 'داشبورد', icon: LayoutDashboard, roles: ALL_ROLES },
+  { key: 'profile', label: 'پروفایل من', icon: UserCircle, roles: ALL_ROLES },
   { key: 'requests', label: 'ثبت‌نام‌های جدید', icon: UserCheck, roles: EDITOR_ROLES },
   ...ENTITY_KEYS.map(key => ({
     key,
