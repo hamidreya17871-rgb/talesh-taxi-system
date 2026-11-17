@@ -22,6 +22,8 @@ type Props = {
   queuedFiles: File[];
   onQueuedFilesChange: (files: File[]) => void;
   canUpload: boolean;
+  documentType?: string;
+  onDocumentTypeChange?: (value: string) => void;
 };
 
 async function getAllowedMime(file: File): Promise<string | null> {
@@ -36,7 +38,7 @@ async function getAllowedMime(file: File): Promise<string | null> {
   return null;
 }
 
-export async function uploadLetterAttachments(letterId: string, files: File[]) {
+export async function uploadLetterAttachments(letterId: string, files: File[], documentType = 'attachment') {
   const failedFiles: File[] = [];
   const errors: string[] = [];
 
@@ -96,11 +98,10 @@ const DOCUMENT_TYPES = [
 const documentTypeLabel = (value?: string) =>
   DOCUMENT_TYPES.find(([key]) => key === value)?.[1] ?? 'پیوست نامه';
 
-export default function LetterAttachments({ letterId, queuedFiles, onQueuedFilesChange, canUpload }: Props) {
+export default function LetterAttachments({ letterId, queuedFiles, onQueuedFilesChange, canUpload, documentType = 'attachment', onDocumentTypeChange }: Props) {
   const [attachments, setAttachments] = useState<DisplayAttachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [documentType, setDocumentType] = useState<string>('attachment');
 
   useEffect(() => {
     let active = true;
@@ -176,7 +177,7 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
           </p>
           <label className="flex flex-col gap-1 text-xs text-ink-600">
             نوع سند
-            <select className="field-input" value={documentType} onChange={event => setDocumentType(event.target.value)}>
+            <select className="field-input" value={documentType} onChange={event => onDocumentTypeChange?.(event.target.value)}>
               {DOCUMENT_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
