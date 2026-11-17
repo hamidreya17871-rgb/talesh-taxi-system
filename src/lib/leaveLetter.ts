@@ -29,13 +29,14 @@ export function buildLeaveLetterHtml(letterNo: number, body: string, includeLett
       <div>اسحاق قربانی</div>
       <div>سرپرست سازمان مدیریت</div>
       <div>حمل و نقل شهرداری تالش</div>
-      ${signatureHtml}
-      <div class="seal">${municipalSealSvg('leave-permit')}</div>
+      <div class="signature-stack">${signatureHtml}<div class="seal">${municipalSealSvg('leave-permit')}</div></div>
     </div>
     <style>
       .signatory { position: absolute; left: 0; bottom: 6mm; width: 70mm; text-align: center; font-size: 12pt; font-weight: 700; line-height: 1.7; color: ${LETTER_INK}; }
-      .hand-signature { display:block; position:relative; z-index:2; width:30mm; height:12mm; object-fit:contain; margin:0 auto -4mm; }
-      .seal { position: absolute; z-index: 3; left: 50%; top: -28mm; transform: translateX(-50%); width: 46mm; mix-blend-mode: multiply; }
+      .signature-stack { position:relative; width:48mm; height:31mm; margin:1mm auto 0; }
+      .hand-signature { display:block; position:absolute; z-index:2; left:50%; top:50%; transform:translate(-50%,-50%); width:44mm; height:16mm; object-fit:contain; margin:0; }
+      .seal { position:absolute; z-index:3; left:50%; top:50%; transform:translate(-50%,-50%) rotate(-5deg); width:29mm; mix-blend-mode:multiply; opacity:.86; pointer-events:none; }
+      .seal svg,.seal img { display:block; width:100%; height:auto; }
     </style>`;
 
   return buildLetterPageHtml(`نامه شماره ${letterNo}`, {
