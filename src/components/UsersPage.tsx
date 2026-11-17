@@ -11,14 +11,18 @@ type Props = {
   onNotify: (message: string, kind?: 'success' | 'error') => void;
 };
 
-type EditorState = { user: Profile | null } | null;\ntype ActivationItem = { name: string; phone: string; activation_code: string; expires_at: string };\ntype ActivationResult = { issued: ActivationItem[]; skipped: Array<{ name?: string; phone?: string; reason: string }>; issued_count: number; skipped_count: number };
+type EditorState = { user: Profile | null } | null;
+type ActivationItem = { name: string; phone: string; activation_code: string; expires_at: string };
+type ActivationResult = { issued: ActivationItem[]; skipped: Array<{ name?: string; phone?: string; reason: string }>; issued_count: number; skipped_count: number };
 
 export default function UsersPage({ onNotify }: Props) {
   const [users, setUsers] = useState<Profile[] | null>(null);
   const [drivers, setDrivers] = useState<DriverOption[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editor, setEditor] = useState<EditorState>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);\n  const [issuingCodes, setIssuingCodes] = useState(false);\n  const [activationResult, setActivationResult] = useState<ActivationResult | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [issuingCodes, setIssuingCodes] = useState(false);
+  const [activationResult, setActivationResult] = useState<ActivationResult | null>(null);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -56,7 +60,8 @@ export default function UsersPage({ onNotify }: Props) {
     if (!activationResult?.issued.length) return;
     const text = activationResult.issued
       .map(item => `${item.name} | ${item.phone} | ${item.activation_code}`)
-      .join('\\n');
+      .join('\
+');
     try {
       await navigator.clipboard.writeText(text);
       onNotify('فهرست کدها کپی شد');
