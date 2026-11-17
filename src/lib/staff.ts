@@ -1,4 +1,4 @@
-export type StaffRole = 'manager' | 'expert' | 'driver';
+export type StaffRole = 'admin' | 'manager' | 'expert' | 'driver';
 
 export type Profile = {
   user_id: string;
@@ -16,12 +16,13 @@ export type Profile = {
 };
 
 export const ROLE_LABELS: Record<StaffRole, string> = {
+  admin: 'مدیرکل سامانه',
   manager: 'مدیر سازمان',
   expert: 'کارشناس',
   driver: 'راننده',
 };
 
-export const ROLE_OPTIONS: StaffRole[] = ['manager', 'expert', 'driver'];
+export const ROLE_OPTIONS: StaffRole[] = ['admin', 'manager', 'expert', 'driver'];
 
 export type StaffFormValues = {
   email: string;
