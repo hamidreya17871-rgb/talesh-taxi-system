@@ -147,6 +147,27 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
     void load();
   }
 
+  async function permanentlyDelete(letter: LetterRecord) {
+    if (profile.role !== 'manager' || !showArchived) return;
+    if (!window.confirm(`هشدار: نامه شماره ${letter.letter_no}، سوابق وابسته و فایل‌های پیوست آن برای همیشه حذف می‌شود. سابقه ممیزی حذف برای پیگیری اداری باقی می‌ماند. ادامه می‌دهید؟`)) return;
+    const confirmation = window.prompt(`برای تأیید حذف دائمی، شماره نامه ${letter.letter_no} را وارد کنید:`);
+    const normalized = (confirmation ?? '').replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit))).replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit))).trim();
+    if (normalized !== String(letter.letter_no)) {
+      onNotify('شماره واردشده مطابقت نداشت؛ حذف انجام نشد.', 'error');
+      return;
+    }
+    setBusyId(letter.id);
+    try {
+      const result = await callStaffApi<{ deleted: boolean; files_cleaned: boolean; cleanup_warning?: string | null }>('permanently-delete-archived-letter', { letter_id: letter.id });
+      onNotify(result.files_cleaned ? 'نامه و پیوست‌های آن برای همیشه حذف شدند؛ سابقه ممیزی محفوظ است.' : (result.cleanup_warning ?? 'نامه حذف شد؛ پاک‌سازی فایل‌های پیوست نیازمند بررسی است.'), result.files_cleaned ? 'success' : 'error');
+      void load();
+    } catch (cause) {
+      onNotify(cause instanceof Error ? cause.message : 'حذف دائمی انجام نشد.', 'error');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function completeReferral(referral: ReferralRow) {
     setBusyId(referral.id);
     const { data, error } = await supabase.from('letter_referrals').update({
@@ -430,6 +451,12 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                     <button type="button" className="btn-tiny" disabled={busyId === letter.id} onClick={() => void restore(letter)}>
                       <RotateCcw size={13} />
                       بازیابی نامه
+                    </button>
+                  )}
+                  {showArchived && isManager && (
+                    <button type="button" className="btn-tiny btn-tiny-danger" disabled={busyId === letter.id} onClick={() => void permanentlyDelete(letter)}>
+                      <Trash2 size={13} />
+                      حذف دائمی
                     </button>
                   )}
                   {!showArchived && profile.role !== 'driver' && !letter.manager_signed_at && !['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status) && (
