@@ -117,7 +117,7 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
     })();
 
     return () => { active = false; };
-  }, [letterId, queuedFiles.length]);
+  }, [letterId]);
 
   function addFiles(fileList: FileList | null) {
     if (!fileList) return;
@@ -148,7 +148,7 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
           <div className="flex flex-wrap gap-2">
             <label className="btn btn-secondary cursor-pointer">
               <Camera size={16} />
-              عکس‌برداری از صفحه
+              عکس‌برداری / افزودن صفحه
               <input
                 type="file"
                 accept="image/*"
