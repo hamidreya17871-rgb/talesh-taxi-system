@@ -1,14 +1,14 @@
-import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { isSupabaseConfigured, supabase, supabasePublicKey, supabaseUrl } from '@/lib/supabase';
 
 const GENERIC_ERROR = 'عملیات انجام نشد. لطفاً دوباره تلاش کنید.';
 
 export async function callStaffApi<T>(action: string, body: Record<string, unknown> = {}): Promise<T> {
   if (!isSupabaseConfigured) throw new Error('تنظیمات اتصال سامانه کامل نیست.');
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const anonKey = supabasePublicKey;
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token ?? anonKey;
 
-  const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-staff`, {
+  const response = await fetch(`${supabaseUrl}/functions/v1/manage-staff`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
