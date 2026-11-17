@@ -21,7 +21,7 @@ BEGIN
     AND p.is_active = true
     AND p.approval_status = 'approved';
 
-  IF v_role NOT IN ('manager', 'admin') THEN
+  IF v_role IS NULL OR v_role NOT IN ('manager', 'admin') THEN
     RAISE EXCEPTION 'حذف دائمی فقط برای مدیر سازمان مجاز است.' USING ERRCODE = '42501';
   END IF;
 
