@@ -20,7 +20,7 @@ type Props = {
   onNotify: (message: string, kind?: 'success' | 'error') => void;
 };
 
-type StaffOption = { user_id: string; full_name: string };
+type StaffOption = { user_id: string; full_name: string; signature_data_url?: string | null };
 
 type WorkflowEvent = { id: string; letter_id: string; event_type: string; details: Record<string, unknown>; created_at: string; actor_id: string | null; actor: { full_name: string | null } | { full_name: string | null }[] | null };
 
@@ -391,6 +391,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                         paperSize,
                         managerApproved: Boolean(letter.manager_signed_at),
                         managerName: staff.find(member => member.user_id === letter.manager_signed_by)?.full_name ?? 'مدیر سازمان',
+                        managerSignature: staff.find(member => member.user_id === letter.manager_signed_by)?.signature_data_url ?? null,
                       })
                     }
                   >
