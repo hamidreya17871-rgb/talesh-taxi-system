@@ -37,10 +37,10 @@ export default function LeaveLetterModal({ request, onClose, onNotify }: Props) 
   useEffect(() => {
     let active = true;
     (async () => {
-      if (request.reviewed_by) {
+      {
         try {
-          const result = await callStaffApi<{ items: Array<{ user_id: string; signature_data_url?: string | null }> }>('list-staff');
-          if (active) setReviewerSignature(result.items.find(item => item.user_id === request.reviewed_by)?.signature_data_url ?? null);
+          const result = await callStaffApi<{ items: Array<{ user_id: string; role: 'manager' | 'expert'; signature_data_url?: string | null }> }>('list-staff');
+          if (active) setReviewerSignature(result.items.find(item => item.role === 'manager')?.signature_data_url ?? null);
         } catch {
           if (active) setReviewerSignature(null);
         }
