@@ -5,6 +5,25 @@ import type { Profile } from '@/lib/staff';
 
 export type SessionStatus = 'loading' | 'signed-out' | 'ready' | 'pending' | 'rejected' | 'inactive' | 'error';
 
+function withTimeout<T>(promise: PromiseLike<T>, milliseconds = 12000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = window.setTimeout(
+      () => reject(new Error('Session request timed out')),
+      milliseconds,
+    );
+    Promise.resolve(promise).then(
+      value => {
+        window.clearTimeout(timeout);
+        resolve(value);
+      },
+      error => {
+        window.clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
+}
+
 export function useSession() {
   const [status, setStatus] = useState<SessionStatus>('loading');
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -28,42 +47,50 @@ export function useSession() {
       const userId = session.user.id;
       if (readyUserIdRef.current === userId) return;
 
-      const { data, error } = await supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle();
-      if (!active) return;
-      if (error) {
-        setStatus('error');
-        return;
+      try {
+        const { data, error } = await withTimeout(
+          supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle(),
+        );
+        if (!active) return;
+        if (error) throw error;
+        if (!data) {
+          readyUserIdRef.current = null;
+          setProfile(null);
+          setStatus('inactive');
+          return;
+        }
+        if (data.approval_status === 'rejected') {
+          readyUserIdRef.current = null;
+          setProfile(null);
+          setStatus('rejected');
+          return;
+        }
+        if (data.approval_status !== 'approved') {
+          readyUserIdRef.current = null;
+          setProfile(null);
+          setStatus('pending');
+          return;
+        }
+        if (!data.is_active) {
+          readyUserIdRef.current = null;
+          setProfile(null);
+          setStatus('inactive');
+          return;
+        }
+        readyUserIdRef.current = userId;
+        setProfile(data as Profile);
+        setStatus('ready');
+      } catch {
+        if (active) setStatus('error');
       }
-      if (!data) {
-        readyUserIdRef.current = null;
-        setProfile(null);
-        setStatus('inactive');
-        return;
-      }
-      if (data.approval_status === 'rejected') {
-        readyUserIdRef.current = null;
-        setProfile(null);
-        setStatus('rejected');
-        return;
-      }
-      if (data.approval_status !== 'approved') {
-        readyUserIdRef.current = null;
-        setProfile(null);
-        setStatus('pending');
-        return;
-      }
-      if (!data.is_active) {
-        readyUserIdRef.current = null;
-        setProfile(null);
-        setStatus('inactive');
-        return;
-      }
-      readyUserIdRef.current = userId;
-      setProfile(data as Profile);
-      setStatus('ready');
     }
 
-    void supabase.auth.getSession().then(({ data }) => applySession(data.session));
+    void withTimeout(supabase.auth.getSession())
+      .then(({ data }) => applySession(data.session))
+      .catch(() => {
+        if (active) setStatus('error');
+      });
+
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       void applySession(session);
     });
