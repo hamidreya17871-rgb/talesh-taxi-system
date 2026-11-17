@@ -1,8 +1,6 @@
-import { Bell, KeyRound, LogOut, Menu, MessageSquare, PenLine } from 'lucide-react';
+import { Bell, LogOut, Menu, MessageSquare } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import PasswordChangeModal from '@/components/PasswordChangeModal';
-import ProfileSignatureModal from '@/components/ProfileSignatureModal';
 import { ROLE_LABELS, type Profile } from '@/lib/staff';
 
 type StaffNotification = { id: string; title: string; body: string; created_at: string; read_at: string | null };
@@ -17,9 +15,6 @@ type TopBarProps = {
 };
 
 export default function TopBar({ title, profile, onSignOut, onMenuClick, onMessagesClick, onSecretariatClick }: TopBarProps) {
-  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
-  const [signatureModalOpen, setSignatureModalOpen] = useState(false);
-  const [savedSignature, setSavedSignature] = useState(profile.signature_data_url ?? '');
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [notifications, setNotifications] = useState<StaffNotification[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -130,23 +125,16 @@ export default function TopBar({ title, profile, onSignOut, onMenuClick, onMessa
             )}
           </div>
         )}
-        {(profile.role === "manager" || profile.role === "expert") && <button type="button" className="btn-tiny" onClick={() => setSignatureModalOpen(true)} aria-label="تنظیم امضای پروفایل"><PenLine size={15}/><span className="max-[650px]:hidden">امضای پروفایل</span></button>}
-        <button type="button" onClick={() => (profile.role === "manager" || profile.role === "expert") && setSignatureModalOpen(true)} title="تنظیم امضای دیجیتال" className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-brand-100 bg-brand-50 font-bold text-brand-700">{profile.full_name.charAt(0)}</button>
+        <div title="پروفایل کاربری" className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-brand-100 bg-brand-50 font-bold text-brand-700">{profile.full_name.charAt(0)}</div>
         <div className="text-[13px] leading-[1.6] max-[650px]:hidden">
           <p className="font-bold">{profile.full_name}</p>
           <p className="text-xs text-ink-600">{ROLE_LABELS[profile.role]}</p>
         </div>
-        <button type="button" className="btn-tiny" onClick={() => setPasswordModalOpen(true)} aria-label="تغییر رمز عبور">
-          <KeyRound size={13} />
-          <span className="max-[650px]:hidden">رمز</span>
-        </button>
         <button type="button" className="btn-tiny" onClick={onSignOut} aria-label="خروج از حساب">
           <LogOut size={13} />
           <span className="max-[650px]:hidden">خروج</span>
         </button>
       </div>
-      {passwordModalOpen && <PasswordChangeModal onClose={() => setPasswordModalOpen(false)} />}
-      {signatureModalOpen && <ProfileSignatureModal profile={{ ...profile, signature_data_url: savedSignature }} onClose={() => setSignatureModalOpen(false)} onSaved={setSavedSignature} />}
     </header>
   );
 }
