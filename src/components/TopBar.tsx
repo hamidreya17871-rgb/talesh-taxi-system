@@ -82,7 +82,7 @@ export default function TopBar({ title, profile, onSignOut, onMenuClick, onMessa
   const unreadNotificationCount = notifications.filter(item => !item.read_at).length;
 
   return (
-    <header className="flex h-[75px] items-center justify-between gap-3 border-b border-ink-200 bg-white px-7 max-[650px]:h-16 max-[650px]:px-4">
+    <header className="sticky top-0 z-20 flex min-h-[76px] items-center justify-between gap-3 border-b border-ink-200/80 bg-white/95 px-7 shadow-[0_2px_12px_#163c3208] backdrop-blur max-[650px]:h-16 max-[650px]:px-4">
       <div>
         <h1 className="text-lg font-bold text-ink-900 max-[650px]:text-sm">{title}</h1>
         <p className="text-xs text-ink-600 max-[650px]:hidden">سامانه مدیریت حمل‌ونقل و تاکسیرانی تالش</p>
@@ -91,7 +91,7 @@ export default function TopBar({ title, profile, onSignOut, onMenuClick, onMessa
         {profile.role === 'driver' && (
           <button type="button" className="btn-tiny relative" onClick={onMessagesClick} aria-label={unreadMessages > 0 ? `${unreadMessages} پیام خوانده‌نشده` : 'پیام‌ها'}>
             <MessageSquare size={15} />
-            پیام‌ها
+            <span className="max-[650px]:hidden">پیام‌ها</span>
             {unreadMessages > 0 && <span className="absolute -right-1 -top-1 grid min-h-4 min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">{unreadMessages > 99 ? '۹۹+' : unreadMessages.toLocaleString('fa-IR')}</span>}
           </button>
         )}
@@ -99,7 +99,7 @@ export default function TopBar({ title, profile, onSignOut, onMenuClick, onMessa
           <div className="relative">
             <button type="button" className="btn-tiny relative" onClick={() => setNotificationsOpen(open => !open)} aria-label={unreadNotificationCount ? `${unreadNotificationCount} اعلان خوانده‌نشده` : 'اعلان‌ها'}>
               <Bell size={15} />
-              اعلان‌ها
+              <span className="max-[650px]:hidden">اعلان‌ها</span>
               {unreadNotificationCount > 0 && <span className="absolute -right-1 -top-1 grid min-h-4 min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">{unreadNotificationCount > 99 ? '۹۹+' : unreadNotificationCount.toLocaleString('fa-IR')}</span>}
             </button>
             {notificationsOpen && (
@@ -125,9 +125,9 @@ export default function TopBar({ title, profile, onSignOut, onMenuClick, onMessa
         )}
         <button type="button" className="btn-tiny" onClick={onMenuClick} aria-label="باز کردن منوی کناری">
           <Menu size={17} />
-          منو
+          <span className="max-[650px]:hidden">منو</span>
         </button>
-        <div className="grid h-[39px] w-[39px] place-items-center rounded-full bg-brand-100 font-bold text-brand-600">
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-brand-100 bg-brand-50 font-bold text-brand-700">
           {profile.full_name.charAt(0)}
         </div>
         <div className="text-[13px] leading-[1.6] max-[650px]:hidden">
@@ -136,11 +136,11 @@ export default function TopBar({ title, profile, onSignOut, onMenuClick, onMessa
         </div>
         <button type="button" className="btn-tiny" onClick={() => setPasswordModalOpen(true)} aria-label="تغییر رمز عبور">
           <KeyRound size={13} />
-          رمز
+          <span className="max-[650px]:hidden">رمز</span>
         </button>
         <button type="button" className="btn-tiny" onClick={onSignOut} aria-label="خروج از حساب">
           <LogOut size={13} />
-          خروج
+          <span className="max-[650px]:hidden">خروج</span>
         </button>
       </div>
       {passwordModalOpen && <PasswordChangeModal onClose={() => setPasswordModalOpen(false)} />}
