@@ -102,23 +102,23 @@
 - هر ۲۴ جدول عمومی RLS فعال دارند و مالک همه آن‌ها نقش `postgres` است. سه bucket به نام‌های `driver-licenses`، `archive-documents` و `line-report-evidence` خصوصی‌اند؛ تعداد فایل‌های Storage فعلاً صفر است.
 - شمارش فقط تجمیعی: ۱۱ راننده، ۱۱ خودرو، ۱ پروانه، ۱ حساب Auth و ۱ پروفایل مدیر فعال و تأییدشده؛ نامه‌ها و درخواست‌های مرخصی صفر هستند. بنابراین یادداشت قدیمی مبنی بر نبود مدیر اولیه دیگر معتبر نیست.
 - Edge Function `manage-staff` فعال و روی نسخه ۹ است. `verify_jwt=false` است، اما عملیات کارکنان توکن را داخل تابع اعتبارسنجی می‌کند و bootstrap مدیر اولیه به `STAFF_REGISTRATION_CODE` نیاز دارد. وجود خود Secret از اتصال فعلی قابل خواندن/تأیید نیست؛ مقدار آن نباید در چت یا فرانت‌اند قرار گیرد. نسخه ۹ منطق اتصال امن به ۱۱ پرونده راننده بازیابی‌شده و جلوگیری از حذف خودکار حساب‌های قبلی را دارد.
-- جدول `letter_attachments` با ستون‌ها، قیود و index مورد انتظار در دیتابیس وجود دارد، اما migration متناظر در تاریخچه ۵۱تایی ثبت نشده است؛ جدول فعلاً صفر ردیف دارد. سیاست SELECT فعلی metadata را برای همه مدیران/کارشناسان، از جمله عضو کمیته انضباطی، مجاز می‌کند؛ PR #3 آن را به دسترسی قابل مشاهده از جدول `letters` محدود می‌کند.
-- مجوزهای مستقیم anon شامل INSERT ستونی فقط برای شش فیلد فرم گزارش مردمی است؛ این سطح محدود باید حفظ شود. در عین حال default ACL نقش postgres مجوزهای DDL مانند TRUNCATE/REFERENCES/TRIGGER/MAINTAIN را به anon و authenticated روی جداول می‌دهد؛ سه جدول فعلی این امتیازهای anon را نشان می‌دهند. PR #3 آن‌ها را از جداول فعلی و default ACL حذف می‌کند و فقط INSERT ستونی گزارش مردمی را نگه می‌دارد.
-- تابع محدودسازی نرخ گزارش مردمی در حال حاضر SECURITY DEFINER و در schema عمومی قابل اجرای anon است؛ PR #3 آن را به schema خصوصی منتقل می‌کند و همان کنترل را داخل RLS نگه می‌دارد.
+- جدول `letter_attachments` با ستون‌ها، قیود و index مورد انتظار در دیتابیس وجود دارد، اما migration متناظر در تاریخچه ۵۱تایی ثبت نشده است؛ جدول فعلاً صفر ردیف دارد. سیاست SELECT فعلی metadata را برای همه مدیران/کارشناسان، از جمله عضو کمیته انضباطی، مجاز می‌کند؛ migration امنیتی در شاخه آماده‌سازی این دسترسی را به نامه‌های قابل مشاهده از جدول `letters` محدود می‌کند، اما هنوز روی دیتابیس زنده اجرا نشده است.
+- مجوزهای مستقیم anon شامل INSERT ستونی فقط برای شش فیلد فرم گزارش مردمی است؛ این سطح محدود باید حفظ شود. در عین حال default ACL نقش postgres مجوزهای DDL مانند TRUNCATE/REFERENCES/TRIGGER/MAINTAIN را به anon و authenticated روی جداول می‌دهد؛ سه جدول فعلی این امتیازهای anon را نشان می‌دهند. migration امنیتی در شاخه آماده‌سازی این مجوزها را از جداول فعلی و default ACL حذف می‌کند و فقط INSERT ستونی گزارش مردمی را نگه می‌دارد؛ هنوز روی دیتابیس زنده اجرا نشده است.
+- تابع محدودسازی نرخ گزارش مردمی در حال حاضر SECURITY DEFINER و در schema عمومی قابل اجرای anon است؛ migration امنیتی در شاخه آماده‌سازی آن را به schema خصوصی منتقل می‌کند و همان کنترل را داخل RLS نگه می‌دارد؛ هنوز روی دیتابیس زنده اجرا نشده است.
 - Security Advisor هشدار غیرفعال بودن محافظت رمزهای افشاشده را گزارش می‌کند؛ این تنظیم باید در Auth settings داشبورد Supabase فعال شود. پنج تابع SECURITY DEFINER قابل اجرا برای authenticated دارای `search_path` خالی و کنترل نقش داخلی هستند و پیش از تغییر باید مصرف هرکدام جداگانه بررسی شود. دو جدول بدون policy در schema خصوصی، داده‌های داخلی/سرویس‌محور هستند.
 - هشدارهای عملکردی فعلی: ۵۳ مورد auth init-plan، ۱۳ مورد policy مجاز هم‌پوشان و یک کلید خارجی بدون index پوششی. این موارد برای مقیاس‌پذیری بهینه‌سازی می‌خواهند، اما حذف شتاب‌زده indexهای استفاده‌نشده توصیه نمی‌شود.
 
 ### PWA، وب و Android
-- manifest فارسی/RTL، آیکون‌های ۱۹۲ و ۵۱۲ و Service Worker در شاخه انتشار موجودند. این آمادگی سورس را تأیید می‌کند، نه نصب موفق روی دستگاه.
-- راهنمای Cloudflare Pages شاخه Production را `release/standalone-railway`، دستور build را `npm run build`، خروجی را `dist` و Node را ۲۲ تعیین می‌کند. متغیرهای لازم فقط `VITE_SUPABASE_URL` و کلید publishable/anon هستند؛ هرگز service-role یا `STAFF_REGISTRATION_CODE` را در Pages یا `VITE_*` قرار ندهید.
-- URL میزبانی‌شده Bolt در محیط بررسی قابل resolve نبود؛ بنابراین سلامت سایت زنده یا انتشار Cloudflare از این اجرا تأیید نشده است. این محدودیت شبکه، به‌تنهایی به معنی قطع بودن سایت نیست.
-- هیچ `android/`، پیکربندی Capacitor یا APK در شاخه انتشار وجود ندارد. مسیر ساخت پس از build وب و تنظیم Supabase: نصب `@capacitor/core` و `@capacitor/android` و `@capacitor/cli`، اجرای `npx cap init "تاکسیرانی تالش" ir.talesh.taxi --web-dir=dist`، سپس `npx cap add android`، `npm run build`، `npx cap sync android` و `npx cap open android`؛ در Android Studio از Build → Generate Signed Bundle / APK → APK نسخه امضاشده بسازید. این محیط Android Studio/SDK ندارد و APK ساخته نشده است.
+- manifest فارسی/RTL، آیکون‌های ۱۹۲ و ۵۱۲ و Service Worker در شاخه آماده‌سازی موجودند. Service Worker برای خطای فایل‌های اختیاری مقاوم شده و نصب PWA روی دامنه‌های production محدود است.
+- راهنمای Cloudflare Pages شاخه Production را `release/standalone-railway`، دستور build را `npm run build`، خروجی را `dist` و Node را ۲۲ تعیین می‌کند. URL و کلید عمومی publishable به‌صورت پیش‌فرض در سورس قرار دارند و متغیرهای محیطی فقط override اختیاری هستند؛ هرگز service-role یا `STAFF_REGISTRATION_CODE` را در Pages یا `VITE_*` قرار ندهید.
+- Cloudflare Pages برای commit `134da75` از شاخه آماده‌سازی، Preview موفق با URL `https://023f56d6.talesh-taxi-system.pages.dev` گزارش کرده است. این Preview به معنی انتشار Production نیست؛ انتشار Production تا ادغام PR نهایی انجام نمی‌شود.
+- گردش‌کار GitHub Actions برای ساخت APK آزمایشی با Capacitor 7 و Java 21 اضافه شده است؛ پروژه Android به‌صورت خودکار ساخته و APK Debug در Artifact بارگذاری می‌شود. APK نهایی امضاشده هنوز ساخته نشده و برای انتشار عمومی به keystore سازمانی نیاز دارد.
 
 ### اقدام‌های باقی‌مانده پیش از انتشار
 1. تهیه backup قابل‌بازیابی و تطبیق ۵۱ سابقه migration با فایل‌ها؛ هیچ replay یا `db push` تا پایان این مرحله انجام نشود.
-2. بازبینی و ادغام PR #3 در شاخه feature، سپس PR #2 در شاخه انتشار؛ اجرای SQL ابتدا در staging و بعد با backup در Production.
+2. migrationهای امنیتی و پیوست نامه در شاخه آماده‌سازی ادغام شده‌اند؛ قبل از فعال‌سازی اسکن نامه در Production، آن‌ها را در staging اجرا و پس از تطبیق تاریخچه و backup قابل‌بازیابی، با برنامه بازگشت در Production اعمال کنید.
 3. تأیید Secret سمت سرور، فعال‌سازی leaked-password protection و آزمون نقش‌های مدیر، کارشناس، کمیته و راننده با حساب‌های آزمایشی.
-4. تأیید انتشار واقعی Cloudflare Pages و آزمون end-to-end/PWA روی گوشی.
-5. ساخت، نصب و آزمون APK آزمایشی و سپس امضای APK انتشار.
+4. تأیید Preview آخرین commit و سپس انتشار Production از طریق Cloudflare Pages؛ آزمون end-to-end/PWA روی گوشی.
+5. تکمیل اجرای موفق workflow اندروید، نصب APK Debug روی دستگاه واقعی و سپس ساخت APK Release امضاشده با keystore سازمانی.
 
 **هیچ migration یا تغییر داده‌ای در این نوبت روی Supabase زنده اجرا نشده است.**
