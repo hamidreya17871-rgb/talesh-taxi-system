@@ -292,14 +292,14 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="app-shell flex min-h-screen bg-ink-100">
       <Sidebar items={items} page={page} onNavigate={setPage} />
-      <main className="flex min-w-0 flex-1 flex-col">
+      <main className="flex min-h-screen min-w-0 flex-1 flex-col">
         <TopBar title={pageLabel} profile={profile} onSignOut={onSignOut} onMenuClick={() => setDrawerOpen(true)} onMessagesClick={() => setPage('messages')} onSecretariatClick={() => setPage('secretariat')} />
-        <div className="mx-auto w-full max-w-[1500px] flex-1 p-[26px] max-[1000px]:p-[18px] max-[650px]:px-3 max-[650px]:pb-[85px] max-[650px]:pt-[15px]">
+        <div className="mx-auto w-full max-w-[1560px] flex-1 p-7 max-[1000px]:p-[18px] max-[650px]:px-3 max-[650px]:pb-[85px] max-[650px]:pt-[15px]">
           {renderPage()}
         </div>
-        <footer className="p-[18px] text-center text-[11px] text-ink-600 max-[650px]:pb-[85px]">
+        <footer className="border-t border-ink-200/70 bg-white/60 px-4 py-4 text-center text-[11px] text-ink-600 max-[650px]:pb-[85px]">
           سامانه مدیریت حمل‌ونقل و تاکسیرانی تالش
         </footer>
       </main>
