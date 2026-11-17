@@ -799,6 +799,8 @@ Deno.serve(async (req: Request) => {
         return await handleListRegistrations(req);
       case "list-staff":
         return await handleListStaff(req);
+      case "save-signature":
+        return await handleSaveSignature(req, body);
       case "review-registration":
         return await handleReviewRegistration(req, body);
       case "review-registrations":
