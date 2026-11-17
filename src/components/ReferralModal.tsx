@@ -18,7 +18,8 @@ const GENERIC_ERROR = 'ارجاع انجام نشد. لطفاً دوباره ت�
 
 export default function ReferralModal({ letter, staff, currentUserId, onSaved, onClose, onNotify }: Props) {
   const [referredTo, setReferredTo] = useState('');
-  const [action, setAction] = useState<'review' | 'follow-up' | 'signature'>('review');
+  const followUpOnly = letter.direction === 'outgoing' && ['صادر شده', 'در انتظار پاسخ'].includes(letter.status);
+  const [action, setAction] = useState<'review' | 'follow-up' | 'signature'>(followUpOnly ? 'follow-up' : 'review');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +37,7 @@ export default function ReferralModal({ letter, staff, currentUserId, onSaved, o
     const { error: referralError } = await supabase.rpc('create_letter_referral', {
       p_letter_id: letter.id,
       p_referred_to: referredTo,
-      p_action: action,
+      p_action: followUpOnly ? 'follow-up' : action,
       p_note: note.trim() || null,
     });
     if (referralError) {
@@ -74,11 +75,18 @@ export default function ReferralModal({ letter, staff, currentUserId, onSaved, o
 
           <div className="flex flex-col gap-[7px]">
             <label htmlFor="referral-action" className="text-xs text-ink-600">نوع اقدام</label>
-            <select id="referral-action" value={action} onChange={e => setAction(e.target.value as 'review' | 'follow-up' | 'signature')} className="field-input">
-              <option value="review">بررسی</option>
-              <option value="follow-up">پیگیری</option>
-              <option value="signature">امضا</option>
+            <select id="referral-action" value={followUpOnly ? "follow-up" : action} onChange={e => setAction(e.target.value as 'review' | 'follow-up' | 'signature')} className="field-input">
+              {followUpOnly ? (
+                <option value="follow-up">پیگیری</option>
+              ) : (
+                <>
+                  <option value="review">بررسی</option>
+                  <option value="follow-up">پیگیری</option>
+                  <option value="signature">امضا</option>
+                </>
+              )}
             </select>
+            {followUpOnly && <p className="text-[11px] text-ink-500">پس از صدور نامه، ارجاع جدید فقط برای پیگیری پاسخ مجاز است.</p>}
           </div>
 
           <div className="flex flex-col gap-[7px]">

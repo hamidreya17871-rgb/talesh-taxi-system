@@ -14,6 +14,7 @@ export type ArchiveOwnerOption = { id: string; label: string };
 
 type Props = {
   defaultCategory: ArchiveCategory;
+  allowedCategories?: ArchiveCategory[];
   drivers: ArchiveOwnerOption[];
   vehicles: ArchiveOwnerOption[];
   onClose: () => void;
@@ -22,7 +23,7 @@ type Props = {
 
 const SAVE_ERROR = 'ذخیره مدرک انجام نشد. لطفاً دوباره تلاش کنید.';
 
-export default function ArchiveUploadModal({ defaultCategory, drivers, vehicles, onClose, onSaved }: Props) {
+export default function ArchiveUploadModal({ defaultCategory, allowedCategories = [...ARCHIVE_CATEGORIES], drivers, vehicles, onClose, onSaved }: Props) {
   const [category, setCategory] = useState<ArchiveCategory>(defaultCategory);
   const [ownerId, setOwnerId] = useState('');
   const [title, setTitle] = useState('');
@@ -30,8 +31,8 @@ export default function ArchiveUploadModal({ defaultCategory, drivers, vehicles,
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const ownerOptions = category === 'driver' ? drivers : category === 'vehicle' ? vehicles : [];
-  const needsOwner = category === 'driver' || category === 'vehicle';
+  const ownerOptions = category === 'driver' ? drivers : category === 'vehicle' || category === 'ownership_transfer' ? vehicles : [];
+  const needsOwner = category === 'driver' || category === 'vehicle' || category === 'ownership_transfer';
 
   useEffect(() => {
     setOwnerId('');
@@ -82,7 +83,7 @@ export default function ArchiveUploadModal({ defaultCategory, drivers, vehicles,
     const { error: saveError } = await supabase.from('archive_documents').insert({
       category,
       driver_id: category === 'driver' ? ownerId : null,
-      vehicle_id: category === 'vehicle' ? ownerId : null,
+      vehicle_id: category === 'vehicle' || category === 'ownership_transfer' ? ownerId : null,
       title: title.trim(),
       file_path: filePath,
       file_name: file.name,
@@ -111,7 +112,7 @@ export default function ArchiveUploadModal({ defaultCategory, drivers, vehicles,
           <div className="flex flex-col gap-[7px]">
             <label htmlFor="archive-category" className="text-xs text-ink-600">بایگانی</label>
             <select id="archive-category" value={category} onChange={e => setCategory(e.target.value as ArchiveCategory)} className="field-input">
-              {ARCHIVE_CATEGORIES.map(item => (
+              {allowedCategories.map(item => (
                 <option key={item} value={item}>{ARCHIVE_CATEGORY_LABELS[item]}</option>
               ))}
             </select>

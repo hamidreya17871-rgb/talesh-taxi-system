@@ -37,7 +37,13 @@ BEGIN
       ADD CONSTRAINT letter_referrals_completion_consistency
       CHECK (
         (status = 'pending' AND completed_by IS NULL AND completed_at IS NULL)
-        OR (status = 'done' AND completed_by IS NOT NULL AND completed_at IS NOT NULL)
+        OR (
+          status = 'done'
+          AND (
+            (completed_by IS NOT NULL AND completed_at IS NOT NULL)
+            OR (completed_by IS NULL AND completed_at IS NULL)
+          )
+        )
       ) NOT VALID;
   END IF;
 END $$;

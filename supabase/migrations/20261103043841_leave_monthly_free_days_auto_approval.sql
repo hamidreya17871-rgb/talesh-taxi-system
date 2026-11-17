@@ -3,8 +3,8 @@
 
 1. Behaviour
 - Each driver may take up to 3 days of leave per Solar Hijri (Jalali) month without organisation approval.
-- The month is the one containing the leave start date.
-- Days from every leave request in that month that is not rejected count toward the allowance, including the new request.
+- Every day is charged to the Solar Hijri (Jalali) month in which that day falls, including requests that cross month boundaries.
+- Every day from a non-rejected request counts toward its corresponding month; overlapping active requests are rejected.
 - If the new request fits within the remaining allowance, it is saved as approved automatically.
 - Otherwise it is saved as pending and needs review by a manager or expert.
 
@@ -63,17 +63,55 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-  requested_days integer := NEW.end_date - NEW.start_date + 1;
-  used_days integer;
+  v_within_allowance boolean;
 BEGIN
-  SELECT coalesce(sum(lr.end_date - lr.start_date + 1), 0)::integer
-  INTO used_days
-  FROM public.leave_requests lr
-  WHERE lr.driver_id = NEW.driver_id
-    AND lr.status <> 'rejected'
-    AND public.jalali_month_key(lr.start_date) = public.jalali_month_key(NEW.start_date);
+  -- Serialize allowance checks per driver to prevent concurrent requests exceeding the quota.
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(NEW.driver_id::text, 0));
 
-  NEW.status := CASE WHEN used_days + requested_days <= 3 THEN 'approved' ELSE 'pending' END;
+  IF NEW.end_date < NEW.start_date THEN
+    RAISE EXCEPTION 'Leave end date cannot be earlier than start date';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.leave_requests lr
+    WHERE lr.driver_id = NEW.driver_id
+      AND lr.status <> 'rejected'
+      AND daterange(lr.start_date, lr.end_date, '[]')
+          && daterange(NEW.start_date, NEW.end_date, '[]')
+  ) THEN
+    RAISE EXCEPTION 'This leave period overlaps an existing non-rejected request';
+  END IF;
+
+  WITH requested_days AS (
+    SELECT public.jalali_month_key(day_value::date) AS month_key,
+           count(DISTINCT day_value::date)::integer AS requested_days
+    FROM generate_series(
+      NEW.start_date::timestamp,
+      NEW.end_date::timestamp,
+      interval '1 day'
+    ) AS days(day_value)
+    GROUP BY public.jalali_month_key(day_value::date)
+  ),
+  used_days AS (
+    SELECT public.jalali_month_key(day_value::date) AS month_key,
+           count(DISTINCT day_value::date)::integer AS used_days
+    FROM public.leave_requests lr
+    CROSS JOIN LATERAL generate_series(
+      lr.start_date::timestamp,
+      lr.end_date::timestamp,
+      interval '1 day'
+    ) AS days(day_value)
+    WHERE lr.driver_id = NEW.driver_id
+      AND lr.status <> 'rejected'
+    GROUP BY public.jalali_month_key(day_value::date)
+  )
+  SELECT coalesce(bool_and(coalesce(u.used_days, 0) + r.requested_days <= 3), true)
+  INTO v_within_allowance
+  FROM requested_days r
+  LEFT JOIN used_days u USING (month_key);
+
+  NEW.status := CASE WHEN v_within_allowance THEN 'approved' ELSE 'pending' END;
   NEW.reviewed_by := NULL;
   NEW.reviewed_at := NULL;
   RETURN NEW;

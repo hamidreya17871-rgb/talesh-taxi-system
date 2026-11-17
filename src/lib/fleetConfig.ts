@@ -51,11 +51,11 @@ type EntityConfig = {
 
 export const entityConfigs: Record<EntityKey, EntityConfig> = {
   drivers: {
-    title: 'رانندگان',
-    singular: 'راننده',
+    title: 'مالکان خودرو',
+    singular: 'مالک خودرو',
     icon: Users,
     fields: [
-      { key: 'name', label: 'نام و نام خانوادگی', type: 'text', required: true },
+      { key: 'name', label: 'نام و نام خانوادگی مالک / شخص', type: 'text', required: true },
       { key: 'national_code', label: 'کد ملی', type: 'text' },
       { key: 'phone', label: 'شماره تماس', type: 'tel' },
       { key: 'license_number', label: 'شماره گواهینامه', type: 'text' },
@@ -81,7 +81,8 @@ export const entityConfigs: Record<EntityKey, EntityConfig> = {
       { key: 'plate', label: 'شماره پلاک', type: 'plate', required: true },
       { key: 'model', label: 'نوع / مدل خودرو', type: 'text' },
       { key: 'taxi_row_no', label: 'ردیف تاکسی', type: 'text' },
-      { key: 'driver_name', label: 'راننده', type: 'text' },
+      { key: 'driver_id', label: 'مالک / شخص مرتبط', type: 'driver' },
+      { key: 'driver_name', label: 'نام راننده (اطلاعات تکمیلی)', type: 'text' },
       { key: 'year', label: 'سال ساخت', type: 'number' },
       { key: 'insurance_expires', label: 'انقضای بیمه', type: 'date' },
       { key: 'inspection_expires', label: 'معاینه فنی تا', type: 'date' },
@@ -92,7 +93,7 @@ export const entityConfigs: Record<EntityKey, EntityConfig> = {
       { key: 'plate', label: 'پلاک' },
       { key: 'model', label: 'مدل' },
       { key: 'taxi_row_no', label: 'ردیف تاکسی' },
-      { key: 'driver_name', label: 'راننده' },
+      { key: 'driver_name', label: 'نام راننده' },
       { key: 'insurance_expires', label: 'انقضای بیمه' },
       { key: 'status', label: 'وضعیت' },
     ],

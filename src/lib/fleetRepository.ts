@@ -31,32 +31,15 @@ export async function deleteRecord(table: EntityKey, id: string): Promise<void> 
   if (error) throw error;
 }
 
-async function deleteAllRows(table: EntityKey): Promise<void> {
-  const { error } = await supabase.from(table).delete().not('id', 'is', null);
-  if (error) throw error;
-}
-
-export async function clearAllRecords(): Promise<void> {
-  for (const table of ENTITY_KEYS) {
-    await deleteAllRows(table);
-  }
-}
-
-export async function replaceAllRecords(backup: BackupData): Promise<void> {
+export async function mergeBackupRecords(backup: BackupData): Promise<void> {
   for (const table of ENTITY_KEYS) {
     const rows = backup[table];
-    if (!rows) continue;
+    if (!rows?.length) continue;
 
-    if (rows.length === 0) {
-      await deleteAllRows(table);
-      continue;
-    }
-
-    const { error: upsertError } = await supabase.from(table).upsert(rows, { onConflict: 'id' });
-    if (upsertError) throw upsertError;
-
-    const keepIds = rows.map(row => row.id).join(',');
-    const { error: deleteError } = await supabase.from(table).delete().not('id', 'in', `(${keepIds})`);
-    if (deleteError) throw deleteError;
+    // Import only missing IDs. Existing live rows are never overwritten or deleted.
+    const { error } = await supabase
+      .from(table)
+      .upsert(rows, { onConflict: 'id', ignoreDuplicates: true });
+    if (error) throw error;
   }
 }

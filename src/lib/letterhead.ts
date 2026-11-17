@@ -9,6 +9,8 @@ export type LetterheadData = {
   correspondent?: string;
   attachment?: string | null;
   direction: 'incoming' | 'outgoing';
+  includeLetterhead?: boolean;
+  paperSize?: 'A4' | 'A5';
 };
 
 export function buildLetterHtml(data: LetterheadData): string {
@@ -23,6 +25,8 @@ export function buildLetterHtml(data: LetterheadData): string {
     date: data.date || todayIso(),
     attachment: data.attachment,
     contentHtml,
+    includeLetterhead: data.includeLetterhead,
+    paperSize: data.paperSize,
   });
 }
 

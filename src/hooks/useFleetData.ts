@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createEmptyFleetData, type BackupData, type EntityKey, type FleetData, type RecordPayload } from '@/lib/fleetConfig';
 import {
-  clearAllRecords,
   deleteRecord,
   fetchAllRecords,
   insertRecord,
-  replaceAllRecords,
+  mergeBackupRecords,
   updateRecord,
 } from '@/lib/fleetRepository';
 
@@ -46,16 +45,11 @@ export function useFleetData() {
 
   const restoreBackup = useCallback(
     async (backup: BackupData) => {
-      await replaceAllRecords(backup);
+      await mergeBackupRecords(backup);
       await reload();
     },
     [reload]
   );
 
-  const clearAll = useCallback(async () => {
-    await clearAllRecords();
-    setData(createEmptyFleetData());
-  }, []);
-
-  return { data, status, reload, saveRecord, removeRecord, restoreBackup, clearAll };
+  return { data, status, reload, saveRecord, removeRecord, restoreBackup };
 }

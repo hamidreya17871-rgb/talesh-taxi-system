@@ -5,11 +5,12 @@ import { callStaffApi } from '@/lib/staffApi';
 import { isValidPhone, normalizePhone, phoneToAccountEmail } from '@/lib/phone';
 import DriverRegisterForm from '@/components/DriverRegisterForm';
 import StaffRegisterForm from '@/components/StaffRegisterForm';
+import CitizenViolationReportForm from '@/components/CitizenViolationReportForm';
 
 const LOGIN_ERROR = 'ورود ناموفق بود. شماره موبایل یا رمز عبور را بررسی کنید.';
 const PHONE_ERROR = 'شماره موبایل معتبر نیست. نمونه: ۰۹۱۲۳۴۵۶۷۸۹';
 
-type Mode = 'checking' | 'login' | 'register' | 'staff-register' | 'setup';
+type Mode = 'checking' | 'login' | 'register' | 'staff-register' | 'setup' | 'citizen-report';
 
 export default function LoginPage() {
   const [mode, setMode] = useState<Mode>('checking');
@@ -91,7 +92,9 @@ export default function LoginPage() {
         ? 'ثبت‌نام راننده'
         : mode === 'staff-register'
           ? 'ثبت‌نام کارشناس'
-          : 'ورود به سامانه';
+          : mode === 'citizen-report'
+            ? 'ثبت گزارش شهروندی بدون ثبت‌نام'
+            : 'ورود به سامانه';
 
   return (
     <div className="grid min-h-screen place-items-center p-[18px]">
@@ -110,6 +113,7 @@ export default function LoginPage() {
 
         {mode === 'register' && <DriverRegisterForm onBack={() => switchMode('login')} />}
         {mode === 'staff-register' && <StaffRegisterForm onBack={() => switchMode('login')} />}
+        {mode === 'citizen-report' && <CitizenViolationReportForm onBack={() => switchMode('login')} />}
 
         {(mode === 'login' || mode === 'setup') && (
           <form onSubmit={mode === 'setup' ? handleSetup : handleLogin} className="flex flex-col gap-[13px]">
@@ -158,9 +162,15 @@ export default function LoginPage() {
               <LogIn size={16} />
               {busy ? 'لطفاً صبر کنید…' : mode === 'setup' ? 'ایجاد حساب و ورود' : 'ورود'}
             </button>
+            {mode === 'login' && <p className="text-center text-xs leading-6 text-ink-600">اگر رمز عبور را فراموش کرده‌اید، مدیر سازمان می‌تواند از بخش کاربران برایتان رمز تازه تنظیم کند.</p>}
             {mode === 'login' && (
               <button type="button" className="text-sm text-brand-700 underline-offset-4 hover:underline" onClick={() => switchMode('register')}>
                 راننده هستید؟ ثبت‌نام کنید
+              </button>
+            )}
+            {mode === 'login' && (
+              <button type="button" className="text-sm font-bold text-brand-700 underline-offset-4 hover:underline" onClick={() => switchMode('citizen-report')}>
+                شهروند هستید؟ گزارش تخلف ثبت کنید
               </button>
             )}
             {mode === 'login' && (

@@ -97,7 +97,9 @@ async function hasManager(): Promise<boolean> {
   const { count, error } = await admin
     .from("profiles")
     .select("user_id", { count: "exact", head: true })
-    .eq("role", "manager");
+    .eq("role", "manager")
+    .eq("is_active", true)
+    .eq("approval_status", "approved");
   if (error) throw error;
   return (count ?? 0) > 0;
 }
@@ -118,6 +120,20 @@ async function requireStaff(req: Request, allowedRoles: string[]): Promise<strin
   return userData.user.id;
 }
 
+async function requireOrganizationStaff(req: Request): Promise<string> {
+  const userId = await requireStaff(req, ["manager", "expert"]);
+  const { data: profile, error } = await admin
+    .from("profiles")
+    .select("is_disciplinary_committee")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  if (profile?.is_disciplinary_committee) {
+    throw new RequestError("این حساب فقط به کارتابل کمیته انضباطی دسترسی دارد.", 403);
+  }
+  return userId;
+}
+
 async function createAuthUser(email: string, password: string): Promise<string> {
   const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
   if (error) {
@@ -129,19 +145,6 @@ async function createAuthUser(email: string, password: string): Promise<string> 
   return data.user.id;
 }
 
-async function releaseRemovedDriverPhone(phone: string): Promise<void> {
-  const { data: profile, error } = await admin
-    .from("profiles")
-    .select("user_id, role, driver_id")
-    .eq("phone", phone)
-    .maybeSingle();
-  if (error) throw error;
-  if (!profile || profile.role !== "driver" || profile.driver_id) return;
-  const { error: profileError } = await admin.from("profiles").delete().eq("user_id", profile.user_id);
-  if (profileError) throw profileError;
-  const { error: authError } = await admin.auth.admin.deleteUser(profile.user_id);
-  if (authError) throw authError;
-}
 
 type ProfileValues = {
   email: string;
@@ -191,7 +194,6 @@ async function handleCreate(req: Request, body: Record<string, unknown>): Promis
   const fullName = readText(body, "full_name", 100);
   const role = readRole(body);
   const driverId = await readDriverId(body, role);
-  await releaseRemovedDriverPhone(phone);
   const userId = await createAuthUser(phoneToAccountEmail(phone), password);
   await insertProfile(userId, {
     email: phoneToAccountEmail(phone),
@@ -352,7 +354,7 @@ async function handleRegisterDriver(body: Record<string, unknown>): Promise<Resp
 }
 
 async function handleListStaff(req: Request): Promise<Response> {
-  await requireStaff(req, ["manager", "expert"]);
+  await requireOrganizationStaff(req);
   const { data, error } = await admin
     .from("profiles")
     .select("user_id, full_name")
@@ -365,7 +367,7 @@ async function handleListStaff(req: Request): Promise<Response> {
 }
 
 async function handleListRegistrations(req: Request): Promise<Response> {
-  await requireStaff(req, ["manager", "expert"]);
+  await requireOrganizationStaff(req);
   const { data: profiles, error } = await admin
     .from("profiles")
     .select("user_id, phone, full_name, driver_id, created_at")
@@ -401,7 +403,7 @@ async function handleListRegistrations(req: Request): Promise<Response> {
 }
 
 async function handleReviewRegistration(req: Request, body: Record<string, unknown>): Promise<Response> {
-  await requireStaff(req, ["manager", "expert"]);
+  await requireOrganizationStaff(req);
   const userId = body.user_id;
   if (typeof userId !== "string" || !UUID_PATTERN.test(userId)) throw invalid();
   const decision = body.decision;

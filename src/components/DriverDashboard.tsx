@@ -8,6 +8,7 @@ import { formatPersianDate } from '@/lib/format';
 import { LEAVE_STATUS_LABELS, type LeaveRequest } from '@/lib/leave';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/staff';
+import LineInspectorReports from '@/components/LineInspectorReports';
 
 type Props = {
   data: FleetData;
@@ -57,6 +58,8 @@ export default function DriverDashboard({ data, profile, onNavigate }: Props) {
           <LayoutDashboard size={22} />
         </span>
       </div>
+
+      {profile.is_line_inspector && <LineInspectorReports profile={profile} mode="driver" />}
 
       <div className="panel flex flex-col gap-4">
         <CardHeader icon={FileText} title="پروانه‌ها" tone="brand" />

@@ -1,12 +1,13 @@
 export const ARCHIVE_BUCKET = 'archive-documents';
 export const ARCHIVE_FILE_MAX_BYTES = 10 * 1024 * 1024;
 
-export const ARCHIVE_CATEGORIES = ['driver', 'vehicle', 'inspection', 'committee', 'other'] as const;
+export const ARCHIVE_CATEGORIES = ['driver', 'vehicle', 'ownership_transfer', 'inspection', 'committee', 'other'] as const;
 export type ArchiveCategory = (typeof ARCHIVE_CATEGORIES)[number];
 
 export const ARCHIVE_CATEGORY_LABELS: Record<ArchiveCategory, string> = {
   driver: 'مدارک راننده',
   vehicle: 'مدارک خودرو',
+  ownership_transfer: 'پرونده انتقال مالکیت',
   inspection: 'بازرسی',
   committee: 'کمیته انضباطی',
   other: 'سایر مدارک',

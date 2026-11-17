@@ -6,6 +6,7 @@ import DriverViolationsPage from '@/components/DriverViolationsPage';
 import ObjectionReviewModal from '@/components/ObjectionReviewModal';
 import LoginPage from '@/components/LoginPage';
 import MobileNav from '@/components/MobileNav';
+import MobileDrawer from '@/components/MobileDrawer';
 import RecordFormModal from '@/components/RecordFormModal';
 import RecordsPage from '@/components/RecordsPage';
 import RegistrationsPage from '@/components/RegistrationsPage';
@@ -58,6 +59,15 @@ export default function App() {
       />
     );
   }
+  if (sessionStatus === 'rejected') {
+    return (
+      <AccountMessage
+        title="درخواست دسترسی تأیید نشده است"
+        detail="درخواست حساب شما رد شده است. برای بررسی علت و پیگیری، با مدیر سازمان تماس بگیرید."
+        onSignOut={() => void signOut()}
+      />
+    );
+  }
   if (sessionStatus === 'inactive') {
     return (
       <AccountMessage
@@ -99,13 +109,20 @@ function AccountMessage({ title, detail, onSignOut }: { title: string; detail: s
 }
 
 function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => void }) {
-  const [page, setPage] = useState<PageKey>(() => defaultPageForRole());
+  const [page, setPage] = useState<PageKey>(() => profile.is_disciplinary_committee ? 'secretariat' : defaultPageForRole());
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [objectionReview, setObjectionReview] = useState<FleetRecord | null>(null);
-  const { data, status, reload, saveRecord, removeRecord, restoreBackup, clearAll } = useFleetData();
+  const { data, status, reload, saveRecord, removeRecord, restoreBackup } = useFleetData();
   const { toast, showToast } = useToast();
 
-  const items = navItemsForRole(profile.role);
+  const roleItems = navItemsForRole(profile.role);
+  const items = profile.is_disciplinary_committee
+    ? roleItems.filter(item => item.key === 'secretariat' || item.key === 'archive')
+    : roleItems;
+  const mobileKeys: PageKey[] = profile.is_disciplinary_committee
+    ? ['secretariat', 'archive']
+    : mobileNavKeysForRole(profile.role);
   const pageLabel = navItems.find(item => item.key === page)?.label ?? '';
   const readOnly = profile.role === 'driver';
 
@@ -178,20 +195,10 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
       showToast('فایل پشتیبان معتبر نیست', 'error');
       return;
     }
-    if (!window.confirm('اطلاعات فعلی جایگزین شود؟')) return;
+    if (!window.confirm('فقط ردیف‌های جدید از فایل به سامانه اضافه می‌شوند؛ ردیف‌های فعلی نه بازنویسی و نه حذف خواهند شد. ادامه می‌دهید؟')) return;
     try {
       await restoreBackup(backup);
       showToast('بازیابی انجام شد');
-    } catch {
-      showToast(GENERIC_ERROR, 'error');
-    }
-  }
-
-  async function handleClearAll() {
-    if (!window.confirm('همه اطلاعات ثبت‌شده در سامانه حذف شود؟ این کار برگشت‌پذیر نیست.')) return;
-    try {
-      await clearAll();
-      showToast('اطلاعات پاک شد');
     } catch {
       showToast(GENERIC_ERROR, 'error');
     }
@@ -237,16 +244,16 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
     if (page === 'users') return <UsersPage onNotify={showToast} />;
     if (page === 'leave') return <LeavePage profile={profile} onNotify={showToast} />;
     if (page === 'secretariat') return <SecretariatPage profile={profile} onNotify={showToast} />;
-    if (page === 'archive') return <ArchivePage onNotify={showToast} />;
+    if (page === 'archive') return <ArchivePage profile={profile} onNotify={showToast} />;
     if (page === 'messages') {
       return profile.role === 'driver' ? (
-        <DriverMessagesPage />
+        <DriverMessagesPage driverId={profile.driver_id} />
       ) : (
         <StaffMessagesPage drivers={data.drivers} canDelete={profile.role === 'manager'} onNotify={showToast} />
       );
     }
     if (page === 'settings') {
-      return <SettingsPage onBackup={handleBackup} onRestore={file => void handleRestore(file)} onClearAll={() => void handleClearAll()} />;
+      return <SettingsPage onBackup={handleBackup} onRestore={file => void handleRestore(file)} />;
     }
     if (!(ENTITY_KEYS as readonly string[]).includes(page)) {
       return <p className="py-24 text-center text-ink-600">این بخش به‌زودی فعال می‌شود.</p>;
@@ -271,7 +278,7 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
     <div className="flex min-h-screen">
       <Sidebar items={items} page={page} onNavigate={setPage} />
       <main className="flex min-w-0 flex-1 flex-col">
-        <TopBar title={pageLabel} profile={profile} onSignOut={onSignOut} />
+        <TopBar title={pageLabel} profile={profile} onSignOut={onSignOut} onMenuClick={() => setDrawerOpen(true)} onMessagesClick={() => setPage('messages')} onSecretariatClick={() => setPage('secretariat')} />
         <div className="mx-auto w-full max-w-[1500px] flex-1 p-[26px] max-[1000px]:p-[18px] max-[650px]:px-3 max-[650px]:pb-[85px] max-[650px]:pt-[15px]">
           {renderPage()}
         </div>
@@ -279,7 +286,8 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
           سامانه مدیریت حمل‌ونقل و تاکسیرانی تالش
         </footer>
       </main>
-      <MobileNav items={items} keys={mobileNavKeysForRole(profile.role)} page={page} onNavigate={setPage} />
+      <MobileNav items={items} keys={mobileKeys} page={page} onNavigate={setPage} />
+      <MobileDrawer items={items} page={page} open={drawerOpen} onNavigate={setPage} onClose={() => setDrawerOpen(false)} />
       {editor && (
         <RecordFormModal
           entity={editor.entity}
