@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/staff';
 
 export type SessionStatus = 'loading' | 'signed-out' | 'ready' | 'pending' | 'rejected' | 'inactive' | 'error';
@@ -12,6 +12,10 @@ export function useSession() {
 
   useEffect(() => {
     let active = true;
+    if (!isSupabaseConfigured) {
+      setStatus('error');
+      return () => { active = false; };
+    }
 
     async function applySession(session: Session | null) {
       if (!active) return;
@@ -71,6 +75,7 @@ export function useSession() {
   }, []);
 
   const signOut = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
     await supabase.auth.signOut();
   }, []);
 
