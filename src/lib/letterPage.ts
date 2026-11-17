@@ -36,7 +36,7 @@ export function buildLetterPageHtml(title: string, input: LetterPageInput): stri
   const paperSize = input.paperSize ?? 'A4';
   const pageWidth = paperSize === 'A5' ? '148mm' : '210mm';
   const pageHeight = paperSize === 'A5' ? '210mm' : '297mm';
-  const templateUrl = `${window.location.origin}${LETTER_TEMPLATE_FILE}`;
+  const templateUrl = new URL(LETTER_TEMPLATE_FILE, window.location.href).href;
   const dateText = formatPersianDate(input.date);
   const attachmentText = input.attachment?.trim() ? input.attachment.trim() : '-';
 
@@ -81,25 +81,40 @@ export function buildLetterPageHtml(title: string, input: LetterPageInput): stri
 export function openLetterPrintWindow(html: string): boolean {
   const printWindow = window.open('', '_blank', 'width=900,height=1000');
   if (!printWindow) return false;
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
-  printWindow.focus();
-
-  // Mobile browsers can open the print preview before the letterhead image is decoded.
-  // Wait for every image before invoking print so the official stationery is not omitted.
-  const images = Array.from(printWindow.document.images);
-  const imageReady = Promise.all(images.map(image => {
-    if (image.complete && image.naturalWidth > 0) return Promise.resolve();
-    if (typeof image.decode === 'function') return image.decode().catch(() => undefined);
-    return new Promise<void>(resolve => {
-      image.addEventListener('load', () => resolve(), { once: true });
-      image.addEventListener('error', () => resolve(), { once: true });
+  // Open synchronously to avoid mobile popup blockers, then embed the official
+  // stationery image as a data URL so about:blank/WebView cannot lose its path.
+  const templateUrl = new URL(LETTER_TEMPLATE_FILE, window.location.href).href;
+  void fetch(templateUrl, { cache: 'no-cache' })
+    .then(response => {
+      if (!response.ok) throw new Error('Letterhead image could not be loaded');
+      return response.blob();
+    })
+    .then(blob => new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Invalid image data'));
+      reader.onerror = () => reject(new Error('Image read failed'));
+      reader.readAsDataURL(blob);
+    }))
+    .catch(() => '')
+    .then(dataUrl => {
+      const printableHtml = dataUrl
+        ? html.replace(templateUrl, dataUrl)
+        : html;
+      printWindow.document.open();
+      printWindow.document.write(printableHtml);
+      printWindow.document.close();
+      const images = Array.from(printWindow.document.images);
+      const ready = Promise.all(images.map(image => {
+        if (image.complete && image.naturalWidth > 0) return Promise.resolve();
+        return new Promise<void>(resolve => {
+          image.addEventListener('load', () => resolve(), { once: true });
+          image.addEventListener('error', () => resolve(), { once: true });
+        });
+      }));
+      void ready.then(() => {
+        printWindow.focus();
+        window.setTimeout(() => printWindow.print(), 500);
+      });
     });
-  }));
-  void imageReady.then(() => {
-    printWindow.focus();
-    window.setTimeout(() => printWindow.print(), 350);
-  });
   return true;
 }
