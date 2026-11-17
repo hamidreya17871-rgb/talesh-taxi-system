@@ -12,6 +12,7 @@ type AttachmentRow = {
   mime_type: string;
   file_size: number;
   created_at: string;
+  document_type?: string;
 };
 
 type DisplayAttachment = AttachmentRow & { signedUrl: string | null };
@@ -67,6 +68,7 @@ export async function uploadLetterAttachments(letterId: string, files: File[]) {
       file_name: file.name,
       mime_type: mimeType,
       file_size: file.size,
+      document_type: documentType,
     });
 
     if (rowError) {
@@ -79,10 +81,26 @@ export async function uploadLetterAttachments(letterId: string, files: File[]) {
   return { failedFiles, errors };
 }
 
+const DOCUMENT_TYPES = [
+  ['incoming_letter', 'نامه وارده'],
+  ['outgoing_letter', 'نامه صادره'],
+  ['attachment', 'پیوست نامه'],
+  ['meeting_minutes', 'صورت‌جلسه'],
+  ['inspection_report', 'گزارش بازرسی'],
+  ['leave_request', 'درخواست مرخصی'],
+  ['driver_document', 'مدرک راننده'],
+  ['vehicle_document', 'مدرک خودرو'],
+  ['other', 'سایر اسناد'],
+] as const;
+
+const documentTypeLabel = (value?: string) =>
+  DOCUMENT_TYPES.find(([key]) => key === value)?.[1] ?? 'پیوست نامه';
+
 export default function LetterAttachments({ letterId, queuedFiles, onQueuedFilesChange, canUpload }: Props) {
   const [attachments, setAttachments] = useState<DisplayAttachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [documentType, setDocumentType] = useState<string>('attachment');
 
   useEffect(() => {
     let active = true;
@@ -95,7 +113,7 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
     void (async () => {
       const { data, error } = await supabase
         .from('letter_attachments')
-        .select('id, storage_path, file_name, mime_type, file_size, created_at')
+        .select('id, storage_path, file_name, mime_type, file_size, created_at, document_type')
         .eq('letter_id', letterId)
         .order('created_at', { ascending: true });
 
@@ -154,8 +172,14 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
       {canUpload && (
         <>
           <p className="text-xs leading-6 text-ink-600">
-            با گوشی هر صفحه را جداگانه عکس بگیرید و «افزودن صفحه بعد» را بزنید. با کامپیوتر، فایل PDF یا تصویر خروجی اسکنر را انتخاب کنید.
+            ابتدا نوع سند را مشخص کنید؛ سپس با گوشی عکس بگیرید یا فایل PDF و تصویر اسکنر را انتخاب کنید.
           </p>
+          <label className="flex flex-col gap-1 text-xs text-ink-600">
+            نوع سند
+            <select className="field-input" value={documentType} onChange={event => setDocumentType(event.target.value)}>
+              {DOCUMENT_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
           <div className="flex flex-wrap gap-2">
             <label className="btn btn-secondary cursor-pointer">
               <Camera size={16} />
@@ -204,6 +228,7 @@ export default function LetterAttachments({ letterId, queuedFiles, onQueuedFiles
               <div className="flex min-w-0 items-center gap-2 text-xs">
                 {item.mime_type === 'application/pdf' ? <FileText size={17} /> : <ImageIcon size={17} />}
                 <span className="truncate">{item.file_name}</span>
+                <span className="shrink-0 rounded bg-ink-100 px-2 py-0.5">{documentTypeLabel(item.document_type)}</span>
                 <span className="shrink-0 text-ink-500">{(item.file_size / 1024 / 1024).toFixed(1)} MB</span>
               </div>
               {item.signedUrl ? (
