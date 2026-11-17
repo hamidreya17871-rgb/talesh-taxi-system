@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { Eraser, Save, X } from 'lucide-react';
 import { callStaffApi } from '@/lib/staffApi';
 import type { Profile } from '@/lib/staff';
@@ -26,12 +26,12 @@ export default function ProfileSignatureModal({ profile, onClose, onSaved }: Pro
     }
   }, []);
 
-  function point(event: React.PointerEvent<HTMLCanvasElement>) {
+  function point(event: PointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
     return { x: (event.clientX - rect.left) * canvas.width / rect.width, y: (event.clientY - rect.top) * canvas.height / rect.height };
   }
-  function start(event: React.PointerEvent<HTMLCanvasElement>) {
+  function start(event: PointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current!;
     canvas.setPointerCapture(event.pointerId);
     const p = point(event);
@@ -40,7 +40,7 @@ export default function ProfileSignatureModal({ profile, onClose, onSaved }: Pro
     ctx.strokeStyle = '#173bd1'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     drawing.current = true;
   }
-  function move(event: React.PointerEvent<HTMLCanvasElement>) {
+  function move(event: PointerEvent<HTMLCanvasElement>) {
     if (!drawing.current) return;
     const p = point(event);
     const ctx = canvasRef.current!.getContext('2d')!;
