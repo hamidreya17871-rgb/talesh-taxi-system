@@ -52,10 +52,10 @@ export default function ProfilePage({ profile }: Props) {
         <button type="button" className="btn self-start" onClick={() => setPasswordOpen(true)}><KeyRound size={16}/> تغییر رمز عبور</button>
       </section>
 
-      {profile.role === 'manager' && (
+      {(profile.role === 'manager' || profile.role === 'expert') && (
         <section className="panel flex flex-col gap-3 p-5">
           <div className="flex items-center justify-between gap-3">
-            <div><h3 className="font-bold">امضای مدیر سازمان</h3><p className="mt-1 text-sm text-ink-600">امضای ذخیره‌شده برای اسناد و نامه‌های رسمی پس از تأیید مدیر استفاده می‌شود.</p></div>
+            <div><h3 className="font-bold">امضای کاربری</h3><p className="mt-1 text-sm text-ink-600">امضای ذخیره‌شده شما برای گردش و تأیید اسناد سازمانی در دسترس خواهد بود.</p></div>
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700"><PenLine size={19}/></span>
           </div>
           {signature ? <img src={signature} alt="امضای ذخیره‌شده مدیر" className="max-h-24 max-w-[260px] rounded-lg border border-ink-100 bg-white object-contain p-2"/> : <p className="rounded-lg bg-gold-50 p-3 text-sm text-gold-800">هنوز امضایی ثبت نشده است.</p>}
