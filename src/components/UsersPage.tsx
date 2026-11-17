@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { ROLE_LABELS, type Profile } from '@/lib/staff';
 import { callStaffApi } from '@/lib/staffApi';
 import UserFormModal from '@/components/UserFormModal';
+import SingleDriverModal from '@/components/SingleDriverModal';
 
 type DriverOption = { id: string; name: string | null };
 
@@ -23,6 +24,8 @@ export default function UsersPage({ onNotify }: Props) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [issuingCodes, setIssuingCodes] = useState(false);
   const [activationResult, setActivationResult] = useState<ActivationResult | null>(null);
+  const [singleDriverOpen, setSingleDriverOpen] = useState(false);
+  const [singleDriverActivation, setSingleDriverActivation] = useState<ActivationItem | null>(null);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -95,12 +98,28 @@ export default function UsersPage({ onNotify }: Props) {
             <RefreshCw size={16} />
             به‌روزرسانی
           </button>
+          <button type="button" className="btn btn-secondary" onClick={() => { setSingleDriverActivation(null); setSingleDriverOpen(true); }}>
+            <Plus size={16} />
+            افزودن راننده تکی
+          </button>
           <button type="button" className="btn" onClick={() => setEditor({ user: null })}>
             <Plus size={16} />
             افزودن کاربر
           </button>
         </div>
       </header>
+
+      {singleDriverActivation && (
+        <div className="panel border border-brand-200 bg-brand-50/50">
+          <h3 className="font-bold">کد فعال‌سازی راننده جدید</h3>
+          <p className="mt-1 text-sm">{singleDriverActivation.name} · <span dir="ltr">{singleDriverActivation.phone}</span></p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <code dir="ltr" className="rounded-lg bg-white px-4 py-2 text-lg font-bold tracking-widest">{singleDriverActivation.activation_code}</code>
+            <button type="button" className="btn btn-secondary" onClick={() => void navigator.clipboard.writeText(singleDriverActivation.activation_code).then(() => onNotify('کد فعال‌سازی کپی شد')).catch(() => onNotify('کپی کد ممکن نشد.', 'error'))}>کپی کد</button>
+          </div>
+          <p className="mt-2 text-xs text-ink-600">اعتبار تا {new Date(singleDriverActivation.expires_at).toLocaleDateString('fa-IR')} · کد فقط همین بار نمایش داده می‌شود؛ آن را خصوصی به راننده تحویل دهید.</p>
+        </div>
+      )}
 
       <div className="panel flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -210,6 +229,14 @@ export default function UsersPage({ onNotify }: Props) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {singleDriverOpen && (
+        <SingleDriverModal
+          onClose={() => setSingleDriverOpen(false)}
+          onNotify={onNotify}
+          onCreated={activation => { setSingleDriverOpen(false); setSingleDriverActivation(activation); void load(); }}
+        />
       )}
 
       {editor && (
