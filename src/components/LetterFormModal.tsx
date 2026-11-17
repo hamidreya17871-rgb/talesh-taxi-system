@@ -170,6 +170,8 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
       direction: letter.direction,
       includeLetterhead,
       paperSize,
+      managerApproved: Boolean(letter.manager_signed_at),
+      managerName: 'مدیر سازمان',
     });
   }
 
