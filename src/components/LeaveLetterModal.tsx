@@ -31,6 +31,7 @@ export default function LeaveLetterModal({ request, onClose, onNotify }: Props) 
   const [paperSize, setPaperSize] = useState<'A4' | 'A5'>('A4');
   const [customBody, setCustomBody] = useState<string | null>(null);
   const [vehicleError, setVehicleError] = useState<string | null>(null);
+  const [reviewerSignature, setReviewerSignature] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -70,7 +71,7 @@ export default function LeaveLetterModal({ request, onClose, onNotify }: Props) 
   const body = customBody ?? defaultBody;
 
   function handlePrint(includeLetterhead: boolean) {
-    if (!printLeaveLetter(request.letter_no, body, includeLetterhead, attachment, paperSize)) onNotify(PRINT_BLOCKED, 'error');
+    if (!printLeaveLetter(request.letter_no, body, includeLetterhead, attachment, paperSize, reviewerSignature)) onNotify(PRINT_BLOCKED, 'error');
   }
 
   return (
