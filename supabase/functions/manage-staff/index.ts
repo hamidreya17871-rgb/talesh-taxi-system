@@ -635,6 +635,12 @@ async function handleActivateImportedDriver(body: Record<string, unknown>): Prom
   if (consumed !== true) throw new RequestError("کد فعال‌سازی نادرست، منقضی یا قبلاً استفاده شده است.", 400);
   const { error: updateError } = await admin.auth.admin.updateUserById(profile.user_id, { password });
   if (updateError) throw updateError;
+  if (profile.approval_status === "approved") {
+    const { error: activationError } = await admin.from("profiles")
+      .update({ is_active: true })
+      .eq("user_id", profile.user_id);
+    if (activationError) throw activationError;
+  }
   return json({ activated: true, approval_status: profile.approval_status });
 }
 
