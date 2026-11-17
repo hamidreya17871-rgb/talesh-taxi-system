@@ -53,30 +53,34 @@ export function buildLetterPageHtml(title: string, input: LetterPageInput): stri
     html, body { margin: 0; padding: 0; width: ${pageWidth}; height: ${pageHeight}; }
     body { font-family: Tahoma, Arial, sans-serif; color: ${LETTER_INK}; }
     .page { position: relative; width: ${pageWidth}; height: ${pageHeight}; overflow: hidden; background: #fff; }
-    .masthead { position:absolute; inset:0 0 auto; height:58mm; background:#f5d51c; }
-    .masthead:after { content:""; position:absolute; left:0; right:0; bottom:0; height:1.1mm; background:#23824a; }
-    .meta { position:absolute; left:9mm; top:13mm; width:58mm; display:flex; flex-direction:column; gap:2mm; direction:rtl; }
-    .meta-row { height:10mm; display:flex; align-items:center; justify-content:space-between; gap:2mm; padding:0 3mm; border-radius:1.2mm; background:#fff; color:#222; font-size:10.5pt; font-weight:700; }
+
+    /* سربرگ مطابق نمونه رسمی ارسالی: نوار زرد، مشخصات در چپ، نشان در مرکز و پرچم در راست */
+    .masthead { position:absolute; inset:0 0 auto; height:43mm; background:#f6d51b; }
+    .masthead:after { content:""; position:absolute; left:0; right:0; bottom:0; height:1.2mm; background:#168044; }
+    .meta { position:absolute; left:8mm; top:10mm; width:58mm; display:flex; flex-direction:column; gap:2mm; direction:rtl; z-index:2; }
+    .meta-row { height:9mm; display:flex; align-items:center; justify-content:space-between; gap:2mm; padding:0 2.5mm; border:0.35mm solid #c5c5c5; border-radius:1.2mm; background:#fff; color:#222; font-size:9pt; font-weight:700; }
     .meta-row strong { white-space:nowrap; }
-    .meta-row span { flex:1; text-align:center; font-weight:600; }
-    .logo-wrap { position:absolute; top:4mm; left:50%; transform:translateX(-50%); width:43mm; height:43mm; display:grid; place-items:center; border:1mm solid #d5a33c; border-radius:50%; background:#fff; padding:1mm; }
+    .meta-row span { flex:1; min-width:0; text-align:center; font-weight:600; overflow:hidden; }
+    .logo-wrap { position:absolute; top:2mm; left:50%; transform:translateX(-50%); width:39mm; height:39mm; display:grid; place-items:center; border:0.8mm solid #d8ad47; border-radius:50%; background:#fff; padding:1mm; z-index:2; }
     .logo { display:block; width:100%; height:100%; object-fit:contain; border-radius:50%; }
-    .flag { position:absolute; top:0; right:0; width:60mm; height:46mm; overflow:hidden; clip-path:polygon(0 0,100% 0,100% 100%); }
-    .flag span { position:absolute; top:10mm; right:-5mm; width:75mm; height:4mm; transform:rotate(42deg); transform-origin:center; }
-    .flag .green { background:#23934a; top:9mm; }
-    .flag .white { background:#fff; top:14mm; }
-    .flag .red { background:#d92732; top:19mm; }
-    .ribbon { position:absolute; top:56mm; left:50%; transform:translateX(-50%); width:78%; min-height:17mm; display:flex; align-items:center; justify-content:center; border:0.35mm solid #444; border-radius:1mm; background:#fff; color:#404040; font-size:11pt; font-weight:700; text-align:center; z-index:2; }
-    .ribbon:before,.ribbon:after { content:""; position:absolute; top:3mm; width:17mm; height:10mm; border:0.3mm solid #555; background:#fff; z-index:-1; }
-    .ribbon:before { right:-12mm; clip-path:polygon(0 0,100% 0,75% 50%,100% 100%,0 100%,25% 50%); }
-    .ribbon:after { left:-12mm; clip-path:polygon(0 0,100% 0,75% 50%,100% 100%,0 100%,25% 50%); }
-    .quote { position:absolute; top:76mm; right:23mm; font-size:9pt; font-weight:700; color:#333; }
-    .frame { position:absolute; top:73mm; left:10mm; right:10mm; bottom:13mm; border:0.45mm solid #4d8a67; border-radius:1mm; pointer-events:none; }
-    .content { position:absolute; top:91mm; left:21mm; right:21mm; bottom:23mm; overflow:hidden; direction:rtl; text-align:right; font-size:12.5pt; line-height:1.95; color:#202020; }
+    .flag { position:absolute; top:0; right:0; width:61mm; height:43mm; overflow:hidden; clip-path:polygon(0 0,100% 0,100% 100%); }
+    .flag span { position:absolute; right:-7mm; width:78mm; height:4mm; transform:rotate(42deg); transform-origin:center; }
+    .flag .green { background:#23934a; top:8mm; }
+    .flag .white { background:#fff; top:13mm; }
+    .flag .red { background:#d92732; top:18mm; }
+
+    /* روبان ساده و عنوان دقیق سربرگ نمونه */
+    .ribbon { position:absolute; top:42mm; left:50%; transform:translateX(-50%); width:64%; min-height:11mm; display:flex; align-items:center; justify-content:center; padding:1mm 5mm; border:0.35mm solid #65746b; border-radius:1mm; background:#fff; color:#3d403e; font-size:10pt; font-weight:700; text-align:center; z-index:3; }
+    .ribbon:before,.ribbon:after { content:""; position:absolute; top:2mm; width:18mm; height:7mm; border:0.3mm solid #65746b; background:#fff; z-index:-1; }
+    .ribbon:before { right:-13mm; clip-path:polygon(0 0,100% 0,76% 50%,100% 100%,0 100%,24% 50%); }
+    .ribbon:after { left:-13mm; clip-path:polygon(0 0,100% 0,76% 50%,100% 100%,0 100%,24% 50%); }
+    .quote { position:absolute; top:57mm; right:23mm; font-size:8.5pt; font-weight:700; color:#333; z-index:2; }
+    .frame { position:absolute; top:44mm; left:10mm; right:10mm; bottom:17mm; border:0.5mm solid #54876a; border-radius:3mm; pointer-events:none; }
+    .content { position:absolute; top:66mm; left:21mm; right:21mm; bottom:25mm; overflow:hidden; direction:rtl; text-align:right; font-size:12pt; line-height:1.9; color:#202020; }
     .content h2 { font-size:13pt; margin:0 0 3mm; text-align:right; font-weight:800; }
     .content .correspondent { font-weight:700; margin:0 0 3mm; }
     .content p { margin:0 0 2.5mm; text-align:justify; }
-    .footer { position:absolute; left:10mm; right:10mm; bottom:3mm; min-height:9mm; display:flex; align-items:center; justify-content:center; padding:1mm 2mm; background:#f3d21b; color:#202020; font-size:8.5pt; font-weight:800; text-align:center; white-space:nowrap; }
+    .footer { position:absolute; left:10mm; right:10mm; bottom:4mm; min-height:10mm; display:flex; align-items:center; justify-content:center; padding:1mm 2mm; border:0.35mm solid #65944e; border-radius:2mm; background:#f3d21b; color:#202020; font-size:7.8pt; font-weight:800; text-align:center; white-space:nowrap; }
     .plain-meta { display:none; }
     .page.plain .masthead,.page.plain .logo-wrap,.page.plain .flag,.page.plain .ribbon,.page.plain .quote,.page.plain .frame,.page.plain .footer,.page.plain .meta { display:none; }
     .page.plain .content { top:24mm; left:15mm; right:15mm; bottom:15mm; }
