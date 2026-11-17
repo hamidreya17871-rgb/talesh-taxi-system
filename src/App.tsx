@@ -22,6 +22,8 @@ import Toast from '@/components/Toast';
 import TopBar from '@/components/TopBar';
 import { useFleetData } from '@/hooks/useFleetData';
 import { useSession } from '@/hooks/useSession';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import PreviewDemo from '@/components/PreviewDemo';
 import { useToast } from '@/hooks/useToast';
 import {
   ENTITY_KEYS,
@@ -45,6 +47,8 @@ type EditorState = { entity: EntityKey; record: FleetRecord | null };
 
 export default function App() {
   const { status: sessionStatus, profile, signOut } = useSession();
+
+  if (!isSupabaseConfigured) return <PreviewDemo />;
 
   if (sessionStatus === 'loading') {
     return <p className="py-24 text-center text-ink-600">در حال بارگذاری…</p>;
