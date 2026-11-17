@@ -3,6 +3,7 @@ import { Printer, Save, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatPersianDate, todayIso } from '@/lib/format';
 import { printLetter } from '@/lib/letterhead';
+import LetterAttachments, { uploadLetterAttachments } from '@/components/LetterAttachments';
 import JalaliDateInput from '@/components/JalaliDateInput';
 
 export type LetterPriority = 'normal' | 'urgent' | 'immediate';
@@ -54,6 +55,8 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
   const [letterDate, setLetterDate] = useState(letter?.letter_date ?? todayIso());
   const [letterNo, setLetterNo] = useState(letter ? String(letter.letter_no) : '');
   const [attachment, setAttachment] = useState(letter?.attachment_path ?? '');
+  const [savedLetterId, setSavedLetterId] = useState<string | null>(letter?.id ?? null);
+  const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
   const [priority, setPriority] = useState<LetterPriority>(letter?.priority ?? 'normal');
   const [priorityDays, setPriorityDays] = useState<Record<LetterPriority, number>>({ normal: 5, urgent: 2, immediate: 1 });
   const isLocked = Boolean(letter?.direction === 'outgoing' && (letter.manager_signed_at || ['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status)));
@@ -70,6 +73,8 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
       setLetterDate(letter.letter_date ?? todayIso());
       setLetterNo(String(letter.letter_no));
       setAttachment(letter.attachment_path ?? '');
+      setSavedLetterId(letter.id);
+      setPendingAttachments([]);
       setPriority(letter.priority ?? 'normal');
     }
   }, [letter]);
@@ -121,13 +126,31 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
       attachment_path: attachment.trim() || null,
       priority,
     };
-    const { error: saveError } = isEdit
-      ? await supabase.from('letters').update(payload).eq('id', letter!.id)
-      : await supabase.from('letters').insert(payload);
-    if (saveError) {
-      setError(saveError.code === '23505' ? 'این شماره نامه قبلاً ثبت شده است.' : GENERIC_ERROR);
+    let saveError: { code?: string } | null = null;
+    let targetLetterId = savedLetterId;
+    if (targetLetterId) {
+      const result = await supabase.from('letters').update(payload).eq('id', targetLetterId);
+      saveError = result.error;
+    } else {
+      const result = await supabase.from('letters').insert(payload).select('id').single();
+      saveError = result.error;
+      targetLetterId = result.data?.id ?? null;
+      if (targetLetterId) setSavedLetterId(targetLetterId);
+    }
+    if (saveError || !targetLetterId) {
+      setError(saveError?.code === '23505' ? 'این شماره نامه قبلاً ثبت شده است.' : GENERIC_ERROR);
       setBusy(false);
       return;
+    }
+
+    if (pendingAttachments.length > 0) {
+      const uploadResult = await uploadLetterAttachments(targetLetterId, pendingAttachments);
+      setPendingAttachments(uploadResult.failedFiles);
+      if (uploadResult.errors.length > 0) {
+        setError(`نامه ذخیره شد؛ اما بارگذاری برخی پیوست‌ها ناموفق بود: ${uploadResult.errors.join(' ')}`);
+        setBusy(false);
+        return;
+      }
     }
     onNotify(isEdit ? 'نامه ویرایش شد' : 'نامه ثبت شد');
     onSaved();
@@ -166,10 +189,17 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
               <input id="letter-number" type="text" inputMode="numeric" disabled={isLocked} value={letterNo} onChange={e => setLetterNo(e.target.value)} placeholder="خودکار" className="field-input" />
             </div>
             <div className="flex flex-col gap-[7px]">
-              <label htmlFor="letter-attachment" className="text-xs text-ink-600">پیوست</label>
+              <label htmlFor="letter-attachment" className="text-xs text-ink-600">شرح پیوست (اختیاری)</label>
               <input id="letter-attachment" type="text" disabled={isLocked} value={attachment} onChange={e => setAttachment(e.target.value)} className="field-input" />
             </div>
           </div>
+
+          <LetterAttachments
+            letterId={savedLetterId}
+            queuedFiles={pendingAttachments}
+            onQueuedFilesChange={setPendingAttachments}
+            canUpload={!isLocked}
+          />
 
           <div className="flex flex-col gap-[7px]">
             <label htmlFor="letter-direction" className="text-xs text-ink-600">نوع نامه</label>
