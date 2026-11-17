@@ -36,7 +36,7 @@ export function buildLetterPageHtml(title: string, input: LetterPageInput): stri
   const paperSize = input.paperSize ?? 'A4';
   const pageWidth = paperSize === 'A5' ? '148mm' : '210mm';
   const pageHeight = paperSize === 'A5' ? '210mm' : '297mm';
-  const templateUrl = new URL(LETTER_TEMPLATE_FILE, window.location.href).href;
+  const templateUrl = new URL(LETTER_TEMPLATE_FILE, window.location.origin).href;
   const dateText = formatPersianDate(input.date);
   const attachmentText = input.attachment?.trim() ? input.attachment.trim() : '-';
 
@@ -130,7 +130,7 @@ export function openLetterPrintWindow(html: string): boolean {
     return true;
   }
 
-  const templateUrl = new URL(LETTER_TEMPLATE_FILE, window.location.href).href;
+  const templateUrl = new URL(LETTER_TEMPLATE_FILE, window.location.origin).href;
   void fetch(templateUrl, { cache: 'no-store' })
     .then(response => {
       if (!response.ok) throw new Error('دریافت تصویر سربرگ رسمی ناموفق بود.');
