@@ -52,7 +52,7 @@ export default function ProfilePage({ profile }: Props) {
         <button type="button" className="btn self-start" onClick={() => setPasswordOpen(true)}><KeyRound size={16}/> تغییر رمز عبور</button>
       </section>
 
-      {(profile.role === 'manager' || profile.role === 'expert') && (
+      {(profile.role === 'admin' || profile.role === 'manager' || profile.role === 'expert') && (
         <section className="panel flex flex-col gap-3 p-5">
           <div className="flex items-center justify-between gap-3">
             <div><h3 className="font-bold">امضای کاربری</h3><p className="mt-1 text-sm text-ink-600">امضای ذخیره‌شده شما برای گردش و تأیید اسناد سازمانی در دسترس خواهد بود.</p></div>
