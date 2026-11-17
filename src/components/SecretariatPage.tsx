@@ -411,6 +411,8 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                         direction: letter.direction,
                         includeLetterhead: false,
                         paperSize,
+                        managerApproved: Boolean(letter.manager_signed_at),
+                        managerName: staff.find(member => member.user_id === letter.manager_signed_by)?.full_name ?? 'مدیر سازمان',
                       })
                     }
                   >
