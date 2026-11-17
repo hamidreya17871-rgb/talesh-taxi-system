@@ -392,6 +392,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                         managerApproved: Boolean(letter.manager_signed_at),
                         managerName: staff.find(member => member.user_id === letter.manager_signed_by)?.full_name ?? 'مدیر سازمان',
                         managerSignature: staff.find(member => member.user_id === letter.manager_signed_by)?.signature_data_url ?? null,
+                        managerSignature: staff.find(member => member.user_id === letter.manager_signed_by)?.signature_data_url ?? null,
                       })
                     }
                   >
