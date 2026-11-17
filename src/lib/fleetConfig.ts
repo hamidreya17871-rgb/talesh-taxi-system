@@ -191,8 +191,8 @@ export const entityConfigs: Record<EntityKey, EntityConfig> = {
 
 export type NavItem = { key: PageKey; label: string; icon: LucideIcon; roles: StaffRole[] };
 
-const EDITOR_ROLES: StaffRole[] = ['manager', 'expert'];
-const ALL_ROLES: StaffRole[] = ['manager', 'expert', 'driver'];
+const EDITOR_ROLES: StaffRole[] = ['admin', 'manager', 'expert'];
+const ALL_ROLES: StaffRole[] = ['admin', 'manager', 'expert', 'driver'];
 const DRIVER_ENTITIES: EntityKey[] = ['drivers', 'licenses', 'documents', 'violations'];
 const DRIVER_LABELS: Partial<Record<PageKey, string>> = {
   drivers: 'پروفایل من',
@@ -213,7 +213,7 @@ export const navItems: NavItem[] = [
   { key: 'messages', label: 'پیام‌ها', icon: MessageSquare, roles: ALL_ROLES },
   { key: 'secretariat', label: 'دبیرخانه', icon: FileText, roles: EDITOR_ROLES },
   { key: 'archive', label: 'بایگانی مدارک', icon: Archive, roles: EDITOR_ROLES },
-  { key: 'users', label: 'کاربران', icon: UserCog, roles: ['manager'] },
+  { key: 'users', label: 'کاربران', icon: UserCog, roles: ['admin', 'manager'] },
   { key: 'settings', label: 'پشتیبان‌گیری', icon: Settings, roles: ['manager'] },
 ];
 
