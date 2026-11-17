@@ -27,10 +27,12 @@ async function sendFile(response, filePath, method) {
   const file = await stat(filePath);
   if (!file.isFile()) throw new Error('Not a file');
   const extension = extname(filePath).toLowerCase();
+  const relativePath = filePath.slice(root.length).split(sep).join('/');
+  const mustRevalidate = ['index.html', 'sw.js', 'manifest.webmanifest'].includes(relativePath);
   response.writeHead(200, {
     'Content-Type': contentTypes[extension] ?? 'application/octet-stream',
     'Content-Length': file.size,
-    'Cache-Control': extension === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable',
+    'Cache-Control': mustRevalidate ? 'no-cache, no-store, must-revalidate' : 'public, max-age=31536000, immutable',
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
   });
