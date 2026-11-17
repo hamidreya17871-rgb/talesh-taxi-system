@@ -444,6 +444,36 @@ async function sha256Hex(value: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, "0")).join("");
 }
 
+async function handlePermanentlyDeleteArchivedLetter(req: Request, body: Record<string, unknown>): Promise<Response> {
+  await requireStaff(req, ["manager"]);
+  const letterId = body.letter_id;
+  if (typeof letterId !== "string" || !UUID_PATTERN.test(letterId)) throw invalid();
+
+  const { data, error } = await admin.rpc("permanently_delete_archived_letter", { p_letter_id: letterId });
+  if (error) {
+    if (error.message.includes("سطل بازیافت")) throw new RequestError("نامه در سطل بازیافت پیدا نشد یا قبلاً حذف شده است.", 404);
+    if (error.message.includes("دسترسی") || error.code === "42501") throw new RequestError("حذف دائمی فقط برای مدیر سازمان مجاز است.", 403);
+    throw error;
+  }
+
+  const paths = isRecord(data) && Array.isArray(data.storage_paths)
+    ? data.storage_paths.filter((path): path is string => typeof path === "string" && path.length > 0)
+    : [];
+  let filesCleaned = true;
+  if (paths.length > 0) {
+    const { error: storageError } = await admin.storage.from("archive-documents").remove([...new Set(paths)]);
+    filesCleaned = !storageError;
+    if (storageError) console.error("Archived letter storage cleanup failed", storageError);
+  }
+
+  return json({
+    deleted: true,
+    letter_no: isRecord(data) ? data.letter_no : null,
+    files_cleaned: filesCleaned,
+    cleanup_warning: filesCleaned ? null : "سجل نامه حذف شد اما پاک‌سازی یک یا چند فایل پیوست ناموفق بود؛ مسیر فایل‌ها در سابقه حذف ثبت شده است.",
+  });
+}
+
 async function handleCreateSingleDriver(req: Request, body: Record<string, unknown>): Promise<Response> {
   await requireStaff(req, ["manager"]);
   const phone = readPhone(body);
@@ -851,7 +881,7 @@ Deno.serve(async (req: Request) => {
         return await handleDeleteExpert(req, body);
       case "register-driver":
         return await handleRegisterDriver(req, body);
-      case "create-driver-single":\n        return await handleCreateSingleDriver(req, body);\n      case "issue-existing-driver-codes":
+      case "permanently-delete-archived-letter":\n        return await handlePermanentlyDeleteArchivedLetter(req, body);\n      case "create-driver-single":\n        return await handleCreateSingleDriver(req, body);\n      case "issue-existing-driver-codes":
         return await handleIssueExistingDriverCodes(req);
       case "import-drivers":
         return await handleImportDrivers(req, body);
