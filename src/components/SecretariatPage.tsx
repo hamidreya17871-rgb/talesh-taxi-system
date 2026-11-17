@@ -122,7 +122,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
   }
 
   async function remove(letter: LetterRecord) {
-    if (!window.confirm('این نامه از فهرست فعال حذف و به بایگانی قابل‌بازگردانی منتقل شود؟ سوابق و پیوست‌ها حذف نمی‌شوند.')) return;
+    if (!window.confirm('این نامه از فهرست فعال حذف و به سطل بازیافت منتقل شود؟ نامه، گردش کار و پیوست‌ها تا زمان حذف غیرقابل‌بازگشت حفظ می‌شوند و امکان بازیابی وجود دارد.')) return;
     setBusyId(letter.id);
     const { error } = await supabase.from('letters').update({ deleted_at: new Date().toISOString(), deleted_by: profile.user_id }).eq('id', letter.id);
     setBusyId(null);
@@ -130,12 +130,12 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
       onNotify(ACTION_ERROR, 'error');
       return;
     }
-    onNotify('نامه از فهرست فعال حذف شد و در بایگانی قابل‌بازگردانی است.');
+    onNotify('نامه به سطل بازیافت منتقل شد؛ سوابق و پیوست‌ها محفوظ‌اند و امکان بازیابی وجود دارد.');
     void load();
   }
 
   async function restore(letter: LetterRecord) {
-    if (!window.confirm('این نامه از بایگانی خارج و دوباره در فهرست فعال نمایش داده شود؟')) return;
+    if (!window.confirm('این نامه بازیابی و دوباره در فهرست فعال دبیرخانه نمایش داده شود؟')) return;
     setBusyId(letter.id);
     const { error } = await supabase.from('letters').update({ deleted_at: null, deleted_by: null }).eq('id', letter.id);
     setBusyId(null);
@@ -192,10 +192,10 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold">دبیرخانه</h2>
-          <p className="mt-1 text-sm text-ink-600">{showArchived ? "بازیابی نامه‌های بایگانی‌شده" : "مدیریت نامه‌های ورودی و خروجی با سربرگ سازمان"}</p>
+          <p className="mt-1 text-sm text-ink-600">{showArchived ? "نامه‌های حذف‌شده؛ قابل بازیابی" : "مدیریت نامه‌های ورودی و خروجی با سربرگ سازمان"}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {profile.role !== 'driver' && <button type="button" className="btn btn-secondary" onClick={() => { setSearch(''); setStatusFilter('all'); setShowArchived(value => !value); }}>{showArchived ? "بازگشت به نامه‌های فعال" : "بایگانی نامه‌ها"}</button>}
+          {profile.role !== 'driver' && <button type="button" className="btn btn-secondary" onClick={() => { setSearch(''); setStatusFilter('all'); setShowArchived(value => !value); }}>{showArchived ? "بازگشت به نامه‌های فعال" : "سطل بازیافت"}</button>}
           <button type="button" className="btn btn-secondary" onClick={() => void load()}>
             <RefreshCw size={16} />
             به‌روزرسانی
@@ -209,15 +209,15 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="panel">
-          <p className="text-xs text-ink-600">{showArchived ? 'نامه‌های بایگانی‌شده' : 'کل مکاتبات فعال'}</p>
+          <p className="text-xs text-ink-600">{showArchived ? 'نامه‌های حذف‌شده' : 'کل مکاتبات فعال'}</p>
           <p className="mt-1 text-2xl font-bold">{letters?.length ?? '—'}</p>
         </div>
         <div className="panel">
-          <p className="text-xs text-ink-600">{showArchived ? 'وارده بایگانی‌شده' : 'نامه‌های وارده'}</p>
+          <p className="text-xs text-ink-600">{showArchived ? 'وارده حذف‌شده' : 'نامه‌های وارده'}</p>
           <p className="mt-1 text-2xl font-bold">{(letters ?? []).filter(l => l.direction === 'incoming').length}</p>
         </div>
         <div className="panel">
-          <p className="text-xs text-ink-600">{showArchived ? 'نامه‌های خروجی بایگانی‌شده' : 'در جریان اقدام'}</p>
+          <p className="text-xs text-ink-600">{showArchived ? 'خروجی حذف‌شده' : 'در جریان اقدام'}</p>
           <p className="mt-1 text-2xl font-bold">{pendingCount}</p>
         </div>
       </div>
@@ -424,7 +424,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                   {showArchived && profile.role !== 'driver' && (
                     <button type="button" className="btn-tiny" disabled={busyId === letter.id} onClick={() => void restore(letter)}>
                       <RotateCcw size={13} />
-                      بازگردانی به دبیرخانه
+                      بازیابی نامه
                     </button>
                   )}
                   {!showArchived && profile.role !== 'driver' && !letter.manager_signed_at && !['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status) && (
