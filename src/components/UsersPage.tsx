@@ -60,8 +60,7 @@ export default function UsersPage({ onNotify }: Props) {
     if (!activationResult?.issued.length) return;
     const text = activationResult.issued
       .map(item => `${item.name} | ${item.phone} | ${item.activation_code}`)
-      .join('\
-');
+      .join('\n');
     try {
       await navigator.clipboard.writeText(text);
       onNotify('فهرست کدها کپی شد');
