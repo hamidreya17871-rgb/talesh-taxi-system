@@ -22,7 +22,7 @@ export default function SingleDriverModal({ onClose, onCreated, onNotify }: Prop
     const mobile = normalizePhone(phone);
     const national = normalizePhone(nationalCode);
     if (!isValidPhone(mobile)) return setError('شماره موبایل معتبر نیست.');
-    if (!/^\\d{10}$/.test(national)) return setError('کد ملی باید ۱۰ رقم باشد.');
+    if (!/^\d{10}$/.test(national)) return setError('کد ملی باید ۱۰ رقم باشد.');
     setBusy(true);
     setError(null);
     try {
