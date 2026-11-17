@@ -38,6 +38,7 @@ import { buildBackup, buildCsv, downloadFile, parseBackup } from '@/lib/fileExpo
 import { todayIso } from '@/lib/format';
 import { LICENSE_APPROVED_STATUS } from '@/lib/reviews';
 import type { Profile } from '@/lib/staff';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 const GENERIC_ERROR = 'عملیات انجام نشد. لطفاً دوباره تلاش کنید.';
 
@@ -45,6 +46,22 @@ type EditorState = { entity: EntityKey; record: FleetRecord | null };
 
 export default function App() {
   const { status: sessionStatus, profile, signOut } = useSession();
+
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="grid min-h-screen place-items-center p-5" dir="rtl">
+        <section className="panel w-full max-w-lg text-center">
+          <h1 className="mb-3 text-lg font-bold">سامانه تاکسیرانی تالش</h1>
+          <p className="mb-3 font-semibold text-error-500">تنظیمات اتصال به پایگاه داده کامل نیست</p>
+          <p className="mb-4 text-sm leading-7 text-ink-600">
+            نسخه وب ساخته شده، اما متغیرهای عمومی اتصال Supabase در تنظیمات انتشار ثبت نشده‌اند.
+            مدیر فنی باید VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY را در تنظیمات محیط انتشار وارد و دوباره Build کند.
+          </p>
+          <button type="button" className="btn" onClick={() => window.location.reload()}>بررسی دوباره</button>
+        </section>
+      </div>
+    );
+  }
 
   if (sessionStatus === 'loading') {
     return <p className="py-24 text-center text-ink-600">در حال بارگذاری…</p>;
