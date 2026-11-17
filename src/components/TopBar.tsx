@@ -80,7 +80,7 @@ export default function TopBar({ title, profile, onSignOut, onMenuClick, onMessa
   const unreadNotificationCount = notifications.filter(item => !item.read_at).length;
 
   return (
-    <header className="sticky top-0 z-20 flex min-h-[76px] items-center justify-between gap-3 border-b border-ink-200/80 bg-white/95 px-7 shadow-[0_2px_12px_#163c3208] backdrop-blur max-[650px]:h-16 max-[650px]:px-3">
+    <header dir="rtl" className="sticky top-0 z-20 flex min-h-[76px] items-center justify-between gap-3 border-b border-ink-200/80 bg-white/95 px-7 shadow-[0_2px_12px_#163c3208] backdrop-blur max-[650px]:h-16 max-[650px]:px-3">
       <button type="button" className="btn-tiny shrink-0" onClick={onMenuClick} aria-label="باز کردن منوی اصلی"><Menu size={20}/><span className="max-[650px]:hidden">منو</span></button>
       <div className="flex min-w-0 items-center gap-3">
         <img src="/talesh-taxi-logo.webp" alt="نشان رسمی تاکسیرانی تالش" className="h-11 w-11 shrink-0 rounded-xl bg-white object-contain p-0.5 shadow-sm" />
