@@ -62,9 +62,9 @@ export default function RecordsPage({ entity, records, readOnly = false, onCreat
 
   return (
     <>
-      <div className="mb-[18px] flex items-center justify-between gap-3 max-[650px]:flex-col max-[650px]:items-start">
+      <div className="page-heading">
         <div>
-          <h2 className="text-[21px] font-bold">{config.title}</h2>
+          <h2>{config.title}</h2>
           <p className="text-sm text-ink-600">
             ثبت و مدیریت {config.singular}‌ها · {formatNumber(records.length)} مورد
           </p>
@@ -77,7 +77,7 @@ export default function RecordsPage({ entity, records, readOnly = false, onCreat
         )}
       </div>
 
-      <section className="panel">
+      <section className="panel p-5 max-[650px]:p-3">
         <div className="mb-[17px] flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-base font-bold">فهرست {config.title}</h3>
           <div className="flex w-full flex-wrap gap-[9px] sm:w-auto">
@@ -98,7 +98,7 @@ export default function RecordsPage({ entity, records, readOnly = false, onCreat
           </div>
         </div>
 
-        <div className="overflow-auto">
+        <div className="table-wrap overflow-auto">
           <table className="w-full whitespace-nowrap border-collapse text-sm">
             <thead>
               <tr>
