@@ -48,10 +48,10 @@ export function buildLetterPageHtml(title: string, input: LetterPageInput): stri
   <style>
     @page { size: ${paperSize} ${paperSize === 'A5' ? 'portrait' : 'portrait'}; margin: 0; }
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; }
+    html, body { margin: 0; padding: 0; width: ${pageWidth}; height: ${pageHeight}; }
     body { font-family: Tahoma, Arial, sans-serif; color: ${LETTER_INK}; }
     .page { position: relative; width: ${pageWidth}; height: ${pageHeight}; overflow: hidden; background: #fff; }
-    .template { position: absolute; left: 0; top: 0; width: ${pageWidth}; height: ${pageHeight}; }
+    .template { position: absolute; display: block; left: 0; top: 0; width: ${pageWidth}; height: ${pageHeight}; object-fit: fill; }
     .field { position: absolute; left: 6mm; width: 52mm; height: 9mm; line-height: 9mm; text-align: right; padding-right: 3mm; font-size: 11pt; font-weight: 700; overflow: hidden; white-space: nowrap; }
     .plain-meta { display: none; }
     .field-number { top: 8.8mm; }
@@ -85,6 +85,21 @@ export function openLetterPrintWindow(html: string): boolean {
   printWindow.document.write(html);
   printWindow.document.close();
   printWindow.focus();
-  printWindow.addEventListener('load', () => printWindow.print(), { once: true });
+
+  // Mobile browsers can open the print preview before the letterhead image is decoded.
+  // Wait for every image before invoking print so the official stationery is not omitted.
+  const images = Array.from(printWindow.document.images);
+  const imageReady = Promise.all(images.map(image => {
+    if (image.complete && image.naturalWidth > 0) return Promise.resolve();
+    if (typeof image.decode === 'function') return image.decode().catch(() => undefined);
+    return new Promise<void>(resolve => {
+      image.addEventListener('load', () => resolve(), { once: true });
+      image.addEventListener('error', () => resolve(), { once: true });
+    });
+  }));
+  void imageReady.then(() => {
+    printWindow.focus();
+    window.setTimeout(() => printWindow.print(), 350);
+  });
   return true;
 }
