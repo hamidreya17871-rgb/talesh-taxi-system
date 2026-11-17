@@ -3,6 +3,7 @@ import { ArrowRightLeft, Pencil, Plus, Printer, RefreshCw, Search, Trash2 } from
 import { supabase } from '@/lib/supabase';
 import { callStaffApi } from '@/lib/staffApi';
 import LetterFormModal, { letterDateText, type LetterRecord } from '@/components/LetterFormModal';
+import LetterAttachments from '@/components/LetterAttachments';
 import ReferralModal from '@/components/ReferralModal';
 import { printLetter } from '@/lib/letterhead';
 import type { Profile } from '@/lib/staff';
@@ -283,6 +284,12 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
 
                 <div className="flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-ink-100 px-2.5 py-1">فوریت: {PRIORITY_LABELS[letter.priority ?? 'normal'] ?? 'عادی'}</span>{letter.response_due_at && <span className="rounded-full bg-gold-50 px-2.5 py-1 text-gold-700">مهلت پاسخ: {formatTehranDateTime(letter.response_due_at)}</span>}</div>
                 {letter.body && <p className="line-clamp-2 text-sm text-ink-600">{letter.body}</p>}
+                <LetterAttachments
+                  letterId={letter.id}
+                  queuedFiles={[]}
+                  onQueuedFilesChange={() => undefined}
+                  canUpload={false}
+                />
 
                 {(letter.expert_reviewed_at || letter.manager_signed_at || letter.manager_order_note || letter.sent_at || letter.delivery_receipt_path) && (
                   <div className="rounded-lg border border-ink-100 p-3 text-xs text-ink-600 flex flex-col gap-1">
