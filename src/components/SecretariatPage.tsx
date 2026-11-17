@@ -73,7 +73,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
     setLoadError(null);
     try {
       const [lettersResult, referralsResult, eventsResult, staffResult] = await Promise.all([
-        supabase.from('letters').select('*')[showArchived ? 'not' : 'is']('deleted_at', showArchived ? 'is.null' : null).order('created_at', { ascending: false }),
+        (showArchived ? supabase.from('letters').select('*').not('deleted_at', 'is', null) : supabase.from('letters').select('*').is('deleted_at', null)).order('created_at', { ascending: false }),
         supabase
           .from('letter_referrals')
           .select('id, letter_id, referred_to, action, note, status, created_at, due_at, reviewer:referred_to(full_name)')
