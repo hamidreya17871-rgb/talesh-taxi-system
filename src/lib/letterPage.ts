@@ -97,10 +97,13 @@ export function openLetterPrintWindow(html: string): boolean {
     }))
     .catch(() => '')
     .then(dataUrl => {
-      const printableHtml = dataUrl
-        ? html.replace(templateUrl, dataUrl)
-        : html;
       printWindow.document.open();
+      if (!dataUrl) {
+        printWindow.document.write('<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><body style="font-family:Tahoma,Arial,sans-serif;padding:32px;text-align:center">تصویر سربرگ رسمی بارگذاری نشد. برای جلوگیری از چاپ اشتباه، چاپ متوقف شد. اتصال اینترنت را بررسی و دوباره تلاش کنید.</body></html>');
+        printWindow.document.close();
+        return;
+      }
+      const printableHtml = html.replace(templateUrl, dataUrl);
       printWindow.document.write(printableHtml);
       printWindow.document.close();
       const images = Array.from(printWindow.document.images);
