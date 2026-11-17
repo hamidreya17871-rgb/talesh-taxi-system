@@ -443,6 +443,92 @@ async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, "0")).join("");
 }
+
+async function handleIssueExistingDriverCodes(req: Request): Promise<Response> {
+  await requireStaff(req, ["manager"]);
+  const { data: drivers, error: driversError } = await admin
+    .from("drivers")
+    .select("id, name, phone")
+    .not("phone", "is", null)
+    .order("name", { ascending: true });
+  if (driversError) throw driversError;
+
+  const issued: Array<Record<string, unknown>> = [];
+  const skipped: Array<Record<string, unknown>> = [];
+  for (const driver of drivers ?? []) {
+    const phone = typeof driver.phone === "string" ? normalizeDigits(driver.phone).trim() : "";
+    const fullName = typeof driver.name === "string" && driver.name.trim() ? driver.name.trim() : "راننده";
+    if (!PHONE_PATTERN.test(phone)) {
+      skipped.push({ name: fullName, reason: "شماره موبایل معتبر ثبت نشده است." });
+      continue;
+    }
+
+    const { data: existing, error: existingError } = await admin
+      .from("profiles")
+      .select("user_id, role, is_active, approval_status")
+      .or(`driver_id.eq.${driver.id},phone.eq.${phone}`)
+      .limit(1)
+      .maybeSingle();
+    if (existingError) throw existingError;
+
+    let userId: string;
+    let createdUser = false;
+    if (existing) {
+      if (existing.role !== "driver" || existing.is_active || existing.approval_status === "rejected") {
+        skipped.push({ name: fullName, phone, reason: "برای این راننده حساب فعال یا پرونده ناسازگار وجود دارد." });
+        continue;
+      }
+      userId = existing.user_id;
+    } else {
+      const email = phoneToAccountEmail(phone);
+      const created = await admin.auth.admin.createUser({
+        email,
+        password: randomUrlToken(32),
+        email_confirm: true,
+      });
+      if (created.error) {
+        skipped.push({ name: fullName, phone, reason: "حسابی با این شماره قبلاً ایجاد شده یا ساخت حساب ممکن نیست." });
+        continue;
+      }
+      userId = created.data.user.id;
+      createdUser = true;
+      const { error: profileError } = await admin.from("profiles").insert({
+        user_id: userId,
+        email,
+        phone,
+        full_name: fullName,
+        role: "driver",
+        driver_id: driver.id,
+        is_active: false,
+        approval_status: "approved",
+      });
+      if (profileError) {
+        await admin.auth.admin.deleteUser(userId);
+        skipped.push({ name: fullName, phone, reason: "اتصال حساب به پرونده راننده انجام نشد." });
+        continue;
+      }
+    }
+
+    const activationCode = randomUrlToken(24);
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { error: tokenError } = await admin.rpc("store_driver_activation_token", {
+      p_user_id: userId,
+      p_code_hash: await sha256Hex(activationCode),
+      p_expires_at: expiresAt,
+    });
+    if (tokenError) {
+      if (createdUser) {
+        await admin.from("profiles").delete().eq("user_id", userId);
+        await admin.auth.admin.deleteUser(userId);
+      }
+      skipped.push({ name: fullName, phone, reason: "ساخت کد فعال‌سازی انجام نشد." });
+      continue;
+    }
+    issued.push({ name: fullName, phone, activation_code: activationCode, expires_at: expiresAt });
+  }
+  return json({ issued, skipped, issued_count: issued.length, skipped_count: skipped.length });
+}
+
 async function handleImportDrivers(req: Request, body: Record<string, unknown>): Promise<Response> {
   await requireStaff(req, ["manager"]);
   if (!Array.isArray(body.records) || body.records.length < 1 || body.records.length > 50) {
@@ -549,6 +635,12 @@ async function handleActivateImportedDriver(body: Record<string, unknown>): Prom
   if (consumed !== true) throw new RequestError("کد فعال‌سازی نادرست، منقضی یا قبلاً استفاده شده است.", 400);
   const { error: updateError } = await admin.auth.admin.updateUserById(profile.user_id, { password });
   if (updateError) throw updateError;
+  if (profile.approval_status === "approved") {
+    const { error: activationError } = await admin.from("profiles")
+      .update({ is_active: true })
+      .eq("user_id", profile.user_id);
+    if (activationError) throw activationError;
+  }
   return json({ activated: true, approval_status: profile.approval_status });
 }
 
@@ -684,6 +776,8 @@ Deno.serve(async (req: Request) => {
         return await handleDeleteExpert(req, body);
       case "register-driver":
         return await handleRegisterDriver(req, body);
+      case "issue-existing-driver-codes":
+        return await handleIssueExistingDriverCodes(req);
       case "import-drivers":
         return await handleImportDrivers(req, body);
       case "activate-imported-driver":

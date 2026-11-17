@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Clipboard, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { ROLE_LABELS, type Profile } from '@/lib/staff';
 import { callStaffApi } from '@/lib/staffApi';
@@ -12,6 +12,8 @@ type Props = {
 };
 
 type EditorState = { user: Profile | null } | null;
+type ActivationItem = { name: string; phone: string; activation_code: string; expires_at: string };
+type ActivationResult = { issued: ActivationItem[]; skipped: Array<{ name?: string; phone?: string; reason: string }>; issued_count: number; skipped_count: number };
 
 export default function UsersPage({ onNotify }: Props) {
   const [users, setUsers] = useState<Profile[] | null>(null);
@@ -19,6 +21,8 @@ export default function UsersPage({ onNotify }: Props) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editor, setEditor] = useState<EditorState>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [issuingCodes, setIssuingCodes] = useState(false);
+  const [activationResult, setActivationResult] = useState<ActivationResult | null>(null);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -37,6 +41,33 @@ export default function UsersPage({ onNotify }: Props) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function issueExistingDriverCodes() {
+    setIssuingCodes(true);
+    setActivationResult(null);
+    try {
+      const result = await callStaffApi<ActivationResult>('issue-existing-driver-codes');
+      setActivationResult(result);
+      onNotify(`${result.issued_count} کد فعال‌سازی صادر شد`);
+    } catch (cause) {
+      onNotify(cause instanceof Error ? cause.message : 'صدور کدها انجام نشد.', 'error');
+    } finally {
+      setIssuingCodes(false);
+    }
+  }
+
+  async function copyActivationCodes() {
+    if (!activationResult?.issued.length) return;
+    const text = activationResult.issued
+      .map(item => `${item.name} | ${item.phone} | ${item.activation_code}`)
+      .join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      onNotify('فهرست کدها کپی شد');
+    } catch {
+      onNotify('کپی خودکار ممکن نیست؛ کدها را دستی انتخاب کنید.', 'error');
+    }
+  }
 
   async function removeExpert(user: Profile) {
     if (!window.confirm(`کارشناس «${user.full_name}» حذف شود؟ دسترسی او به سامانه قطع می‌شود.`)) return;
@@ -70,6 +101,58 @@ export default function UsersPage({ onNotify }: Props) {
           </button>
         </div>
       </header>
+
+      <div className="panel flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold">فعال‌سازی رانندگان ثبت‌شده</h3>
+            <p className="mt-1 text-sm text-ink-600">برای رانندگانی که هنوز حساب کاربری ندارند، کد یک‌بارمصرف صادر می‌شود. اطلاعات پرونده و خودرو تغییر نمی‌کند.</p>
+          </div>
+          <button type="button" className="btn" disabled={issuingCodes} onClick={() => void issueExistingDriverCodes()}>
+            <Clipboard size={16} />
+            {issuingCodes ? 'در حال صدور…' : 'صدور کدهای فعال‌سازی'}
+          </button>
+        </div>
+        {activationResult && (
+          <div className="rounded-lg border border-ink-200 p-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold">{activationResult.issued_count} کد صادر شد؛ {activationResult.skipped_count} مورد رد شد.</p>
+              <button type="button" className="btn btn-secondary" onClick={() => void copyActivationCodes()} disabled={!activationResult.issued.length}>
+                <Clipboard size={14} /> کپی همه کدها
+              </button>
+            </div>
+            {activationResult.issued.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[520px] text-sm">
+                  <thead><tr>
+                    <th className="px-2 py-2 text-right">راننده</th>
+                    <th className="px-2 py-2 text-right">موبایل</th>
+                    <th className="px-2 py-2 text-right">کد یک‌بارمصرف</th>
+                    <th className="px-2 py-2 text-right">مهلت</th>
+                  </tr></thead>
+                  <tbody>{activationResult.issued.map(item => (
+                    <tr key={item.phone} className="border-t border-ink-200">
+                      <td className="px-2 py-2">{item.name}</td>
+                      <td dir="ltr" className="px-2 py-2 text-right">{item.phone}</td>
+                      <td dir="ltr" className="px-2 py-2 font-mono">{item.activation_code}</td>
+                      <td className="px-2 py-2">{new Date(item.expires_at).toLocaleDateString('fa-IR')}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            )}
+            {activationResult.skipped.length > 0 && (
+              <details className="mt-3 text-sm">
+                <summary className="cursor-pointer font-medium">موارد صادرنشده ({activationResult.skipped.length})</summary>
+                <ul className="mt-2 list-disc space-y-1 pr-5 text-ink-600">
+                  {activationResult.skipped.map((item, index) => <li key={index}>{item.name ?? item.phone ?? 'راننده'}: {item.reason}</li>)}
+                </ul>
+              </details>
+            )}
+            <p className="mt-3 text-xs text-ink-600">کدها فقط همین بار نمایش داده می‌شوند؛ آن‌ها را خصوصی برای راننده مربوطه بفرستید. اعتبار هر کد ۳۰ روز است.</p>
+          </div>
+        )}
+      </div>
 
       {users === null && !loadError && <p className="py-16 text-center text-ink-600">در حال بارگذاری…</p>}
 
