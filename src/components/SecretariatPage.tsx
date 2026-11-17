@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRightLeft, Pencil, Plus, Printer, RefreshCw, Search, Trash2 } from 'lucide-react';
+import { ArrowRightLeft, Pencil, Plus, Printer, RefreshCw, Search, Trash2, RotateCcw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { callStaffApi } from '@/lib/staffApi';
 import LetterFormModal, { letterDateText, type LetterRecord } from '@/components/LetterFormModal';
@@ -63,6 +63,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [paperSize, setPaperSize] = useState<'A4' | 'A5'>('A4');
+  const [showArchived, setShowArchived] = useState(false);
 
   const isManager = profile.role === 'manager';
   const isCommitteeOnly = profile.role === 'expert' && Boolean(profile.is_disciplinary_committee);
@@ -72,7 +73,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
     setLoadError(null);
     try {
       const [lettersResult, referralsResult, eventsResult, staffResult] = await Promise.all([
-        supabase.from('letters').select('*').is('deleted_at', null).order('created_at', { ascending: false }),
+        supabase.from('letters').select('*')[showArchived ? 'not' : 'is']('deleted_at', showArchived ? 'is.null' : null).order('created_at', { ascending: false }),
         supabase
           .from('letter_referrals')
           .select('id, letter_id, referred_to, action, note, status, created_at, due_at, reviewer:referred_to(full_name)')
@@ -105,7 +106,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
     } catch {
       setLoadError(LOAD_ERROR);
     }
-  }, [isCommitteeOnly]);
+  }, [isCommitteeOnly, showArchived]);
 
   useEffect(() => {
     void load();
@@ -129,6 +130,19 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
       return;
     }
     onNotify('نامه به بایگانی منتقل شد؛ سوابق و ارجاع‌ها محفوظ است');
+    void load();
+  }
+
+  async function restore(letter: LetterRecord) {
+    if (!window.confirm('این نامه از بایگانی خارج و دوباره در فهرست فعال نمایش داده شود؟')) return;
+    setBusyId(letter.id);
+    const { error } = await supabase.from('letters').update({ deleted_at: null, deleted_by: null }).eq('id', letter.id);
+    setBusyId(null);
+    if (error) {
+      onNotify('بازیابی نامه انجام نشد. لطفاً دوباره تلاش کنید.', 'error');
+      return;
+    }
+    onNotify('نامه با موفقیت بازیابی شد.');
     void load();
   }
 
@@ -176,9 +190,10 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold">دبیرخانه</h2>
-          <p className="mt-1 text-sm text-ink-600">مدیریت نامه‌های ورودی و خروجی با سربرگ سازمان</p>
+          <p className="mt-1 text-sm text-ink-600">{showArchived ? "بازیابی نامه‌های بایگانی‌شده" : "مدیریت نامه‌های ورودی و خروجی با سربرگ سازمان"}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {isManager && <button type="button" className="btn btn-secondary" onClick={() => setShowArchived(value => !value)}>{showArchived ? "مشاهده نامه‌های فعال" : "نامه‌های بایگانی‌شده"}</button>}
           <button type="button" className="btn btn-secondary" onClick={() => void load()}>
             <RefreshCw size={16} />
             به‌روزرسانی
@@ -404,12 +419,17 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                       ارجاع
                     </button>
                   )}
-                  {isManager && (
+                  {isManager && (showArchived ? (
+                    <button type="button" className="btn-tiny" disabled={busyId === letter.id} onClick={() => void restore(letter)}>
+                      <RotateCcw size={13} />
+                      بازیابی نامه
+                    </button>
+                  ) : (
                     <button type="button" className="btn-tiny btn-tiny-danger" disabled={busyId === letter.id} onClick={() => void remove(letter)}>
                       <Trash2 size={13} />
                       بایگانی نامه
                     </button>
-                  )}
+                  ))}
                 </div>
               </article>
             );
