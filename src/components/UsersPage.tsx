@@ -34,7 +34,8 @@ export default function UsersPage({ onNotify }: Props) {
 
   const currentProfile = users?.find(user => user.user_id === currentUserId) ?? null;
   const activeAdminExists = (users ?? []).some(user => user.role === 'admin' && user.is_active);
-  const canClaimInitialAdmin = currentProfile?.role === 'manager' && currentProfile.is_active && !activeAdminExists;
+  const activeManagerCount = (users ?? []).filter(user => user.role === 'manager' && user.is_active).length;
+  const canClaimInitialAdmin = currentProfile?.role === 'manager' && currentProfile.is_active && !activeAdminExists && activeManagerCount === 1;
 
   const visibleUsers = (users ?? []).filter(user => showInactiveUsers ? !user.is_active : user.is_active);
 
