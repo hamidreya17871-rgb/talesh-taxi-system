@@ -198,6 +198,9 @@ async function handleClaimInitialAdmin(req: Request): Promise<Response> {
     if (error.message?.includes("manager_required")) {
       throw new RequestError("فقط حساب فعال مدیر سازمان می‌تواند مدیرکل اولیه شود.", 403);
     }
+    if (error.message?.includes("manager_not_unique")) {
+      throw new RequestError("برای جلوگیری از ارتقای حساب اشتباه، ابتدا باید فقط یک مدیر سازمان فعال باقی بماند.", 409);
+    }
     throw error;
   }
   if (data !== true) throw new RequestError("ارتقای مدیرکل انجام نشد.", 409);
