@@ -366,6 +366,9 @@ async function handleUpdate(req: Request, body: Record<string, unknown>): Promis
   const isActive = body.is_active;
 
   if (userId === callerId) throw new RequestError("تغییر نقش یا غیرفعال‌سازی حساب خودتان مجاز نیست.", 400);
+  if (target.role === "admin" && callerProfile.data.role !== "admin") {
+    throw new RequestError("فقط مدیرکل سامانه می‌تواند حساب مدیرکل را مدیریت کند.", 403);
+  }
   if (role === "admin" && target.role !== "admin") {
     throw new RequestError("تعیین مدیرکل فقط از مسیر امن ارتقای مدیر سازمان و در صورت نبود مدیرکل فعال امکان‌پذیر است.", 403);
   }
@@ -383,12 +386,6 @@ async function handleUpdate(req: Request, body: Record<string, unknown>): Promis
     if (error) throw error;
     if ((count ?? 0) <= 1) throw new RequestError("تنزل یا غیرفعال‌سازی آخرین مدیر سازمان مجاز نیست.", 409);
   }
-  if (role === "admin" && callerProfile.data.role !== "admin") {
-    const { count, error } = await admin.from("profiles").select("user_id", { count: "exact", head: true }).eq("role", "admin").eq("is_active", true).eq("approval_status", "approved");
-    if (error) throw error;
-    if ((count ?? 0) > 0) throw new RequestError("تعیین مدیرکل جدید فقط با تأیید مدیرکل فعلی مجاز است.", 403);
-  }
-
   if (body.password) {
     const { error } = await admin.auth.admin.updateUserById(userId, { password: readPassword(body.password) });
     if (error) throw error;
