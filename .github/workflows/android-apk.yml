@@ -33,14 +33,6 @@ jobs:
         run: |
           test -s dist/index.html
           grep -q 'سامانه مدیریت حمل‌ونقل و تاکسیرانی تالش' dist/index.html
-      - name: Generate Android launcher icons from the existing Talesh taxi artwork
-        run: |
-          mkdir -p assets
-          node --input-type=module <<'EOF'
-          import sharp from 'sharp';
-          await sharp('public/app-icon.svg').resize(1024, 1024, { fit: 'contain', background: '#ffffff' }).png().toFile('assets/icon.png');
-          EOF
-          npx capacitor-assets generate --android --iconBackgroundColor '#ffffff'
       - name: Generate Capacitor Android project
         run: |
           cat > capacitor.config.json <<'EOF'
@@ -52,6 +44,14 @@ jobs:
           }
           EOF
           npx cap add android
+      - name: Generate Android launcher icons from the existing Talesh taxi artwork
+        run: |
+          mkdir -p assets
+          node --input-type=module <<'EOF'
+          import sharp from 'sharp';
+          await sharp('public/app-icon.svg').resize(1024, 1024, { fit: 'contain', background: '#ffffff' }).png().toFile('assets/icon.png');
+          EOF
+          npx capacitor-assets generate --android --iconBackgroundColor '#ffffff'
           npx cap sync android
       - name: Build installable debug APK
         run: |
