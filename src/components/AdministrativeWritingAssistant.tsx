@@ -118,7 +118,7 @@ export default function AdministrativeWritingAssistant() {
         <Wand2 size={18} className="text-brand-600" />
         <div>
           <h3 className="font-bold">دستیار تدوین اسناد اداری</h3>
-          <p className="text-xs text-ink-600">آماده‌سازی دستور دقیق برای نگارش و بازبینی پیش‌نویس‌ها</p>
+          <p className="text-xs text-ink-600">تولید و ویرایش هوشمند نامه‌ها، صورت‌جلسه‌ها و گزارش‌های اداری</p>
         </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
