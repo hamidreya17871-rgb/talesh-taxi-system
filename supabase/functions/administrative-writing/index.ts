@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
           .flatMap((item: { content?: { type?: string; text?: string }[] }) => item.content ?? [])
           .filter((part: { type?: string; text?: string }) => part?.type === "output_text" && typeof part.text === "string")
           .map((part: { text: string }) => part.text)
-          .join("\\n")
+          .join("\n")
           .trim()
       : "";
     if (!output) return json({ error: "پاسخ متنی معتبری دریافت نشد." }, 502);
