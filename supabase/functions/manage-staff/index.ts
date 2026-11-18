@@ -247,7 +247,7 @@ async function handleDeactivateDriver(req: Request, body: Record<string, unknown
     retired: "بازنشستگی",
     ceased_activity: "قطع فعالیت",
   };
-  if (typeof reason !== "string" || !Object.hasOwn(reasonLabels, reason)) throw invalid();
+  if (typeof reason !== "string" || !Object.prototype.hasOwnProperty.call(reasonLabels, reason)) throw invalid();
   const note = typeof body.note === "string" ? body.note.trim().slice(0, 500) : "";
 
   const { data: profile, error: profileError } = await admin.from("profiles")
@@ -258,6 +258,7 @@ async function handleDeactivateDriver(req: Request, body: Record<string, unknown
   if (!profile || profile.role !== "driver" || !profile.driver_id) {
     throw new RequestError("حساب راننده یا پرونده مرتبط پیدا نشد.", 404);
   }
+  if (!profile.is_active) throw new RequestError("این حساب راننده قبلاً غیرفعال شده است.", 409);
 
   const { data: driver, error: driverError } = await admin.from("drivers")
     .select("id, notes")
