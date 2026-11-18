@@ -68,7 +68,7 @@ jobs:
           variables = Path("android/variables.gradle")
           source = variables.read_text()
           for key in ("compileSdkVersion", "targetSdkVersion"):
-              source, count = re.subn(rf"({key}\s*=\s*)\\d+", rf"\g<1>36", source, count=1)
+              source, count = re.subn(rf"({key}\s*=\s*)\d+", rf"\g<1>36", source, count=1)
               if count != 1:
                   raise SystemExit(f"Could not set {key} to API 36")
           variables.write_text(source)
@@ -85,11 +85,11 @@ jobs:
               }
           """
           if "signingConfigs {" not in source:
-              source, count = re.subn(r"(android\s*\\{)", r"\1\n" + signing, source, count=1)
+              source, count = re.subn(r"(android\s*\{)", r"\1\n" + signing, source, count=1)
               if count != 1:
                   raise SystemExit("Could not add Android release signing configuration")
           source, count = re.subn(
-              r"(buildTypes\s*\\{\s*release\s*\\{)",
+              r"(buildTypes\s*\{\s*release\s*\{)",
               r"\1\n            signingConfig signingConfigs.release",
               source,
               count=1
