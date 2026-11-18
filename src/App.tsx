@@ -46,7 +46,7 @@ const GENERIC_ERROR = 'عملیات انجام نشد. لطفاً دوباره �
 type EditorState = { entity: EntityKey; record: FleetRecord | null };
 
 export default function App() {
-  const { status: sessionStatus, profile, signOut } = useSession();
+  const { status: sessionStatus, profile, signOut, retry: retrySession, sessionError } = useSession();
 
   if (!isSupabaseConfigured) {
     return (
@@ -99,22 +99,23 @@ export default function App() {
     return (
       <AccountMessage
         title="اطلاعات دریافت نشد"
-        detail="اتصال به سرور برقرار نشد. لطفاً دوباره تلاش کنید."
+        detail={sessionError ? `خطای فنی: ${sessionError}` : "اتصال به سرور برقرار نشد. لطفاً دوباره تلاش کنید."}
         onSignOut={() => void signOut()}
+        onRetry={() => retrySession()}
       />
     );
   }
   return <Workspace profile={profile} onSignOut={() => void signOut()} />;
 }
 
-function AccountMessage({ title, detail, onSignOut }: { title: string; detail: string; onSignOut: () => void }) {
+function AccountMessage({ title, detail, onSignOut, onRetry }: { title: string; detail: string; onSignOut: () => void; onRetry?: () => void }) {
   return (
     <div className="grid min-h-screen place-items-center p-[18px]">
       <div className="panel w-full max-w-md text-center">
         <p className="mb-4 font-bold">{title}</p>
         <p className="mb-5 text-ink-600">{detail}</p>
         <div className="flex justify-center gap-2">
-          <button type="button" className="btn" onClick={() => window.location.reload()}>
+          <button type="button" className="btn" onClick={onRetry ?? (() => window.location.reload())}>
             تلاش دوباره
           </button>
           <button type="button" className="btn btn-secondary" onClick={onSignOut}>

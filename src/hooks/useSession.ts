@@ -5,10 +5,10 @@ import type { Profile } from '@/lib/staff';
 
 export type SessionStatus = 'loading' | 'signed-out' | 'ready' | 'pending' | 'rejected' | 'inactive' | 'error';
 
-function withTimeout<T>(promise: PromiseLike<T>, milliseconds = 12000): Promise<T> {
+function withTimeout<T>(promise: PromiseLike<T>, milliseconds = 20000): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timeout = window.setTimeout(
-      () => reject(new Error('Session request timed out')),
+      () => reject(new Error(`Request timed out after ${milliseconds}ms`)),
       milliseconds,
     );
     Promise.resolve(promise).then(
@@ -24,9 +24,19 @@ function withTimeout<T>(promise: PromiseLike<T>, milliseconds = 12000): Promise<
   });
 }
 
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    return String((error as { message?: unknown }).message ?? 'Unknown session error');
+  }
+  return String(error ?? 'Unknown session error');
+}
+
 export function useSession() {
   const [status, setStatus] = useState<SessionStatus>('loading');
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [retryVersion, setRetryVersion] = useState(0);
   const readyUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -36,8 +46,15 @@ export function useSession() {
     let loadingUserId: string | null = null;
     let requestVersion = 0;
 
+    setStatus('loading');
+    setProfile(null);
+    setSessionError(null);
+    readyUserIdRef.current = null;
+
     if (!isSupabaseConfigured) {
       setStatus('error');
+      setSessionError('تنظیمات اتصال به پایگاه داده کامل نیست.');
+      console.error('[useSession] Supabase client is not configured');
       return () => { active = false; };
     }
 
@@ -89,10 +106,16 @@ export function useSession() {
           setProfile(data as Profile);
           setStatus('ready');
         }
-      } catch {
+      } catch (error) {
+        console.error('[useSession] Failed to load the signed-in user profile', {
+          userId,
+          message: errorMessage(error),
+          error,
+        });
         if (active && version === requestVersion && currentUserId === userId) {
           readyUserIdRef.current = null;
           setProfile(null);
+          setSessionError(errorMessage(error));
           setStatus('error');
         }
       } finally {
@@ -102,22 +125,29 @@ export function useSession() {
       }
     }
 
-    // Subscribe first so a slow getSession() cannot overwrite a newer auth event.
+    // Subscribe before reading the persisted session. Profile I/O is deferred
+    // until after the auth callback returns, avoiding Supabase's auth lock.
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       authEventSeen = true;
-      // Supabase invokes auth listeners while holding its internal auth lock.
-      // Defer profile I/O until after this synchronous callback has returned.
       window.setTimeout(() => {
         void applySession(session);
       }, 0);
     });
 
     void withTimeout(supabase.auth.getSession())
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) throw error;
         if (active && !authEventSeen) void applySession(data.session);
       })
-      .catch(() => {
-        if (active && !authEventSeen) setStatus('error');
+      .catch(error => {
+        console.error('[useSession] Failed to restore the persisted auth session', {
+          message: errorMessage(error),
+          error,
+        });
+        if (active && !authEventSeen) {
+          setSessionError(errorMessage(error));
+          setStatus('error');
+        }
       });
 
     return () => {
@@ -125,12 +155,22 @@ export function useSession() {
       requestVersion += 1;
       listener.subscription.unsubscribe();
     };
+  }, [retryVersion]);
+
+  const retry = useCallback(() => {
+    setSessionError(null);
+    setStatus('loading');
+    setRetryVersion(version => version + 1);
   }, []);
 
   const signOut = useCallback(async () => {
     if (!isSupabaseConfigured) return;
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('[useSession] Sign out failed', error);
+      throw error;
+    }
   }, []);
 
-  return { status, profile, signOut };
+  return { status, profile, signOut, retry, sessionError };
 }
