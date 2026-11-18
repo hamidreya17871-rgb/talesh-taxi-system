@@ -5,6 +5,7 @@ import { ROLE_LABELS, type Profile } from '@/lib/staff';
 import { callStaffApi } from '@/lib/staffApi';
 import UserFormModal from '@/components/UserFormModal';
 import SingleDriverModal from '@/components/SingleDriverModal';
+import DriverLifecycleModal, { type DriverEndReason } from '@/components/DriverLifecycleModal';
 
 type DriverOption = { id: string; name: string | null };
 
@@ -26,6 +27,7 @@ export default function UsersPage({ onNotify }: Props) {
   const [activationResult, setActivationResult] = useState<ActivationResult | null>(null);
   const [singleDriverOpen, setSingleDriverOpen] = useState(false);
   const [singleDriverActivation, setSingleDriverActivation] = useState<ActivationItem | null>(null);
+  const [lifecycleTarget, setLifecycleTarget] = useState<Profile | null>(null);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -69,6 +71,34 @@ export default function UsersPage({ onNotify }: Props) {
       onNotify('فهرست کدها کپی شد');
     } catch {
       onNotify('کپی خودکار ممکن نیست؛ کدها را دستی انتخاب کنید.', 'error');
+    }
+  }
+
+  async function endDriverActivity(user: Profile, reason: DriverEndReason, note: string) {
+    setBusyId(user.user_id);
+    try {
+      await callStaffApi('deactivate-driver', { user_id: user.user_id, reason, note });
+      setLifecycleTarget(null);
+      onNotify('دسترسی راننده قطع شد و سابقه پرونده حفظ شد.');
+      void load();
+    } catch (cause) {
+      onNotify(cause instanceof Error ? cause.message : 'ثبت پایان فعالیت انجام نشد.', 'error');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function reactivateDriver(user: Profile) {
+    if (!window.confirm(`راننده «${user.full_name}» دوباره فعال شود؟`)) return;
+    setBusyId(user.user_id);
+    try {
+      await callStaffApi('reactivate-driver', { user_id: user.user_id });
+      onNotify('حساب راننده دوباره فعال شد.');
+      void load();
+    } catch (cause) {
+      onNotify(cause instanceof Error ? cause.message : 'فعال‌سازی مجدد انجام نشد.', 'error');
+    } finally {
+      setBusyId(null);
     }
   }
 
@@ -222,6 +252,26 @@ export default function UsersPage({ onNotify }: Props) {
                           حذف
                         </button>
                       )}
+                      {user.role === 'driver' && user.driver_id && user.is_active && (
+                        <button
+                          type="button"
+                          className="btn-tiny btn-tiny-danger"
+                          disabled={busyId === user.user_id}
+                          onClick={() => setLifecycleTarget(user)}
+                        >
+                          پایان فعالیت
+                        </button>
+                      )}
+                      {user.role === 'driver' && user.driver_id && !user.is_active && (
+                        <button
+                          type="button"
+                          className="btn-tiny"
+                          disabled={busyId === user.user_id}
+                          onClick={() => void reactivateDriver(user)}
+                        >
+                          فعال‌سازی مجدد
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -229,6 +279,15 @@ export default function UsersPage({ onNotify }: Props) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {lifecycleTarget && (
+        <DriverLifecycleModal
+          driverName={lifecycleTarget.full_name}
+          busy={busyId === lifecycleTarget.user_id}
+          onClose={() => setLifecycleTarget(null)}
+          onSubmit={(reason, note) => void endDriverActivity(lifecycleTarget, reason, note)}
+        />
       )}
 
       {singleDriverOpen && (
