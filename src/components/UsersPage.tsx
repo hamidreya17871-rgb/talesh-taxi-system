@@ -28,6 +28,7 @@ export default function UsersPage({ onNotify }: Props) {
   const [singleDriverOpen, setSingleDriverOpen] = useState(false);
   const [singleDriverActivation, setSingleDriverActivation] = useState<ActivationItem | null>(null);
   const [lifecycleTarget, setLifecycleTarget] = useState<Profile | null>(null);
+  const [showInactiveUsers, setShowInactiveUsers] = useState(false);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -214,9 +215,23 @@ export default function UsersPage({ onNotify }: Props) {
         </div>
       )}
 
-      {users && users.length === 0 && <p className="py-16 text-center text-ink-600">هنوز کاربری ثبت نشده است.</p>}
-
       {users && users.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex gap-2" role="group" aria-label="فیلتر کاربران">
+            <button type="button" className={`btn-tiny ${!showInactiveUsers ? 'btn-tiny-active' : ''}`} onClick={() => setShowInactiveUsers(false)}>
+              کاربران فعال ({users.filter(user => user.is_active).length})
+            </button>
+            <button type="button" className={`btn-tiny ${showInactiveUsers ? 'btn-tiny-active' : ''}`} onClick={() => setShowInactiveUsers(true)}>
+              بایگانی کاربران غیرفعال ({users.filter(user => !user.is_active).length})
+            </button>
+          </div>
+          <span className="text-xs text-ink-600">غیرفعال‌سازی، سوابق و پرونده کاربر را حذف نمی‌کند.</span>
+        </div>
+      )}
+
+      {users && visibleUsers.length === 0 && <p className="py-12 text-center text-ink-600">{showInactiveUsers ? 'کاربر غیرفعالی در بایگانی نیست.' : 'کاربر فعالی ثبت نشده است.'}</p>}
+
+      {users && visibleUsers.length > 0 && (
         <div className="panel overflow-x-auto p-0">
           <table className="w-full min-w-[560px] border-collapse text-sm">
             <thead>
@@ -229,7 +244,7 @@ export default function UsersPage({ onNotify }: Props) {
               </tr>
             </thead>
             <tbody>
-              {users.map(user => (
+              {visibleUsers.map(user => (
                 <tr key={user.user_id} className="hover:bg-ink-50/60">
                   <td className="border-b border-ink-200 px-3 py-3">{user.full_name}</td>
                   <td dir="ltr" className="border-b border-ink-200 px-3 py-3 text-right">{user.phone ?? '—'}</td>
@@ -259,7 +274,7 @@ export default function UsersPage({ onNotify }: Props) {
                           disabled={busyId === user.user_id}
                           onClick={() => setLifecycleTarget(user)}
                         >
-                          پایان فعالیت
+                          حذف از کاربران
                         </button>
                       )}
                       {user.role === 'driver' && user.driver_id && !user.is_active && (
