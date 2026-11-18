@@ -188,6 +188,22 @@ async function handleBootstrap(body: Record<string, unknown>): Promise<Response>
   return json({ user_id: userId });
 }
 
+async function handleClaimInitialAdmin(req: Request): Promise<Response> {
+  const callerId = await requireStaff(req, ["manager"]);
+  const { data, error } = await admin.rpc("claim_initial_system_admin", { p_user_id: callerId });
+  if (error) {
+    if (error.message?.includes("already_exists")) {
+      throw new RequestError("مدیرکل سامانه قبلاً تعیین شده است؛ ارتقای مجدد مجاز نیست.", 409);
+    }
+    if (error.message?.includes("manager_required")) {
+      throw new RequestError("فقط حساب فعال مدیر سازمان می‌تواند مدیرکل اولیه شود.", 403);
+    }
+    throw error;
+  }
+  if (data !== true) throw new RequestError("ارتقای مدیرکل انجام نشد.", 409);
+  return json({ user_id: callerId, role: "admin" });
+}
+
 async function handleCreate(req: Request, body: Record<string, unknown>): Promise<Response> {
   const callerId = await requireStaff(req, ["manager"]);
   const caller = await admin.from("profiles").select("role").eq("user_id", callerId).single();
@@ -197,9 +213,7 @@ async function handleCreate(req: Request, body: Record<string, unknown>): Promis
   const fullName = readText(body, "full_name", 100);
   const role = readRole(body);
   if (role === "admin") {
-    const { count, error } = await admin.from("profiles").select("user_id", { count: "exact", head: true }).eq("role", "admin").eq("is_active", true).eq("approval_status", "approved");
-    if (error) throw error;
-    if (caller.data.role !== "admin" && (count ?? 0) > 0) throw new RequestError("ایجاد مدیرکل جدید فقط با تأیید مدیرکل فعلی مجاز است.", 403);
+    throw new RequestError("ایجاد مدیرکل از فرم کاربران مجاز نیست؛ مدیرکل اولیه باید از مسیر امن راه‌اندازی تعیین شود.", 403);
   }
   const driverId = await readDriverId(body, role);
   const userId = await createAuthUser(phoneToAccountEmail(phone), password);
@@ -346,13 +360,18 @@ async function handleUpdate(req: Request, body: Record<string, unknown>): Promis
   const isActive = body.is_active;
 
   if (userId === callerId) throw new RequestError("تغییر نقش یا غیرفعال‌سازی حساب خودتان مجاز نیست.", 400);
-  if (target.role === "admin" && callerProfile.data.role !== "admin") throw new RequestError("فقط مدیرکل می‌تواند حساب مدیرکل را تغییر دهد.", 403);
-  if (target.role === "admin" && (role !== "admin" || !isActive)) {
-    const { count, error } = await admin.from("profiles").select("user_id", { count: "exact", head: true }).eq("role", "admin").eq("is_active", true).eq("approval_status", "approved");
-    if (error) throw error;
-    if ((count ?? 0) <= 1) throw new RequestError("تنزل یا غیرفعال‌سازی آخرین مدیرکل مجاز نیست.", 409);
+  if (role === "admin" && target.role !== "admin") {
+    throw new RequestError("تعیین مدیرکل فقط از مسیر امن ارتقای مدیر سازمان و در صورت نبود مدیرکل فعال امکان‌پذیر است.", 403);
   }
-  if (target.role === "manager" && callerProfile.data.role !== "admin" && (role !== "manager" || !isActive)) throw new RequestError("تغییر نقش یا غیرفعال‌سازی مدیر سازمان فقط برای مدیرکل مجاز است.", 403);
+  if (target.role === "admin" && (role !== "admin" || !isActive)) {
+    throw new RequestError("حساب یگانه مدیرکل از این بخش قابل تنزل یا غیرفعال‌سازی نیست.", 409);
+  }
+  if (role === "manager" && target.role !== "manager" && callerProfile.data.role !== "admin") {
+    throw new RequestError("تعیین یا جایگزینی مدیر سازمان فقط در اختیار مدیرکل سامانه است.", 403);
+  }
+  if (target.role === "manager" && callerProfile.data.role !== "admin" && (role !== "manager" || !isActive)) {
+    throw new RequestError("تغییر نقش یا غیرفعال‌سازی مدیر سازمان فقط برای مدیرکل مجاز است.", 403);
+  }
   if (target.role === "manager" && (role !== "manager" || !isActive)) {
     const { count, error } = await admin.from("profiles").select("user_id", { count: "exact", head: true }).eq("role", "manager").eq("is_active", true).eq("approval_status", "approved");
     if (error) throw error;
@@ -1005,6 +1024,8 @@ Deno.serve(async (req: Request) => {
         return json({ needsSetup: !(await hasManager()) });
       case "bootstrap":
         return await handleBootstrap(body);
+      case "claim-initial-admin":
+        return await handleClaimInitialAdmin(req);
       case "create":
         return await handleCreate(req, body);
       case "update":
