@@ -1,28 +1,16 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const allowedOrigin = (origin: string | null) => {
-  if (!origin) return "https://talesh-taxi-system.pages.dev";
-  try {
-    const url = new URL(origin);
-    if (url.protocol === "https:" &&
-        (url.hostname === "talesh-taxi-system.pages.dev" || url.hostname.endsWith(".talesh-taxi-system.pages.dev"))) {
-      return origin;
-    }
-  } catch { /* invalid origin */ }
-  return "https://talesh-taxi-system.pages.dev";
-};
-const headersFor = (origin: string | null) => ({
-  "Access-Control-Allow-Origin": allowedOrigin(origin),
+const cors = {
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Vary": "Origin",
-});
+};
 const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...headersFor(null) } });
+  new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: headersFor(req.headers.get("Origin")) });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "روش درخواست مجاز نیست." }, 405);
 
   const apiKey = Deno.env.get("OPENAI_API_KEY");
