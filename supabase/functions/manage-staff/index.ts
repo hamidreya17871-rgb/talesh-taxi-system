@@ -237,6 +237,91 @@ async function handleDeleteExpert(req: Request, body: Record<string, unknown>): 
   return json({ user_id: userId });
 }
 
+async function handleDeactivateDriver(req: Request, body: Record<string, unknown>): Promise<Response> {
+  await requireStaff(req, ["manager"]);
+  const userId = body.user_id;
+  if (typeof userId !== "string" || !UUID_PATTERN.test(userId)) throw invalid();
+  const reason = body.reason;
+  const reasonLabels: Record<string, string> = {
+    vehicle_sold: "فروش خودرو",
+    retired: "بازنشستگی",
+    ceased_activity: "قطع فعالیت",
+  };
+  if (typeof reason !== "string" || !Object.hasOwn(reasonLabels, reason)) throw invalid();
+  const note = typeof body.note === "string" ? body.note.trim().slice(0, 500) : "";
+
+  const { data: profile, error: profileError } = await admin.from("profiles")
+    .select("user_id, role, driver_id, is_active")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (profileError) throw profileError;
+  if (!profile || profile.role !== "driver" || !profile.driver_id) {
+    throw new RequestError("حساب راننده یا پرونده مرتبط پیدا نشد.", 404);
+  }
+
+  const { data: driver, error: driverError } = await admin.from("drivers")
+    .select("id, notes")
+    .eq("id", profile.driver_id)
+    .maybeSingle();
+  if (driverError) throw driverError;
+  if (!driver) throw new RequestError("پرونده راننده پیدا نشد.", 404);
+
+  const timestamp = new Date().toISOString();
+  const status = reason === "vehicle_sold" ? "فروخته‌شده" : reason === "retired" ? "بازنشسته" : "قطع فعالیت";
+  const auditLine = `\n[${timestamp}] خاتمه فعالیت: ${reasonLabels[reason]}.${note ? ` توضیحات: ${note}` : ""}`;
+  const { error: driverUpdateError } = await admin.from("drivers")
+    .update({ status, notes: `${driver.notes ?? ""}${auditLine}` })
+    .eq("id", profile.driver_id);
+  if (driverUpdateError) throw driverUpdateError;
+
+  const { error: banError } = await admin.auth.admin.updateUserById(userId, { ban_duration: DISABLED_BAN });
+  if (banError) throw banError;
+  const { error: profileUpdateError } = await admin.from("profiles")
+    .update({ is_active: false })
+    .eq("user_id", userId);
+  if (profileUpdateError) throw profileUpdateError;
+
+  return json({ user_id: userId, driver_id: profile.driver_id, status, vehicle_transfer_required: reason === "vehicle_sold" });
+}
+
+async function handleReactivateDriver(req: Request, body: Record<string, unknown>): Promise<Response> {
+  await requireStaff(req, ["manager"]);
+  const userId = body.user_id;
+  if (typeof userId !== "string" || !UUID_PATTERN.test(userId)) throw invalid();
+
+  const { data: profile, error: profileError } = await admin.from("profiles")
+    .select("user_id, role, driver_id, is_active")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (profileError) throw profileError;
+  if (!profile || profile.role !== "driver" || !profile.driver_id) {
+    throw new RequestError("حساب راننده یا پرونده مرتبط پیدا نشد.", 404);
+  }
+
+  const { data: driver, error: driverError } = await admin.from("drivers")
+    .select("id, notes")
+    .eq("id", profile.driver_id)
+    .maybeSingle();
+  if (driverError) throw driverError;
+  if (!driver) throw new RequestError("پرونده راننده پیدا نشد.", 404);
+
+  const { error: banError } = await admin.auth.admin.updateUserById(userId, { ban_duration: "none" });
+  if (banError) throw banError;
+  const { error: profileUpdateError } = await admin.from("profiles")
+    .update({ is_active: true, approval_status: "approved" })
+    .eq("user_id", userId);
+  if (profileUpdateError) throw profileUpdateError;
+  const { error: driverUpdateError } = await admin.from("drivers")
+    .update({
+      status: "فعال",
+      notes: `${driver.notes ?? ""}\n[${new Date().toISOString()}] فعال‌سازی مجدد راننده توسط مدیر سازمان.`,
+    })
+    .eq("id", profile.driver_id);
+  if (driverUpdateError) throw driverUpdateError;
+
+  return json({ user_id: userId, driver_id: profile.driver_id, status: "فعال" });
+}
+
 async function handleUpdate(req: Request, body: Record<string, unknown>): Promise<Response> {
   const callerId = await requireStaff(req, ["manager"]);
   const userId = body.user_id;
@@ -924,6 +1009,10 @@ Deno.serve(async (req: Request) => {
         return await handleUpdate(req, body);
       case "delete-expert":
         return await handleDeleteExpert(req, body);
+      case "deactivate-driver":
+        return await handleDeactivateDriver(req, body);
+      case "reactivate-driver":
+        return await handleReactivateDriver(req, body);
       case "register-driver":
         return await handleRegisterDriver(req, body);
       case "permanently-delete-archived-letter":
