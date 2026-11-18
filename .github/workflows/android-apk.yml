@@ -1,8 +1,8 @@
-name: Android APK
+name: Android APK and Google Play bundle
 
 on:
   push:
-    branches: [release/android-pwa-packaging-20261117]
+    branches: [release/android-branding-googleplay-20261118]
   pull_request:
     branches: [release/standalone-railway]
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  build-apk:
+  build-android:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,14 +25,22 @@ jobs:
           java-version: '21'
       - name: Install web dependencies
         run: npm ci
-      - name: Install Capacitor toolchain without changing project lockfile
-        run: npm install --no-save --package-lock=false @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
+      - name: Install Capacitor and image asset tools
+        run: npm install --no-save --package-lock=false @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor/assets@latest sharp
       - name: Build web application
         run: npm run build
       - name: Verify production web bundle
         run: |
           test -s dist/index.html
           grep -q 'سامانه مدیریت حمل‌ونقل و تاکسیرانی تالش' dist/index.html
+      - name: Generate Android launcher icons from the existing Talesh taxi artwork
+        run: |
+          mkdir -p assets
+          node --input-type=module <<'EOF'
+          import sharp from 'sharp';
+          await sharp('public/app-icon.svg').resize(1024, 1024, { fit: 'contain', background: '#ffffff' }).png().toFile('assets/icon.png');
+          EOF
+          npx capacitor-assets generate --android --iconBackgroundColor '#ffffff'
       - name: Generate Capacitor Android project
         run: |
           cat > capacitor.config.json <<'EOF'
@@ -51,9 +59,16 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon assembleDebug
           test -s app/build/outputs/apk/debug/app-debug.apk
+      - name: Build Google Play Android App Bundle
+        run: |
+          cd android
+          ./gradlew --no-daemon bundleRelease
+          test -s app/build/outputs/bundle/release/app-release.aab
       - uses: actions/upload-artifact@v4
         with:
-          name: talesh-taxi-android-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: talesh-taxi-android-package
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 14
