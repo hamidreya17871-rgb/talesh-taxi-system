@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CalendarDays, FileText, LayoutDashboard, ShieldAlert, type LucideIcon } from 'lucide-react';
+import { CalendarDays, FileText, ShieldAlert, type LucideIcon } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import { type FleetData, type FleetRecord, type PageKey, type RecordValue } from '@/lib/fleetConfig';
 import LicenseReminderNotice from '@/components/LicenseReminderNotice';
@@ -9,6 +9,7 @@ import { LEAVE_STATUS_LABELS, type LeaveRequest } from '@/lib/leave';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/staff';
 import LineInspectorReports from '@/components/LineInspectorReports';
+import OrganizationContactCard from '@/components/OrganizationContactCard';
 
 type Props = {
   data: FleetData;
@@ -49,14 +50,14 @@ export default function DriverDashboard({ data, profile, onNavigate }: Props) {
 
   return (
     <section className="flex flex-col gap-[22px]">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h2 className="mb-2 text-[22px] font-bold max-[650px]:text-lg">پنل راننده</h2>
-          <p className="text-ink-600 max-[650px]:text-xs">خوش آمدید، {profile.full_name}</p>
+      <div className="flex items-center justify-between gap-4 rounded-2xl border border-brand-100 bg-white p-4 shadow-sm">
+        <div className="flex min-w-0 items-center gap-3">
+          <img src="/talesh-taxi-logo.webp" alt="نشان سازمان تاکسیرانی تالش" className="h-20 w-20 shrink-0 object-contain max-[650px]:h-14 max-[650px]:w-14" />
+          <div className="min-w-0">
+            <h2 className="mb-2 text-[22px] font-bold max-[650px]:text-lg">پنل راننده</h2>
+            <p className="text-ink-600 max-[650px]:text-xs">خوش آمدید، {profile.full_name}</p>
+          </div>
         </div>
-        <span className="grid h-12 w-12 place-items-center rounded-[14px] bg-brand-50 text-brand-600">
-          <LayoutDashboard size={22} />
-        </span>
       </div>
 
       {profile.is_line_inspector && <LineInspectorReports profile={profile} mode="driver" />}
@@ -103,6 +104,8 @@ export default function DriverDashboard({ data, profile, onNavigate }: Props) {
           مشاهده مرخصی‌ها
         </button>
       </div>
+
+      <OrganizationContactCard />
 
       <div className="panel flex flex-col gap-3">
         <h3 className="font-bold">آخرین تخلفات</h3>

@@ -44,6 +44,8 @@ export type LeaveRequest = {
   destination_province: string | null;
   destination_city: string | null;
   status: LeaveStatus;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
   created_at: string;
   drivers: { name: string | null } | null;
 };

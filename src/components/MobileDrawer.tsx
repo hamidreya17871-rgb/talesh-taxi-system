@@ -37,12 +37,19 @@ export default function MobileDrawer({ items, page, open, onNavigate, onClose }:
         dir="rtl"
         className="absolute right-0 top-0 flex h-full w-[min(86vw,340px)] flex-col overflow-y-auto bg-brand-800 px-4 py-5 text-brand-50 shadow-2xl animate-pop-in"
       >
-        <div className="mb-5 flex items-center justify-between border-b border-white/15 pb-4">
-          <div>
-            <p className="font-bold text-white">تاکسیرانی تالش</p>
-            <p className="mt-1 text-xs text-brand-200">منوی اصلی سامانه</p>
+        <div className="mb-5 flex items-center justify-between gap-3 border-b border-white/15 pb-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <img
+              src="/talesh-taxi-logo.webp"
+              alt="نشان سازمان تاکسیرانی تالش"
+              className="h-14 w-14 shrink-0 rounded-xl bg-white object-contain p-1 shadow-sm"
+            />
+            <div className="min-w-0">
+              <p className="font-bold leading-6 text-white">سازمان تاکسیرانی تالش</p>
+              <p className="mt-1 text-xs text-brand-200">منوی اصلی سامانه</p>
+            </div>
           </div>
-          <button type="button" className="rounded-lg p-2 hover:bg-white/10" onClick={onClose} aria-label="بستن">
+          <button type="button" className="shrink-0 rounded-lg p-2 hover:bg-white/10" onClick={onClose} aria-label="بستن منو">
             <X size={20} />
           </button>
         </div>

@@ -57,6 +57,7 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
   const [attachment, setAttachment] = useState(letter?.attachment_path ?? '');
   const [savedLetterId, setSavedLetterId] = useState<string | null>(letter?.id ?? null);
   const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
+  const [attachmentType, setAttachmentType] = useState('attachment');
   const [priority, setPriority] = useState<LetterPriority>(letter?.priority ?? 'normal');
   const [priorityDays, setPriorityDays] = useState<Record<LetterPriority, number>>({ normal: 5, urgent: 2, immediate: 1 });
   const isLocked = Boolean(letter?.direction === 'outgoing' && (letter.manager_signed_at || ['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status)));
@@ -75,6 +76,7 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
       setAttachment(letter.attachment_path ?? '');
       setSavedLetterId(letter.id);
       setPendingAttachments([]);
+      setAttachmentType('attachment');
       setPriority(letter.priority ?? 'normal');
     }
   }, [letter]);
@@ -144,7 +146,7 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
     }
 
     if (pendingAttachments.length > 0) {
-      const uploadResult = await uploadLetterAttachments(targetLetterId, pendingAttachments);
+      const uploadResult = await uploadLetterAttachments(targetLetterId, pendingAttachments, attachmentType);
       setPendingAttachments(uploadResult.failedFiles);
       if (uploadResult.errors.length > 0) {
         setError(`نامه ذخیره شد؛ اما بارگذاری برخی پیوست‌ها ناموفق بود: ${uploadResult.errors.join(' ')}`);
@@ -168,6 +170,8 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
       direction: letter.direction,
       includeLetterhead,
       paperSize,
+      managerApproved: Boolean(letter.manager_signed_at),
+      managerName: 'مدیر سازمان',
     });
   }
 
@@ -199,6 +203,8 @@ export default function LetterFormModal({ letter, onSaved, onClose, onNotify }: 
             queuedFiles={pendingAttachments}
             onQueuedFilesChange={setPendingAttachments}
             canUpload={!isLocked}
+            documentType={attachmentType}
+            onDocumentTypeChange={setAttachmentType}
           />
 
           <div className="flex flex-col gap-[7px]">

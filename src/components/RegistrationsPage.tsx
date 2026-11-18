@@ -23,6 +23,7 @@ type ImportRow = {
   taxi_row_no: string;
 };
 type ImportedDriver = { row: number; full_name: string; phone: string; activation_code: string; expires_at: string };
+type ExistingDriverCode = { name: string; phone: string; activation_code: string; expires_at: string };
 type SkippedRow = { row: number; full_name?: string; phone?: string; reason: string };
 
 type Props = { onNotify: (message: string, kind?: 'success' | 'error') => void; canImport: boolean };
@@ -114,6 +115,9 @@ export default function RegistrationsPage({ onNotify, canImport }: Props) {
   const [importProgress, setImportProgress] = useState('');
   const [imported, setImported] = useState<ImportedDriver[]>([]);
   const [skipped, setSkipped] = useState<SkippedRow[]>([]);
+  const [existingCodes, setExistingCodes] = useState<ExistingDriverCode[]>([]);
+  const [existingSkipped, setExistingSkipped] = useState<Array<{ name?: string; phone?: string; reason: string }>>([]);
+  const [codesBusy, setCodesBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -225,6 +229,34 @@ export default function RegistrationsPage({ onNotify, canImport }: Props) {
     await load();
   }
 
+  async function issueExistingDriverCodes() {
+    if (codesBusy) return;
+    setCodesBusy(true);
+    setExistingCodes([]);
+    setExistingSkipped([]);
+    try {
+      const result = await callStaffApi<{ issued: ExistingDriverCode[]; skipped: Array<{ name?: string; phone?: string; reason: string }> }>('issue-existing-driver-codes');
+      setExistingCodes(result.issued);
+      setExistingSkipped(result.skipped);
+      if (result.issued.length) downloadCsv('talesh-existing-driver-recovery-codes.csv', [
+        ['نام راننده', 'شماره موبایل', 'کد موقت بازیابی', 'مهلت استفاده'],
+        ...result.issued.map(item => [item.name, item.phone, item.activation_code, new Date(item.expires_at).toLocaleDateString('fa-IR')]),
+      ]);
+      onNotify(`کد موقت برای ${result.issued.length} راننده صادر شد؛ ${result.skipped.length} مورد نیازمند بررسی است.`, result.skipped.length ? 'error' : 'success');
+    } catch (cause) {
+      onNotify(cause instanceof Error ? cause.message : 'صدور کدهای بازیابی انجام نشد.', 'error');
+    }
+    setCodesBusy(false);
+  }
+
+  function downloadExistingCodes() {
+    if (!existingCodes.length) return;
+    downloadCsv('talesh-existing-driver-recovery-codes.csv', [
+      ['نام راننده', 'شماره موبایل', 'کد موقت بازیابی', 'مهلت استفاده'],
+      ...existingCodes.map(item => [item.name, item.phone, item.activation_code, new Date(item.expires_at).toLocaleDateString('fa-IR')]),
+    ]);
+  }
+
   function downloadActivationCodes() {
     if (!imported.length) return;
     downloadCsv('talesh-driver-activation-codes.csv', [
@@ -244,6 +276,29 @@ export default function RegistrationsPage({ onNotify, canImport }: Props) {
           <RefreshCw size={16} /> به‌روزرسانی
         </button>
       </header>
+
+      {canImport && <section className="panel flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <KeyRound size={20} />
+          <h3 className="font-bold">بازیابی ورود رانندگان قبلی</h3>
+        </div>
+        <p className="text-sm leading-6 text-ink-600">
+          برای رانندگان ثبت‌شده، کد موقت یک‌بارمصرف صادر کنید. فایل کدها فقط در اختیار مدیر نمایش داده می‌شود؛ آن را محرمانه و پس از تطبیق هویت راننده تحویل دهید. راننده با شماره موبایل، کد ملی و این کد، رمز شخصی تازه تعیین می‌کند. کد تا ۳۰ روز معتبر است.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn" onClick={() => void issueExistingDriverCodes()} disabled={codesBusy}>
+            <KeyRound size={16} /> {codesBusy ? 'در حال صدور کدها…' : 'صدور کد بازیابی رانندگان قبلی'}
+          </button>
+          {existingCodes.length > 0 && <button type="button" className="btn btn-secondary" onClick={downloadExistingCodes}>
+            <Download size={16} /> دانلود دوباره فایل کدها
+          </button>}
+        </div>
+        {existingCodes.length > 0 && <p className="text-xs text-emerald-700">{existingCodes.length} کد صادر شد. فایل CSV حاوی کدهای محرمانه است؛ آن را در دستگاه امن نگه دارید و پس از تحویل امن حذف کنید.</p>}
+        {existingSkipped.length > 0 && <div className="rounded-xl border border-amber-300 p-3 text-xs">
+          <p className="mb-2 font-semibold">موارد نیازمند بررسی ({existingSkipped.length})</p>
+          {existingSkipped.map((item, index) => <p key={index} className="py-1">{item.name || item.phone || 'راننده'} — {item.reason}</p>)}
+        </div>}
+      </section>}
 
       {canImport && <section className="panel flex flex-col gap-3">
         <div className="flex items-center gap-2">
