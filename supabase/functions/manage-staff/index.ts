@@ -583,7 +583,7 @@ async function handleIssueExistingDriverCodes(req: Request): Promise<Response> {
 
     const { data: existing, error: existingError } = await admin
       .from("profiles")
-      .select("user_id, role, is_active, approval_status")
+      .select("user_id, role, is_active, approval_status, driver_id")
       .or(`driver_id.eq.${driver.id},phone.eq.${phone}`)
       .limit(1)
       .maybeSingle();
@@ -592,8 +592,8 @@ async function handleIssueExistingDriverCodes(req: Request): Promise<Response> {
     let userId: string;
     let createdUser = false;
     if (existing) {
-      if (existing.role !== "driver" || existing.is_active || existing.approval_status === "rejected") {
-        skipped.push({ name: fullName, phone, reason: "برای این راننده حساب فعال یا پرونده ناسازگار وجود دارد." });
+      if (existing.role !== "driver" || existing.approval_status === "rejected" || (existing.driver_id && existing.driver_id !== driver.id)) {
+        skipped.push({ name: fullName, phone, reason: "برای این راننده پرونده ناسازگار یا درخواست ردشده وجود دارد." });
         continue;
       }
       userId = existing.user_id;
@@ -739,11 +739,19 @@ async function handleActivateImportedDriver(body: Record<string, unknown>): Prom
   const code = readText(body, "activation_code", 64);
   if (!/^[A-Za-z0-9_-]{32}$/.test(code)) throw new RequestError("کد فعال‌سازی معتبر نیست.", 400);
   const password = readPassword(body.password);
+  const nationalCode = normalizeDigits(readText(body, "national_code", 10));
+  if (!NATIONAL_CODE_PATTERN.test(nationalCode)) throw new RequestError("کد ملی باید ۱۰ رقم باشد.", 400);
   const { data: profile, error: profileError } = await admin.from("profiles")
-    .select("user_id, role, approval_status").eq("phone", phone).maybeSingle();
+    .select("user_id, role, approval_status, driver_id").eq("phone", phone).maybeSingle();
   if (profileError) throw profileError;
-  if (!profile || profile.role !== "driver" || profile.approval_status === "rejected") {
+  if (!profile || profile.role !== "driver" || profile.approval_status === "rejected" || !profile.driver_id) {
     throw new RequestError("پرونده راننده یا درخواست فعال‌سازی پیدا نشد.", 404);
+  }
+  const { data: driver, error: driverError } = await admin.from("drivers")
+    .select("national_code").eq("id", profile.driver_id).maybeSingle();
+  if (driverError) throw driverError;
+  if (!driver || normalizeDigits(String(driver.national_code ?? "")) !== nationalCode) {
+    throw new RequestError("کد ملی با پرونده راننده مطابقت ندارد.", 403);
   }
   const codeHash = await sha256Hex(code);
   const { data: consumed, error: consumeError } = await admin.rpc("consume_driver_activation_token", {
