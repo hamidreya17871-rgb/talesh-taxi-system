@@ -29,15 +29,23 @@ export default function UsersPage({ onNotify }: Props) {
   const [singleDriverActivation, setSingleDriverActivation] = useState<ActivationItem | null>(null);
   const [lifecycleTarget, setLifecycleTarget] = useState<Profile | null>(null);
   const [showInactiveUsers, setShowInactiveUsers] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [claimingAdmin, setClaimingAdmin] = useState(false);
+
+  const currentProfile = users?.find(user => user.user_id === currentUserId) ?? null;
+  const activeAdminExists = (users ?? []).some(user => user.role === 'admin' && user.is_active);
+  const canClaimInitialAdmin = currentProfile?.role === 'manager' && currentProfile.is_active && !activeAdminExists;
 
   const visibleUsers = (users ?? []).filter(user => showInactiveUsers ? !user.is_active : user.is_active);
 
   const load = useCallback(async () => {
     setLoadError(null);
-    const [profilesResult, driversResult] = await Promise.all([
+    const [authResult, profilesResult, driversResult] = await Promise.all([
+      supabase.auth.getUser(),
       supabase.from('profiles').select('*').eq('approval_status', 'approved').order('created_at', { ascending: true }),
       supabase.from('drivers').select('id, name').order('name', { ascending: true }),
     ]);
+    setCurrentUserId(authResult.data.user?.id ?? null);
     if (profilesResult.error || driversResult.error) {
       setLoadError('اطلاعات کاربران دریافت نشد. لطفاً دوباره تلاش کنید.');
       return;
@@ -49,6 +57,19 @@ export default function UsersPage({ onNotify }: Props) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function claimInitialAdmin() {
+    if (!window.confirm('حساب مدیر سازمان شما به مدیرکل سامانه ارتقا می‌یابد. این امکان فقط یک‌بار و در صورت نبود مدیرکل فعال وجود دارد. ادامه می‌دهید؟')) return;
+    setClaimingAdmin(true);
+    try {
+      await callStaffApi('claim-initial-admin');
+      onNotify('حساب شما مدیرکل سامانه شد. صفحه برای بارگذاری سطح دسترسی جدید بازخوانی می‌شود.');
+      window.setTimeout(() => window.location.reload(), 900);
+    } catch (cause) {
+      onNotify(cause instanceof Error ? cause.message : 'ارتقای مدیرکل انجام نشد.', 'error');
+      setClaimingAdmin(false);
+    }
+  }
 
   async function issueExistingDriverCodes() {
     setIssuingCodes(true);
@@ -127,6 +148,11 @@ export default function UsersPage({ onNotify }: Props) {
           <p className="mt-1 text-sm text-ink-600">حساب مدیران، کارشناسان و رانندگان را مدیریت کنید.</p>
         </div>
         <div className="flex gap-2">
+          {canClaimInitialAdmin && (
+            <button type="button" className="btn" disabled={claimingAdmin} onClick={() => void claimInitialAdmin()}>
+              {claimingAdmin ? 'در حال ارتقا…' : 'ارتقای حساب من به مدیرکل سامانه'}
+            </button>
+          )}
           <button type="button" className="btn btn-secondary" onClick={() => void load()}>
             <RefreshCw size={16} />
             به‌روزرسانی
