@@ -280,10 +280,12 @@ export default function UsersPage({ onNotify }: Props) {
                   <td className="border-b border-ink-200 px-3 py-3">{user.is_active ? 'فعال' : 'غیرفعال'}</td>
                   <td className="border-b border-ink-200 px-3 py-3">
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" className="btn-tiny" onClick={() => setEditor({ user })}>
-                        <Pencil size={13} />
-                        ویرایش
-                      </button>
+                      {user.user_id !== currentUserId && (
+                        <button type="button" className="btn-tiny" onClick={() => setEditor({ user })}>
+                          <Pencil size={13} />
+                          ویرایش
+                        </button>
+                      )}
                       {user.role === 'expert' && (
                         <button
                           type="button"
@@ -345,6 +347,7 @@ export default function UsersPage({ onNotify }: Props) {
         <UserFormModal
           user={editor.user}
           drivers={drivers}
+          canManageManagers={currentProfile?.role === 'admin'}
           onNotify={onNotify}
           onClose={() => setEditor(null)}
           onSaved={() => {
