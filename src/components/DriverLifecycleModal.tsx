@@ -46,7 +46,7 @@ export default function DriverLifecycleModal({ driverName, busy = false, onClose
             </p>
           )}
           <div className="flex flex-wrap gap-2">
-            <button type="submit" className="btn btn-danger" disabled={busy}><UserX size={16}/>{busy ? 'در حال ثبت…' : 'ثبت پایان فعالیت'}</button>
+            <button type="submit" className="btn" disabled={busy}><UserX size={16}/>{busy ? 'در حال ثبت…' : 'ثبت پایان فعالیت'}</button>
             <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>انصراف</button>
           </div>
         </form>
