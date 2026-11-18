@@ -62,7 +62,7 @@ export const entityConfigs: Record<EntityKey, EntityConfig> = {
       { key: 'license_number', label: 'شماره گواهینامه', type: 'text' },
       { key: 'route', label: 'خط / مسیر', type: 'text' },
       { key: 'address', label: 'آدرس', type: 'textarea' },
-      { key: 'status', label: 'وضعیت', type: 'select', options: ['فعال', 'در انتظار بررسی', 'غیرفعال'] },
+      { key: 'status', label: 'وضعیت', type: 'select', options: ['فعال', 'در انتظار بررسی', 'غیرفعال', 'فروخته‌شده', 'بازنشسته', 'قطع فعالیت'] },
       { key: 'notes', label: 'توضیحات', type: 'textarea' },
     ],
     columns: [
@@ -87,7 +87,7 @@ export const entityConfigs: Record<EntityKey, EntityConfig> = {
       { key: 'year', label: 'سال ساخت', type: 'number' },
       { key: 'insurance_expires', label: 'انقضای بیمه', type: 'date' },
       { key: 'inspection_expires', label: 'معاینه فنی تا', type: 'date' },
-      { key: 'status', label: 'وضعیت', type: 'select', options: ['فعال', 'نیازمند بررسی', 'غیرفعال', 'در حال اسقاط'] },
+      { key: 'status', label: 'وضعیت', type: 'select', options: ['فعال', 'نیازمند بررسی', 'غیرفعال', 'منتقل‌شده', 'در حال اسقاط'] },
       { key: 'notes', label: 'توضیحات', type: 'textarea' },
     ],
     columns: [

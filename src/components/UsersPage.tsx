@@ -5,6 +5,7 @@ import { ROLE_LABELS, type Profile } from '@/lib/staff';
 import { callStaffApi } from '@/lib/staffApi';
 import UserFormModal from '@/components/UserFormModal';
 import SingleDriverModal from '@/components/SingleDriverModal';
+import DriverLifecycleModal, { type DriverEndReason } from '@/components/DriverLifecycleModal';
 
 type DriverOption = { id: string; name: string | null };
 
@@ -26,13 +27,26 @@ export default function UsersPage({ onNotify }: Props) {
   const [activationResult, setActivationResult] = useState<ActivationResult | null>(null);
   const [singleDriverOpen, setSingleDriverOpen] = useState(false);
   const [singleDriverActivation, setSingleDriverActivation] = useState<ActivationItem | null>(null);
+  const [lifecycleTarget, setLifecycleTarget] = useState<Profile | null>(null);
+  const [showInactiveUsers, setShowInactiveUsers] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [claimingAdmin, setClaimingAdmin] = useState(false);
+
+  const currentProfile = users?.find(user => user.user_id === currentUserId) ?? null;
+  const activeAdminExists = (users ?? []).some(user => user.role === 'admin' && user.is_active);
+  const activeManagerCount = (users ?? []).filter(user => user.role === 'manager' && user.is_active).length;
+  const canClaimInitialAdmin = currentProfile?.role === 'manager' && currentProfile.is_active && !activeAdminExists && activeManagerCount === 1;
+
+  const visibleUsers = (users ?? []).filter(user => showInactiveUsers ? !user.is_active : user.is_active);
 
   const load = useCallback(async () => {
     setLoadError(null);
-    const [profilesResult, driversResult] = await Promise.all([
+    const [authResult, profilesResult, driversResult] = await Promise.all([
+      supabase.auth.getUser(),
       supabase.from('profiles').select('*').eq('approval_status', 'approved').order('created_at', { ascending: true }),
       supabase.from('drivers').select('id, name').order('name', { ascending: true }),
     ]);
+    setCurrentUserId(authResult.data.user?.id ?? null);
     if (profilesResult.error || driversResult.error) {
       setLoadError('اطلاعات کاربران دریافت نشد. لطفاً دوباره تلاش کنید.');
       return;
@@ -44,6 +58,19 @@ export default function UsersPage({ onNotify }: Props) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function claimInitialAdmin() {
+    if (!window.confirm('حساب مدیر سازمان شما به مدیرکل سامانه ارتقا می‌یابد. این امکان فقط یک‌بار و در صورت نبود مدیرکل فعال وجود دارد. ادامه می‌دهید؟')) return;
+    setClaimingAdmin(true);
+    try {
+      await callStaffApi('claim-initial-admin');
+      onNotify('حساب شما مدیرکل سامانه شد. صفحه برای بارگذاری سطح دسترسی جدید بازخوانی می‌شود.');
+      window.setTimeout(() => window.location.reload(), 900);
+    } catch (cause) {
+      onNotify(cause instanceof Error ? cause.message : 'ارتقای مدیرکل انجام نشد.', 'error');
+      setClaimingAdmin(false);
+    }
+  }
 
   async function issueExistingDriverCodes() {
     setIssuingCodes(true);
@@ -72,6 +99,34 @@ export default function UsersPage({ onNotify }: Props) {
     }
   }
 
+  async function endDriverActivity(user: Profile, reason: DriverEndReason, note: string) {
+    setBusyId(user.user_id);
+    try {
+      await callStaffApi('deactivate-driver', { user_id: user.user_id, reason, note });
+      setLifecycleTarget(null);
+      onNotify('دسترسی راننده قطع شد و سابقه پرونده حفظ شد.');
+      void load();
+    } catch (cause) {
+      onNotify(cause instanceof Error ? cause.message : 'ثبت پایان فعالیت انجام نشد.', 'error');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function reactivateDriver(user: Profile) {
+    if (!window.confirm(`راننده «${user.full_name}» دوباره فعال شود؟`)) return;
+    setBusyId(user.user_id);
+    try {
+      await callStaffApi('reactivate-driver', { user_id: user.user_id });
+      onNotify('حساب راننده دوباره فعال شد.');
+      void load();
+    } catch (cause) {
+      onNotify(cause instanceof Error ? cause.message : 'فعال‌سازی مجدد انجام نشد.', 'error');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function removeExpert(user: Profile) {
     if (!window.confirm(`کارشناس «${user.full_name}» حذف شود؟ دسترسی او به سامانه قطع می‌شود.`)) return;
     setBusyId(user.user_id);
@@ -94,6 +149,11 @@ export default function UsersPage({ onNotify }: Props) {
           <p className="mt-1 text-sm text-ink-600">حساب مدیران، کارشناسان و رانندگان را مدیریت کنید.</p>
         </div>
         <div className="flex gap-2">
+          {canClaimInitialAdmin && (
+            <button type="button" className="btn" disabled={claimingAdmin} onClick={() => void claimInitialAdmin()}>
+              {claimingAdmin ? 'در حال ارتقا…' : 'ارتقای حساب من به مدیرکل سامانه'}
+            </button>
+          )}
           <button type="button" className="btn btn-secondary" onClick={() => void load()}>
             <RefreshCw size={16} />
             به‌روزرسانی
@@ -184,9 +244,23 @@ export default function UsersPage({ onNotify }: Props) {
         </div>
       )}
 
-      {users && users.length === 0 && <p className="py-16 text-center text-ink-600">هنوز کاربری ثبت نشده است.</p>}
-
       {users && users.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex gap-2" role="group" aria-label="فیلتر کاربران">
+            <button type="button" className={`btn-tiny ${!showInactiveUsers ? 'btn-tiny-active' : ''}`} onClick={() => setShowInactiveUsers(false)}>
+              کاربران فعال ({users.filter(user => user.is_active).length})
+            </button>
+            <button type="button" className={`btn-tiny ${showInactiveUsers ? 'btn-tiny-active' : ''}`} onClick={() => setShowInactiveUsers(true)}>
+              بایگانی کاربران غیرفعال ({users.filter(user => !user.is_active).length})
+            </button>
+          </div>
+          <span className="text-xs text-ink-600">غیرفعال‌سازی، سوابق و پرونده کاربر را حذف نمی‌کند.</span>
+        </div>
+      )}
+
+      {users && visibleUsers.length === 0 && <p className="py-12 text-center text-ink-600">{showInactiveUsers ? 'کاربر غیرفعالی در بایگانی نیست.' : 'کاربر فعالی ثبت نشده است.'}</p>}
+
+      {users && visibleUsers.length > 0 && (
         <div className="panel overflow-x-auto p-0">
           <table className="w-full min-w-[560px] border-collapse text-sm">
             <thead>
@@ -199,7 +273,7 @@ export default function UsersPage({ onNotify }: Props) {
               </tr>
             </thead>
             <tbody>
-              {users.map(user => (
+              {visibleUsers.map(user => (
                 <tr key={user.user_id} className="hover:bg-ink-50/60">
                   <td className="border-b border-ink-200 px-3 py-3">{user.full_name}</td>
                   <td dir="ltr" className="border-b border-ink-200 px-3 py-3 text-right">{user.phone ?? '—'}</td>
@@ -207,10 +281,12 @@ export default function UsersPage({ onNotify }: Props) {
                   <td className="border-b border-ink-200 px-3 py-3">{user.is_active ? 'فعال' : 'غیرفعال'}</td>
                   <td className="border-b border-ink-200 px-3 py-3">
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" className="btn-tiny" onClick={() => setEditor({ user })}>
-                        <Pencil size={13} />
-                        ویرایش
-                      </button>
+                      {user.user_id !== currentUserId && (
+                        <button type="button" className="btn-tiny" onClick={() => setEditor({ user })}>
+                          <Pencil size={13} />
+                          ویرایش
+                        </button>
+                      )}
                       {user.role === 'expert' && (
                         <button
                           type="button"
@@ -222,6 +298,26 @@ export default function UsersPage({ onNotify }: Props) {
                           حذف
                         </button>
                       )}
+                      {user.role === 'driver' && user.driver_id && user.is_active && (
+                        <button
+                          type="button"
+                          className="btn-tiny btn-tiny-danger"
+                          disabled={busyId === user.user_id}
+                          onClick={() => setLifecycleTarget(user)}
+                        >
+                          حذف از کاربران
+                        </button>
+                      )}
+                      {user.role === 'driver' && user.driver_id && !user.is_active && (
+                        <button
+                          type="button"
+                          className="btn-tiny"
+                          disabled={busyId === user.user_id}
+                          onClick={() => void reactivateDriver(user)}
+                        >
+                          فعال‌سازی مجدد
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -229,6 +325,15 @@ export default function UsersPage({ onNotify }: Props) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {lifecycleTarget && (
+        <DriverLifecycleModal
+          driverName={lifecycleTarget.full_name}
+          busy={busyId === lifecycleTarget.user_id}
+          onClose={() => setLifecycleTarget(null)}
+          onSubmit={(reason, note) => void endDriverActivity(lifecycleTarget, reason, note)}
+        />
       )}
 
       {singleDriverOpen && (
@@ -243,6 +348,7 @@ export default function UsersPage({ onNotify }: Props) {
         <UserFormModal
           user={editor.user}
           drivers={drivers}
+          canManageManagers={currentProfile?.role === 'admin'}
           onNotify={onNotify}
           onClose={() => setEditor(null)}
           onSaved={() => {
