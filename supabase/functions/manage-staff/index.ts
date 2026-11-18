@@ -215,6 +215,9 @@ async function handleCreate(req: Request, body: Record<string, unknown>): Promis
   if (role === "admin") {
     throw new RequestError("ایجاد مدیرکل از فرم کاربران مجاز نیست؛ مدیرکل اولیه باید از مسیر امن راه‌اندازی تعیین شود.", 403);
   }
+  if (role === "manager" && caller.data.role !== "admin") {
+    throw new RequestError("ایجاد یا جایگزینی مدیر سازمان فقط در اختیار مدیرکل سامانه است.", 403);
+  }
   const driverId = await readDriverId(body, role);
   const userId = await createAuthUser(phoneToAccountEmail(phone), password);
   await insertProfile(userId, {
