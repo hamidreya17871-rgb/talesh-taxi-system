@@ -105,7 +105,11 @@ export function useSession() {
     // Subscribe first so a slow getSession() cannot overwrite a newer auth event.
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       authEventSeen = true;
-      void applySession(session);
+      // Supabase invokes auth listeners while holding its internal auth lock.
+      // Defer profile I/O until after this synchronous callback has returned.
+      window.setTimeout(() => {
+        void applySession(session);
+      }, 0);
     });
 
     void withTimeout(supabase.auth.getSession())
