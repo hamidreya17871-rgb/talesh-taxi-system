@@ -11,6 +11,7 @@ import {
   Settings,
   UserCheck,
   UserCog,
+  UserCircle,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -19,7 +20,7 @@ import type { StaffRole } from '@/lib/staff';
 export const ENTITY_KEYS = ['drivers', 'vehicles', 'licenses', 'documents', 'reminders', 'violations'] as const;
 
 export type EntityKey = (typeof ENTITY_KEYS)[number];
-export type PageKey = 'dashboard' | 'requests' | 'leave' | 'messages' | 'secretariat' | 'archive' | 'users' | 'settings' | EntityKey;
+export type PageKey = 'dashboard' | 'requests' | 'leave' | 'messages' | 'secretariat' | 'archive' | 'users' | 'settings' | 'profile' | EntityKey;
 
 export type RecordValue = string | number | null;
 export type RecordPayload = Record<string, RecordValue>;
@@ -61,7 +62,7 @@ export const entityConfigs: Record<EntityKey, EntityConfig> = {
       { key: 'license_number', label: 'شماره گواهینامه', type: 'text' },
       { key: 'route', label: 'خط / مسیر', type: 'text' },
       { key: 'address', label: 'آدرس', type: 'textarea' },
-      { key: 'status', label: 'وضعیت', type: 'select', options: ['فعال', 'در انتظار بررسی', 'غیرفعال'] },
+      { key: 'status', label: 'وضعیت', type: 'select', options: ['فعال', 'در انتظار بررسی', 'غیرفعال', 'فروخته‌شده', 'بازنشسته', 'قطع فعالیت'] },
       { key: 'notes', label: 'توضیحات', type: 'textarea' },
     ],
     columns: [
@@ -86,7 +87,7 @@ export const entityConfigs: Record<EntityKey, EntityConfig> = {
       { key: 'year', label: 'سال ساخت', type: 'number' },
       { key: 'insurance_expires', label: 'انقضای بیمه', type: 'date' },
       { key: 'inspection_expires', label: 'معاینه فنی تا', type: 'date' },
-      { key: 'status', label: 'وضعیت', type: 'select', options: ['فعال', 'نیازمند بررسی', 'غیرفعال', 'در حال اسقاط'] },
+      { key: 'status', label: 'وضعیت', type: 'select', options: ['فعال', 'نیازمند بررسی', 'غیرفعال', 'منتقل‌شده', 'در حال اسقاط'] },
       { key: 'notes', label: 'توضیحات', type: 'textarea' },
     ],
     columns: [
@@ -190,8 +191,8 @@ export const entityConfigs: Record<EntityKey, EntityConfig> = {
 
 export type NavItem = { key: PageKey; label: string; icon: LucideIcon; roles: StaffRole[] };
 
-const EDITOR_ROLES: StaffRole[] = ['manager', 'expert'];
-const ALL_ROLES: StaffRole[] = ['manager', 'expert', 'driver'];
+const EDITOR_ROLES: StaffRole[] = ['admin', 'manager', 'expert'];
+const ALL_ROLES: StaffRole[] = ['admin', 'manager', 'expert', 'driver'];
 const DRIVER_ENTITIES: EntityKey[] = ['drivers', 'licenses', 'documents', 'violations'];
 const DRIVER_LABELS: Partial<Record<PageKey, string>> = {
   drivers: 'پروفایل من',
@@ -200,6 +201,7 @@ const DRIVER_LABELS: Partial<Record<PageKey, string>> = {
 
 export const navItems: NavItem[] = [
   { key: 'dashboard', label: 'داشبورد', icon: LayoutDashboard, roles: ALL_ROLES },
+  { key: 'profile', label: 'پروفایل من', icon: UserCircle, roles: ALL_ROLES },
   { key: 'requests', label: 'ثبت‌نام‌های جدید', icon: UserCheck, roles: EDITOR_ROLES },
   ...ENTITY_KEYS.map(key => ({
     key,
@@ -211,7 +213,7 @@ export const navItems: NavItem[] = [
   { key: 'messages', label: 'پیام‌ها', icon: MessageSquare, roles: ALL_ROLES },
   { key: 'secretariat', label: 'دبیرخانه', icon: FileText, roles: EDITOR_ROLES },
   { key: 'archive', label: 'بایگانی مدارک', icon: Archive, roles: EDITOR_ROLES },
-  { key: 'users', label: 'کاربران', icon: UserCog, roles: ['manager'] },
+  { key: 'users', label: 'کاربران', icon: UserCog, roles: ['admin', 'manager'] },
   { key: 'settings', label: 'پشتیبان‌گیری', icon: Settings, roles: ['manager'] },
 ];
 

@@ -17,6 +17,7 @@ import SecretariatPage from '@/components/SecretariatPage';
 import ArchivePage from '@/components/ArchivePage';
 import UsersPage from '@/components/UsersPage';
 import SettingsPage from '@/components/SettingsPage';
+import ProfilePage from '@/components/ProfilePage';
 import Sidebar from '@/components/Sidebar';
 import Toast from '@/components/Toast';
 import TopBar from '@/components/TopBar';
@@ -38,6 +39,7 @@ import { buildBackup, buildCsv, downloadFile, parseBackup } from '@/lib/fileExpo
 import { todayIso } from '@/lib/format';
 import { LICENSE_APPROVED_STATUS } from '@/lib/reviews';
 import type { Profile } from '@/lib/staff';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 const GENERIC_ERROR = 'عملیات انجام نشد. لطفاً دوباره تلاش کنید.';
 
@@ -45,6 +47,22 @@ type EditorState = { entity: EntityKey; record: FleetRecord | null };
 
 export default function App() {
   const { status: sessionStatus, profile, signOut } = useSession();
+
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="grid min-h-screen place-items-center p-5" dir="rtl">
+        <section className="panel w-full max-w-lg text-center">
+          <h1 className="mb-3 text-lg font-bold">سامانه تاکسیرانی تالش</h1>
+          <p className="mb-3 font-semibold text-error-500">تنظیمات اتصال به پایگاه داده کامل نیست</p>
+          <p className="mb-4 text-sm leading-7 text-ink-600">
+            نسخه وب ساخته شده، اما متغیرهای عمومی اتصال Supabase در تنظیمات انتشار ثبت نشده‌اند.
+            مدیر فنی باید VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY را در تنظیمات محیط انتشار وارد و دوباره Build کند.
+          </p>
+          <button type="button" className="btn" onClick={() => window.location.reload()}>بررسی دوباره</button>
+        </section>
+      </div>
+    );
+  }
 
   if (sessionStatus === 'loading') {
     return <p className="py-24 text-center text-ink-600">در حال بارگذاری…</p>;
@@ -118,10 +136,10 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
 
   const roleItems = navItemsForRole(profile.role);
   const items = profile.is_disciplinary_committee
-    ? roleItems.filter(item => item.key === 'secretariat' || item.key === 'archive')
+    ? roleItems.filter(item => item.key === 'secretariat' || item.key === 'archive' || item.key === 'profile')
     : roleItems;
   const mobileKeys: PageKey[] = profile.is_disciplinary_committee
-    ? ['secretariat', 'archive']
+    ? ['secretariat', 'archive', 'profile']
     : mobileNavKeysForRole(profile.role);
   const pageLabel = navItems.find(item => item.key === page)?.label ?? '';
   const readOnly = profile.role === 'driver';
@@ -252,6 +270,7 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
         <StaffMessagesPage drivers={data.drivers} canDelete={profile.role === 'manager'} onNotify={showToast} />
       );
     }
+    if (page === 'profile') return <ProfilePage profile={profile} />;
     if (page === 'settings') {
       return <SettingsPage onBackup={handleBackup} onRestore={file => void handleRestore(file)} />;
     }
@@ -275,14 +294,14 @@ function Workspace({ profile, onSignOut }: { profile: Profile; onSignOut: () => 
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="app-shell flex min-h-screen bg-ink-100">
       <Sidebar items={items} page={page} onNavigate={setPage} />
-      <main className="flex min-w-0 flex-1 flex-col">
+      <main className="flex min-h-screen min-w-0 flex-1 flex-col">
         <TopBar title={pageLabel} profile={profile} onSignOut={onSignOut} onMenuClick={() => setDrawerOpen(true)} onMessagesClick={() => setPage('messages')} onSecretariatClick={() => setPage('secretariat')} />
-        <div className="mx-auto w-full max-w-[1500px] flex-1 p-[26px] max-[1000px]:p-[18px] max-[650px]:px-3 max-[650px]:pb-[85px] max-[650px]:pt-[15px]">
+        <div className="mx-auto w-full max-w-[1560px] flex-1 p-7 max-[1000px]:p-[18px] max-[650px]:px-3 max-[650px]:pb-[85px] max-[650px]:pt-[15px]">
           {renderPage()}
         </div>
-        <footer className="p-[18px] text-center text-[11px] text-ink-600 max-[650px]:pb-[85px]">
+        <footer className="border-t border-ink-200/70 bg-white/60 px-4 py-4 text-center text-[11px] text-ink-600 max-[650px]:pb-[85px]">
           سامانه مدیریت حمل‌ونقل و تاکسیرانی تالش
         </footer>
       </main>

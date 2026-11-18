@@ -1,4 +1,4 @@
-export type StaffRole = 'manager' | 'expert' | 'driver';
+export type StaffRole = 'admin' | 'manager' | 'expert' | 'driver';
 
 export type Profile = {
   user_id: string;
@@ -12,9 +12,11 @@ export type Profile = {
   is_disciplinary_committee?: boolean;
   approval_status: 'pending' | 'approved' | 'rejected';
   created_at: string;
+  signature_data_url?: string | null;
 };
 
 export const ROLE_LABELS: Record<StaffRole, string> = {
+  admin: 'مدیرکل سامانه',
   manager: 'مدیر سازمان',
   expert: 'کارشناس',
   driver: 'راننده',

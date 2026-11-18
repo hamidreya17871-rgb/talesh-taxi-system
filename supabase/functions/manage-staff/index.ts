@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const ROLES = ["manager", "expert", "driver"];
+const ROLES = ["admin", "manager", "expert", "driver"];
 const STAFF_SIGNUP_ROLES = ["expert"];
 const STAFF_REGISTRATION_CODE = Deno.env.get("STAFF_REGISTRATION_CODE") ?? "";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -114,7 +114,7 @@ async function requireStaff(req: Request, allowedRoles: string[]): Promise<strin
     .eq("user_id", userData.user.id)
     .maybeSingle();
   if (error) throw error;
-  if (!profile || !allowedRoles.includes(profile.role) || !profile.is_active || profile.approval_status !== "approved") {
+  if (!profile || !(allowedRoles.includes(profile.role) || (profile.role === "admin" && allowedRoles.includes("manager"))) || !profile.is_active || profile.approval_status !== "approved") {
     throw new RequestError("دسترسی مجاز نیست.", 403);
   }
   return userData.user.id;
@@ -146,20 +146,6 @@ async function createAuthUser(email: string, password: string): Promise<string> 
 }
 
 
-async function releaseRemovedDriverPhone(phone: string): Promise<void> {
-  const { data: profile, error } = await admin
-    .from("profiles")
-    .select("user_id, role, driver_id")
-    .eq("phone", phone)
-    .maybeSingle();
-  if (error) throw error;
-  if (!profile || profile.role !== "driver" || profile.driver_id) return;
-
-  const { error: profileError } = await admin.from("profiles").delete().eq("user_id", profile.user_id);
-  if (profileError) throw profileError;
-  const { error: authError } = await admin.auth.admin.deleteUser(profile.user_id);
-  if (authError) throw authError;
-}
 
 type ProfileValues = {
   email: string;
@@ -202,14 +188,40 @@ async function handleBootstrap(body: Record<string, unknown>): Promise<Response>
   return json({ user_id: userId });
 }
 
+async function handleClaimInitialAdmin(req: Request): Promise<Response> {
+  const callerId = await requireStaff(req, ["manager"]);
+  const { data, error } = await admin.rpc("claim_initial_system_admin", { p_user_id: callerId });
+  if (error) {
+    if (error.message?.includes("already_exists")) {
+      throw new RequestError("مدیرکل سامانه قبلاً تعیین شده است؛ ارتقای مجدد مجاز نیست.", 409);
+    }
+    if (error.message?.includes("manager_required")) {
+      throw new RequestError("فقط حساب فعال مدیر سازمان می‌تواند مدیرکل اولیه شود.", 403);
+    }
+    if (error.message?.includes("manager_not_unique")) {
+      throw new RequestError("برای جلوگیری از ارتقای حساب اشتباه، ابتدا باید فقط یک مدیر سازمان فعال باقی بماند.", 409);
+    }
+    throw error;
+  }
+  if (data !== true) throw new RequestError("ارتقای مدیرکل انجام نشد.", 409);
+  return json({ user_id: callerId, role: "admin" });
+}
+
 async function handleCreate(req: Request, body: Record<string, unknown>): Promise<Response> {
-  await requireStaff(req, ["manager"]);
+  const callerId = await requireStaff(req, ["manager"]);
+  const caller = await admin.from("profiles").select("role").eq("user_id", callerId).single();
+  if (caller.error) throw caller.error;
   const phone = readPhone(body);
   const password = readPassword(body.password);
   const fullName = readText(body, "full_name", 100);
   const role = readRole(body);
+  if (role === "admin") {
+    throw new RequestError("ایجاد مدیرکل از فرم کاربران مجاز نیست؛ مدیرکل اولیه باید از مسیر امن راه‌اندازی تعیین شود.", 403);
+  }
+  if (role === "manager" && caller.data.role !== "admin") {
+    throw new RequestError("ایجاد یا جایگزینی مدیر سازمان فقط در اختیار مدیرکل سامانه است.", 403);
+  }
   const driverId = await readDriverId(body, role);
-  await releaseRemovedDriverPhone(phone);
   const userId = await createAuthUser(phoneToAccountEmail(phone), password);
   await insertProfile(userId, {
     email: phoneToAccountEmail(phone),
@@ -245,6 +257,93 @@ async function handleDeleteExpert(req: Request, body: Record<string, unknown>): 
   return json({ user_id: userId });
 }
 
+async function handleDeactivateDriver(req: Request, body: Record<string, unknown>): Promise<Response> {
+  await requireStaff(req, ["manager"]);
+  const userId = body.user_id;
+  if (typeof userId !== "string" || !UUID_PATTERN.test(userId)) throw invalid();
+  const reason = body.reason;
+  const reasonLabels: Record<string, string> = {
+    vehicle_sold: "فروش خودرو",
+    retired: "بازنشستگی",
+    ceased_activity: "قطع فعالیت",
+  };
+  if (typeof reason !== "string" || !Object.prototype.hasOwnProperty.call(reasonLabels, reason)) throw invalid();
+  const note = typeof body.note === "string" ? body.note.trim().slice(0, 500) : "";
+
+  const { data: profile, error: profileError } = await admin.from("profiles")
+    .select("user_id, role, driver_id, is_active")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (profileError) throw profileError;
+  if (!profile || profile.role !== "driver" || !profile.driver_id) {
+    throw new RequestError("حساب راننده یا پرونده مرتبط پیدا نشد.", 404);
+  }
+  if (!profile.is_active) throw new RequestError("این حساب راننده قبلاً غیرفعال شده است.", 409);
+
+  const { data: driver, error: driverError } = await admin.from("drivers")
+    .select("id, notes")
+    .eq("id", profile.driver_id)
+    .maybeSingle();
+  if (driverError) throw driverError;
+  if (!driver) throw new RequestError("پرونده راننده پیدا نشد.", 404);
+
+  const timestamp = new Date().toISOString();
+  const status = reason === "vehicle_sold" ? "فروخته‌شده" : reason === "retired" ? "بازنشسته" : "قطع فعالیت";
+  const auditLine = `\n[${timestamp}] خاتمه فعالیت: ${reasonLabels[reason]}.${note ? ` توضیحات: ${note}` : ""}`;
+  const { error: driverUpdateError } = await admin.from("drivers")
+    .update({ status, notes: `${driver.notes ?? ""}${auditLine}` })
+    .eq("id", profile.driver_id);
+  if (driverUpdateError) throw driverUpdateError;
+
+  const { error: banError } = await admin.auth.admin.updateUserById(userId, { ban_duration: DISABLED_BAN });
+  if (banError) throw banError;
+  const { error: profileUpdateError } = await admin.from("profiles")
+    .update({ is_active: false })
+    .eq("user_id", userId);
+  if (profileUpdateError) throw profileUpdateError;
+
+  return json({ user_id: userId, driver_id: profile.driver_id, status, vehicle_transfer_required: reason === "vehicle_sold" });
+}
+
+async function handleReactivateDriver(req: Request, body: Record<string, unknown>): Promise<Response> {
+  await requireStaff(req, ["manager"]);
+  const userId = body.user_id;
+  if (typeof userId !== "string" || !UUID_PATTERN.test(userId)) throw invalid();
+
+  const { data: profile, error: profileError } = await admin.from("profiles")
+    .select("user_id, role, driver_id, is_active")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (profileError) throw profileError;
+  if (!profile || profile.role !== "driver" || !profile.driver_id) {
+    throw new RequestError("حساب راننده یا پرونده مرتبط پیدا نشد.", 404);
+  }
+  if (profile.is_active) throw new RequestError("این حساب راننده در حال حاضر فعال است.", 409);
+
+  const { data: driver, error: driverError } = await admin.from("drivers")
+    .select("id, notes")
+    .eq("id", profile.driver_id)
+    .maybeSingle();
+  if (driverError) throw driverError;
+  if (!driver) throw new RequestError("پرونده راننده پیدا نشد.", 404);
+
+  const { error: banError } = await admin.auth.admin.updateUserById(userId, { ban_duration: "none" });
+  if (banError) throw banError;
+  const { error: profileUpdateError } = await admin.from("profiles")
+    .update({ is_active: true, approval_status: "approved" })
+    .eq("user_id", userId);
+  if (profileUpdateError) throw profileUpdateError;
+  const { error: driverUpdateError } = await admin.from("drivers")
+    .update({
+      status: "فعال",
+      notes: `${driver.notes ?? ""}\n[${new Date().toISOString()}] فعال‌سازی مجدد راننده توسط مدیر سازمان.`,
+    })
+    .eq("id", profile.driver_id);
+  if (driverUpdateError) throw driverUpdateError;
+
+  return json({ user_id: userId, driver_id: profile.driver_id, status: "فعال" });
+}
+
 async function handleUpdate(req: Request, body: Record<string, unknown>): Promise<Response> {
   const callerId = await requireStaff(req, ["manager"]);
   const userId = body.user_id;
@@ -252,22 +351,41 @@ async function handleUpdate(req: Request, body: Record<string, unknown>): Promis
 
   const { data: target, error: targetError } = await admin
     .from("profiles")
-    .select("user_id")
+    .select("user_id, role")
     .eq("user_id", userId)
     .maybeSingle();
   if (targetError) throw targetError;
   if (!target) throw new RequestError("کاربر پیدا نشد.", 404);
 
+  const callerProfile = await admin.from("profiles").select("role").eq("user_id", callerId).single();
+  if (callerProfile.error) throw callerProfile.error;
   const fullName = readText(body, "full_name", 100);
   const role = readRole(body);
   const driverId = await readDriverId(body, role);
   if (typeof body.is_active !== "boolean") throw invalid();
   const isActive = body.is_active;
 
-  if (userId === callerId && (role !== "manager" || !isActive)) {
-    throw new RequestError("شما نمی‌توانید نقش یا وضعیت حساب خود را تغییر دهید.", 400);
+  if (userId === callerId) throw new RequestError("تغییر نقش یا غیرفعال‌سازی حساب خودتان مجاز نیست.", 400);
+  if (target.role === "admin" && callerProfile.data.role !== "admin") {
+    throw new RequestError("فقط مدیرکل سامانه می‌تواند حساب مدیرکل را مدیریت کند.", 403);
   }
-
+  if (role === "admin" && target.role !== "admin") {
+    throw new RequestError("تعیین مدیرکل فقط از مسیر امن ارتقای مدیر سازمان و در صورت نبود مدیرکل فعال امکان‌پذیر است.", 403);
+  }
+  if (target.role === "admin" && (role !== "admin" || !isActive)) {
+    throw new RequestError("حساب یگانه مدیرکل از این بخش قابل تنزل یا غیرفعال‌سازی نیست.", 409);
+  }
+  if (role === "manager" && target.role !== "manager" && callerProfile.data.role !== "admin") {
+    throw new RequestError("تعیین یا جایگزینی مدیر سازمان فقط در اختیار مدیرکل سامانه است.", 403);
+  }
+  if (target.role === "manager" && callerProfile.data.role !== "admin" && (role !== "manager" || !isActive)) {
+    throw new RequestError("تغییر نقش یا غیرفعال‌سازی مدیر سازمان فقط برای مدیرکل مجاز است.", 403);
+  }
+  if (target.role === "manager" && (role !== "manager" || !isActive)) {
+    const { count, error } = await admin.from("profiles").select("user_id", { count: "exact", head: true }).eq("role", "manager").eq("is_active", true).eq("approval_status", "approved");
+    if (error) throw error;
+    if ((count ?? 0) <= 1) throw new RequestError("تنزل یا غیرفعال‌سازی آخرین مدیر سازمان مجاز نیست.", 409);
+  }
   if (body.password) {
     const { error } = await admin.auth.admin.updateUserById(userId, { password: readPassword(body.password) });
     if (error) throw error;
@@ -302,7 +420,6 @@ async function handleRegisterStaff(body: Record<string, unknown>): Promise<Respo
   if (typeof role !== "string" || !STAFF_SIGNUP_ROLES.includes(role)) throw invalid();
 
   const email = phoneToAccountEmail(phone);
-  await releaseRemovedDriverPhone(phone);
   const userId = await createAuthUser(email, password);
   await insertProfile(userId, {
     email,
@@ -340,8 +457,6 @@ async function handleRegisterDriver(req: Request, body: Record<string, unknown>)
   const taxiRowNo = readText(body, "taxi_row_no", 20);
 
   const email = phoneToAccountEmail(phone);
-  await releaseRemovedDriverPhone(phone);
-
   const [driverByPhone, driverByNationalCode, profileByPhone, vehicleByPlate, vehicleByTaxiRow] = await Promise.all([
     admin.from("drivers").select("id").eq("phone", phone).maybeSingle(),
     admin.from("drivers").select("id").eq("national_code", nationalCode).maybeSingle(),
@@ -461,6 +576,199 @@ async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, "0")).join("");
 }
+
+async function handlePermanentlyDeleteArchivedLetter(req: Request, body: Record<string, unknown>): Promise<Response> {
+  const actorId = await requireStaff(req, ["manager"]);
+  const letterId = body.letter_id;
+  if (typeof letterId !== "string" || !UUID_PATTERN.test(letterId)) throw invalid();
+
+  const { data, error } = await admin.rpc("permanently_delete_archived_letter", { p_letter_id: letterId, p_actor_id: actorId });
+  if (error) {
+    if (error.message.includes("سطل بازیافت")) throw new RequestError("نامه در سطل بازیافت پیدا نشد یا قبلاً حذف شده است.", 404);
+    if (error.message.includes("دسترسی") || error.code === "42501") throw new RequestError("حذف دائمی فقط برای مدیر سازمان مجاز است.", 403);
+    throw error;
+  }
+
+  const paths = isRecord(data) && Array.isArray(data.storage_paths)
+    ? data.storage_paths.filter((path): path is string => typeof path === "string" && path.length > 0)
+    : [];
+  let filesCleaned = true;
+  if (paths.length > 0) {
+    const { error: storageError } = await admin.storage.from("archive-documents").remove([...new Set(paths)]);
+    filesCleaned = !storageError;
+    if (storageError) console.error("Archived letter storage cleanup failed", storageError);
+  }
+
+  return json({
+    deleted: true,
+    letter_no: isRecord(data) ? data.letter_no : null,
+    files_cleaned: filesCleaned,
+    cleanup_warning: filesCleaned ? null : "سجل نامه حذف شد اما پاک‌سازی یک یا چند فایل پیوست ناموفق بود؛ مسیر فایل‌ها در سابقه حذف ثبت شده است.",
+  });
+}
+
+async function handleCreateSingleDriver(req: Request, body: Record<string, unknown>): Promise<Response> {
+  await requireStaff(req, ["manager"]);
+  const phone = readPhone(body);
+  const nationalCode = normalizeDigits(readText(body, "national_code", 10));
+  if (!NATIONAL_CODE_PATTERN.test(nationalCode)) throw new RequestError("کد ملی باید ۱۰ رقم باشد.", 400);
+  const fullName = readText(body, "full_name", 100);
+  const plate = readText(body, "plate", 40);
+  if (!PLATE_PATTERN.test(plate)) throw new RequestError("شماره پلاک معتبر نیست.", 400);
+  const model = readText(body, "model", 100);
+  const taxiRowNo = normalizeDigits(readText(body, "taxi_row_no", 20));
+  const [driverPhone, driverNational, profilePhone, vehiclePlate, vehicleRow] = await Promise.all([
+    admin.from("drivers").select("id").eq("phone", phone).maybeSingle(),
+    admin.from("drivers").select("id").eq("national_code", nationalCode).maybeSingle(),
+    admin.from("profiles").select("user_id").eq("phone", phone).maybeSingle(),
+    admin.from("vehicles").select("id").eq("plate", plate).maybeSingle(),
+    admin.from("vehicles").select("id").eq("taxi_row_no", taxiRowNo).maybeSingle(),
+  ]);
+  for (const result of [driverPhone, driverNational, profilePhone, vehiclePlate, vehicleRow]) {
+    if (result.error) throw result.error;
+  }
+  if (driverPhone.data || driverNational.data || profilePhone.data || vehiclePlate.data || vehicleRow.data) {
+    throw new RequestError("شماره موبایل، کد ملی، پلاک یا ردیف تاکسی قبلاً ثبت شده است.", 409);
+  }
+
+  const email = phoneToAccountEmail(phone);
+  const userId = await createAuthUser(email, randomUrlToken(32));
+  let driverId: string | null = null;
+  try {
+    const driver = await admin.from("drivers").insert({
+      name: fullName, national_code: nationalCode, phone, status: PENDING_DRIVER_STATUS,
+    }).select("id").single();
+    if (driver.error) throw driver.error;
+    driverId = driver.data.id;
+
+    const vehicle = await admin.from("vehicles").insert({
+      plate, model, driver_name: fullName, taxi_row_no: taxiRowNo,
+      driver_id: driverId, status: "نیازمند بررسی",
+    });
+    if (vehicle.error) throw vehicle.error;
+
+    const profile = await admin.from("profiles").insert({
+      user_id: userId, email, phone, full_name: fullName, role: "driver",
+      driver_id: driverId, is_active: false, approval_status: "pending",
+    });
+    if (profile.error) throw profile.error;
+
+    const activationCode = randomUrlToken(24);
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { error: tokenError } = await admin.rpc("store_driver_activation_token", {
+      p_user_id: userId, p_code_hash: await sha256Hex(activationCode), p_expires_at: expiresAt,
+    });
+    if (tokenError) throw tokenError;
+    return json({ name: fullName, phone, activation_code: activationCode, expires_at: expiresAt });
+  } catch (error) {
+    await admin.from("profiles").delete().eq("user_id", userId);
+    if (driverId) {
+      await admin.from("vehicles").delete().eq("driver_id", driverId);
+      await admin.from("drivers").delete().eq("id", driverId);
+    }
+    await admin.auth.admin.deleteUser(userId);
+    throw error;
+  }
+}
+
+async function handleIssueExistingDriverCodes(req: Request): Promise<Response> {
+  await requireStaff(req, ["manager"]);
+  const { data: drivers, error: driversError } = await admin
+    .from("drivers")
+    .select("id, name, phone, status")
+    .not("phone", "is", null)
+    .order("name", { ascending: true });
+  if (driversError) throw driversError;
+
+  const issued: Array<Record<string, unknown>> = [];
+  const skipped: Array<Record<string, unknown>> = [];
+  for (const driver of drivers ?? []) {
+    const phone = typeof driver.phone === "string" ? normalizeDigits(driver.phone).trim() : "";
+    const fullName = typeof driver.name === "string" && driver.name.trim() ? driver.name.trim() : "راننده";
+    if (driver.status !== ACTIVE_DRIVER_STATUS) {
+      skipped.push({ name: fullName, phone, reason: "وضعیت پرونده راننده فعال نیست؛ کد بازیابی صادر نشد." });
+      continue;
+    }
+    if (!PHONE_PATTERN.test(phone)) {
+      skipped.push({ name: fullName, reason: "شماره موبایل معتبر ثبت نشده است." });
+      continue;
+    }
+
+    const { data: existing, error: existingError } = await admin
+      .from("profiles")
+      .select("user_id, role, is_active, approval_status, driver_id")
+      .or(`driver_id.eq.${driver.id},phone.eq.${phone}`)
+      .limit(1)
+      .maybeSingle();
+    if (existingError) throw existingError;
+
+    let userId: string;
+    let createdUser = false;
+    if (existing) {
+      if (existing.role !== "driver" || existing.approval_status === "rejected" || (existing.driver_id && existing.driver_id !== driver.id)) {
+        skipped.push({ name: fullName, phone, reason: "برای این راننده پرونده ناسازگار یا درخواست ردشده وجود دارد." });
+        continue;
+      }
+      userId = existing.user_id;
+      if (!existing.driver_id) {
+        const { error: linkError } = await admin.from("profiles")
+          .update({ driver_id: driver.id, full_name: fullName })
+          .eq("user_id", userId);
+        if (linkError) {
+          skipped.push({ name: fullName, phone, reason: "اتصال حساب به پرونده راننده انجام نشد." });
+          continue;
+        }
+      }
+    } else {
+      const email = phoneToAccountEmail(phone);
+      const created = await admin.auth.admin.createUser({
+        email,
+        password: randomUrlToken(32),
+        email_confirm: true,
+      });
+      if (created.error) {
+        skipped.push({ name: fullName, phone, reason: "حسابی با این شماره قبلاً ایجاد شده یا ساخت حساب ممکن نیست." });
+        continue;
+      }
+      userId = created.data.user.id;
+      createdUser = true;
+      const { error: profileError } = await admin.from("profiles").insert({
+        user_id: userId,
+        email,
+        phone,
+        full_name: fullName,
+        role: "driver",
+        driver_id: driver.id,
+        is_active: false,
+        approval_status: "approved",
+      });
+      if (profileError) {
+        await admin.auth.admin.deleteUser(userId);
+        skipped.push({ name: fullName, phone, reason: "اتصال حساب به پرونده راننده انجام نشد." });
+        continue;
+      }
+    }
+
+    const activationCode = randomUrlToken(24);
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { error: tokenError } = await admin.rpc("store_driver_activation_token", {
+      p_user_id: userId,
+      p_code_hash: await sha256Hex(activationCode),
+      p_expires_at: expiresAt,
+    });
+    if (tokenError) {
+      if (createdUser) {
+        await admin.from("profiles").delete().eq("user_id", userId);
+        await admin.auth.admin.deleteUser(userId);
+      }
+      skipped.push({ name: fullName, phone, reason: "ساخت کد فعال‌سازی انجام نشد." });
+      continue;
+    }
+    issued.push({ name: fullName, phone, activation_code: activationCode, expires_at: expiresAt });
+  }
+  return json({ issued, skipped, issued_count: issued.length, skipped_count: skipped.length });
+}
+
 async function handleImportDrivers(req: Request, body: Record<string, unknown>): Promise<Response> {
   await requireStaff(req, ["manager"]);
   if (!Array.isArray(body.records) || body.records.length < 1 || body.records.length > 50) {
@@ -553,11 +861,19 @@ async function handleActivateImportedDriver(body: Record<string, unknown>): Prom
   const code = readText(body, "activation_code", 64);
   if (!/^[A-Za-z0-9_-]{32}$/.test(code)) throw new RequestError("کد فعال‌سازی معتبر نیست.", 400);
   const password = readPassword(body.password);
+  const nationalCode = normalizeDigits(readText(body, "national_code", 10));
+  if (!NATIONAL_CODE_PATTERN.test(nationalCode)) throw new RequestError("کد ملی باید ۱۰ رقم باشد.", 400);
   const { data: profile, error: profileError } = await admin.from("profiles")
-    .select("user_id, role, approval_status").eq("phone", phone).maybeSingle();
+    .select("user_id, role, approval_status, driver_id").eq("phone", phone).maybeSingle();
   if (profileError) throw profileError;
-  if (!profile || profile.role !== "driver" || profile.approval_status === "rejected") {
+  if (!profile || profile.role !== "driver" || profile.approval_status === "rejected" || !profile.driver_id) {
     throw new RequestError("پرونده راننده یا درخواست فعال‌سازی پیدا نشد.", 404);
+  }
+  const { data: driver, error: driverError } = await admin.from("drivers")
+    .select("national_code").eq("id", profile.driver_id).maybeSingle();
+  if (driverError) throw driverError;
+  if (!driver || normalizeDigits(String(driver.national_code ?? "")) !== nationalCode) {
+    throw new RequestError("کد ملی با پرونده راننده مطابقت ندارد.", 403);
   }
   const codeHash = await sha256Hex(code);
   const { data: consumed, error: consumeError } = await admin.rpc("consume_driver_activation_token", {
@@ -567,15 +883,32 @@ async function handleActivateImportedDriver(body: Record<string, unknown>): Prom
   if (consumed !== true) throw new RequestError("کد فعال‌سازی نادرست، منقضی یا قبلاً استفاده شده است.", 400);
   const { error: updateError } = await admin.auth.admin.updateUserById(profile.user_id, { password });
   if (updateError) throw updateError;
+  if (profile.approval_status === "approved") {
+    const { error: activationError } = await admin.from("profiles")
+      .update({ is_active: true })
+      .eq("user_id", profile.user_id);
+    if (activationError) throw activationError;
+  }
   return json({ activated: true, approval_status: profile.approval_status });
+}
+
+async function handleSaveSignature(req: Request, body: Record<string, unknown>): Promise<Response> {
+  const userId = await requireStaff(req, ["manager", "expert"]);
+  const signature = body.signature_data_url;
+  if (typeof signature !== "string" || signature.length > 120000 || !/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/.test(signature)) {
+    throw invalid();
+  }
+  const { error } = await admin.from("profiles").update({ signature_data_url: signature }).eq("user_id", userId);
+  if (error) throw error;
+  return json({ saved: true });
 }
 
 async function handleListStaff(req: Request): Promise<Response> {
   await requireOrganizationStaff(req);
   const { data, error } = await admin
     .from("profiles")
-    .select("user_id, full_name")
-    .in("role", ["manager", "expert"])
+    .select("user_id, full_name, role, signature_data_url")
+    .in("role", ["admin", "manager", "expert"])
     .eq("approval_status", "approved")
     .eq("is_active", true)
     .order("full_name", { ascending: true });
@@ -694,14 +1027,26 @@ Deno.serve(async (req: Request) => {
         return json({ needsSetup: !(await hasManager()) });
       case "bootstrap":
         return await handleBootstrap(body);
+      case "claim-initial-admin":
+        return await handleClaimInitialAdmin(req);
       case "create":
         return await handleCreate(req, body);
       case "update":
         return await handleUpdate(req, body);
       case "delete-expert":
         return await handleDeleteExpert(req, body);
+      case "deactivate-driver":
+        return await handleDeactivateDriver(req, body);
+      case "reactivate-driver":
+        return await handleReactivateDriver(req, body);
       case "register-driver":
         return await handleRegisterDriver(req, body);
+      case "permanently-delete-archived-letter":
+        return await handlePermanentlyDeleteArchivedLetter(req, body);
+      case "create-driver-single":
+        return await handleCreateSingleDriver(req, body);
+      case "issue-existing-driver-codes":
+        return await handleIssueExistingDriverCodes(req);
       case "import-drivers":
         return await handleImportDrivers(req, body);
       case "activate-imported-driver":
@@ -712,6 +1057,8 @@ Deno.serve(async (req: Request) => {
         return await handleListRegistrations(req);
       case "list-staff":
         return await handleListStaff(req);
+      case "save-signature":
+        return await handleSaveSignature(req, body);
       case "review-registration":
         return await handleReviewRegistration(req, body);
       case "review-registrations":

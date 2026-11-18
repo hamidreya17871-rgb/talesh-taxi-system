@@ -10,6 +10,7 @@ type DriverOption = { id: string; name: string | null };
 type Props = {
   user: Profile | null;
   drivers: DriverOption[];
+  canManageManagers: boolean;
   onSaved: () => void;
   onClose: () => void;
   onNotify: (message: string, kind?: 'success' | 'error') => void;
@@ -17,7 +18,7 @@ type Props = {
 
 const GENERIC_ERROR = 'عملیات انجام نشد. لطفاً دوباره تلاش کنید.';
 
-export default function UserFormModal({ user, drivers, onSaved, onClose, onNotify }: Props) {
+export default function UserFormModal({ user, drivers, canManageManagers, onSaved, onClose, onNotify }: Props) {
   const isEdit = user !== null;
   const [fullName, setFullName] = useState(user?.full_name ?? '');
   const [phone, setPhone] = useState('');
@@ -130,7 +131,7 @@ export default function UserFormModal({ user, drivers, onSaved, onClose, onNotif
           <div className="flex flex-col gap-[7px]">
             <label htmlFor="user-role" className="text-xs text-ink-600">نقش</label>
             <select id="user-role" value={role} onChange={e => setRole(e.target.value as StaffRole)} className="field-input">
-              {ROLE_OPTIONS.map(option => (
+              {ROLE_OPTIONS.filter(option => option !== 'manager' || canManageManagers).map(option => (
                 <option key={option} value={option}>{ROLE_LABELS[option]}</option>
               ))}
             </select>

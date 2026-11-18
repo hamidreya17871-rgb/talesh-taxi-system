@@ -4,6 +4,7 @@ import { buildDefaultLetterBody, printLeaveLetter } from '@/lib/leaveLetter';
 import JalaliDateInput from '@/components/JalaliDateInput';
 import type { LeaveRequest } from '@/lib/leave';
 import { supabase } from '@/lib/supabase';
+import { callStaffApi } from '@/lib/staffApi';
 
 type Props = {
   request: LeaveRequest;
@@ -31,10 +32,19 @@ export default function LeaveLetterModal({ request, onClose, onNotify }: Props) 
   const [paperSize, setPaperSize] = useState<'A4' | 'A5'>('A4');
   const [customBody, setCustomBody] = useState<string | null>(null);
   const [vehicleError, setVehicleError] = useState<string | null>(null);
+  const [reviewerSignature, setReviewerSignature] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     (async () => {
+      {
+        try {
+          const result = await callStaffApi<{ items: Array<{ user_id: string; role: 'manager' | 'expert'; signature_data_url?: string | null }> }>('list-staff');
+          if (active) setReviewerSignature(result.items.find(item => item.role === 'manager')?.signature_data_url ?? null);
+        } catch {
+          if (active) setReviewerSignature(null);
+        }
+      }
       const { data, error } = await supabase
         .from('vehicles')
         .select('model, plate')
@@ -70,7 +80,7 @@ export default function LeaveLetterModal({ request, onClose, onNotify }: Props) 
   const body = customBody ?? defaultBody;
 
   function handlePrint(includeLetterhead: boolean) {
-    if (!printLeaveLetter(request.letter_no, body, includeLetterhead, attachment, paperSize)) onNotify(PRINT_BLOCKED, 'error');
+    if (!printLeaveLetter(request.letter_no, body, includeLetterhead, attachment, paperSize, reviewerSignature)) onNotify(PRINT_BLOCKED, 'error');
   }
 
   return (

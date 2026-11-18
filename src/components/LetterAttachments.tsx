@@ -1,0 +1,303 @@
+import { useEffect, useRef, useState } from 'react';
+import { Camera, Download, FileText, Image as ImageIcon, Paperclip, Upload } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+
+const BUCKET = 'archive-documents';
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+type AttachmentRow = {
+  id: string;
+  storage_path: string;
+  file_name: string;
+  mime_type: string;
+  file_size: number;
+  created_at: string;
+  document_type?: string;
+};
+
+type DisplayAttachment = AttachmentRow & { signedUrl: string | null };
+
+type Props = {
+  letterId: string | null;
+  queuedFiles: File[];
+  onQueuedFilesChange: (files: File[]) => void;
+  canUpload: boolean;
+  documentType?: string;
+  onDocumentTypeChange?: (value: string) => void;
+};
+
+async function getAllowedMime(file: File): Promise<string | null> {
+  if (file.size <= 0 || file.size > MAX_FILE_SIZE) return null;
+  const bytes = new Uint8Array(await file.slice(0, 1024).arrayBuffer());
+  const has = (signature: number[], offset = 0) =>
+    signature.every((value, index) => bytes[offset + index] === value);
+
+  if (bytes.some((_, index) => has([0x25, 0x50, 0x44, 0x46, 0x2d], index))) return 'application/pdf';
+  if (has([0xff, 0xd8, 0xff])) return 'image/jpeg';
+  if (has([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png';
+  return null;
+}
+
+export async function uploadLetterAttachments(letterId: string, files: File[], documentType = 'attachment') {
+  const failedFiles: File[] = [];
+  const errors: string[] = [];
+
+  for (const file of files) {
+    const mimeType = await getAllowedMime(file);
+    if (!mimeType || file.size <= 0 || file.size > MAX_FILE_SIZE) {
+      failedFiles.push(file);
+      errors.push(`${file.name}: نوع یا حجم فایل مجاز نیست.`);
+      continue;
+    }
+
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-100) || 'document';
+    const path = `letters/${letterId}/${crypto.randomUUID()}-${safeName}`;
+    const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
+      contentType: mimeType,
+      cacheControl: '60',
+      upsert: false,
+    });
+
+    if (uploadError) {
+      failedFiles.push(file);
+      errors.push(`${file.name}: بارگذاری فایل ناموفق بود.`);
+      continue;
+    }
+
+    const { error: rowError } = await supabase.from('letter_attachments').insert({
+      letter_id: letterId,
+      storage_path: path,
+      file_name: file.name,
+      mime_type: mimeType,
+      file_size: file.size,
+      document_type: documentType,
+    });
+
+    if (rowError) {
+      await supabase.storage.from(BUCKET).remove([path]);
+      failedFiles.push(file);
+      errors.push(`${file.name}: ثبت مشخصات پیوست ناموفق بود.`);
+    }
+  }
+
+  return { failedFiles, errors };
+}
+
+const DOCUMENT_TYPES = [
+  ['incoming_letter', 'نامه وارده'],
+  ['outgoing_letter', 'نامه صادره'],
+  ['attachment', 'پیوست نامه'],
+  ['meeting_minutes', 'صورت‌جلسه'],
+  ['inspection_report', 'گزارش بازرسی'],
+  ['leave_request', 'درخواست مرخصی'],
+  ['driver_document', 'مدرک راننده'],
+  ['vehicle_document', 'مدرک خودرو'],
+  ['other', 'سایر اسناد'],
+] as const;
+
+const documentTypeLabel = (value?: string) =>
+  DOCUMENT_TYPES.find(([key]) => key === value)?.[1] ?? 'پیوست نامه';
+
+export default function LetterAttachments({ letterId, queuedFiles, onQueuedFilesChange, canUpload, documentType = 'attachment', onDocumentTypeChange }: Props) {
+  const [attachments, setAttachments] = useState<DisplayAttachment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const processingRef = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    if (!letterId) {
+      setAttachments([]);
+      return () => { active = false; };
+    }
+
+    setLoading(true);
+    void (async () => {
+      const { data, error } = await supabase
+        .from('letter_attachments')
+        .select('id, storage_path, file_name, mime_type, file_size, created_at, document_type')
+        .eq('letter_id', letterId)
+        .order('created_at', { ascending: true });
+
+      if (!active) return;
+      if (error || !data) {
+        setMessage('دریافت فهرست پیوست‌ها انجام نشد.');
+        setLoading(false);
+        return;
+      }
+
+      const rows = data as AttachmentRow[];
+      const withUrls = await Promise.all(rows.map(async row => {
+        const { data: signed, error: signedError } = await supabase.storage
+          .from(BUCKET)
+          .createSignedUrl(row.storage_path, 900);
+        return { ...row, signedUrl: signedError ? null : signed?.signedUrl ?? null };
+      }));
+
+      if (active) {
+        setAttachments(withUrls);
+        setLoading(false);
+      }
+    })();
+
+    return () => { active = false; };
+  }, [letterId]);
+
+  async function refreshAttachments() {
+    if (!letterId) return;
+    const { data, error } = await supabase
+      .from('letter_attachments')
+      .select('id, storage_path, file_name, mime_type, file_size, created_at, document_type')
+      .eq('letter_id', letterId)
+      .order('created_at', { ascending: true });
+    if (error || !data) {
+      setMessage('فایل بارگذاری شد، اما دریافت فهرست پیوست‌ها انجام نشد.');
+      return;
+    }
+    const rows = data as AttachmentRow[];
+    const withUrls = await Promise.all(rows.map(async row => {
+      const { data: signed, error: signedError } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUrl(row.storage_path, 900);
+      return { ...row, signedUrl: signedError ? null : signed?.signedUrl ?? null };
+    }));
+    setAttachments(withUrls);
+  }
+
+  async function addFiles(fileList: FileList | null) {
+    if (!fileList || loading || processingRef.current) return;
+    processingRef.current = true;
+    setLoading(true);
+    try {
+      const next = Array.from(fileList);
+      const checked = await Promise.all(next.map(async file => ({
+        file,
+        mimeType: await getAllowedMime(file),
+      })));
+      const valid = checked.filter(item => item.mimeType !== null).map(item => item.file);
+      const rejectedCount = next.length - valid.length;
+      if (rejectedCount > 0) setMessage(`${rejectedCount} فایل به علت نوع یا حجم نامعتبر پذیرفته نشد.`);
+      if (attachments.length + queuedFiles.length + valid.length > 20) {
+        setMessage('برای هر نامه حداکثر ۲۰ پیوست مجاز است.');
+        return;
+      }
+      if (valid.length && letterId) {
+        setMessage('در حال بارگذاری پیوست برای همین نامه…');
+        const result = await uploadLetterAttachments(letterId, valid, documentType);
+        await refreshAttachments();
+        const uploadMessage = result.errors.length ? result.errors.join(' ') : `${valid.length - result.failedFiles.length} پیوست با موفقیت به همین نامه متصل شد.`;
+        setMessage([rejectedCount ? `${rejectedCount} فایل نامعتبر رد شد.` : '', uploadMessage].filter(Boolean).join(' '));
+        if (result.failedFiles.length) onQueuedFilesChange([...queuedFiles, ...result.failedFiles]);
+        return;
+      }
+      if (valid.length) {
+        onQueuedFilesChange([...queuedFiles, ...valid]);
+        if (valid.length === next.length) setMessage('');
+      }
+    } finally {
+      processingRef.current = false;
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-ink-200 p-3 flex flex-col gap-3">
+      <div className="flex items-center gap-2 font-bold text-sm">
+        <Paperclip size={16} />
+        اسکن و پیوست اسناد
+      </div>
+
+      {canUpload && (
+        <>
+          <p className="text-xs leading-6 text-ink-600">
+            ابتدا نوع سند را مشخص کنید؛ سپس با گوشی عکس بگیرید یا فایل PDF و تصویر اسکنر را انتخاب کنید.
+          </p>
+          <label className="flex flex-col gap-1 text-xs text-ink-600">
+            نوع سند
+            <select className="field-input" value={documentType} onChange={event => onDocumentTypeChange?.(event.target.value)}>
+              {DOCUMENT_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <label className="btn btn-secondary cursor-pointer">
+              <Camera size={16} />
+              عکس‌برداری با دوربین
+              <input
+                type="file"
+                disabled={loading}
+                accept="image/jpeg,image/png"
+                capture="environment"
+                className="hidden"
+                onChange={event => { addFiles(event.target.files); event.currentTarget.value = ''; }}
+              />
+            </label>
+            <label className="btn btn-secondary cursor-pointer">
+              <Upload size={16} />
+              انتخاب فایل PDF یا تصویر
+
+              <input
+                type="file"
+                disabled={loading}
+                accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
+                multiple
+                className="hidden"
+                onChange={event => { addFiles(event.target.files); event.currentTarget.value = ''; }}
+              />
+            </label>
+            <label className="btn btn-secondary cursor-pointer">
+              <FileText size={16} />
+              دریافت فایل اسکن‌شده از رایانه
+              <input
+                type="file"
+                disabled={loading}
+                accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
+                multiple
+                className="hidden"
+                onChange={event => { addFiles(event.target.files); event.currentTarget.value = ''; }}
+              />
+            </label>
+          </div>
+          {queuedFiles.length > 0 && (
+            <div className="rounded-lg bg-ink-50 p-2 flex flex-col gap-2">
+              <p className="text-xs font-bold">فایل‌های آماده بارگذاری ({queuedFiles.length})</p>
+              {queuedFiles.map((file, index) => (
+                <div key={`${file.name}-${file.lastModified}-${index}`} className="flex items-center justify-between gap-2 text-xs">
+                  <span className="min-w-0 truncate">{file.name}</span>
+                  <button type="button" className="btn-tiny btn-tiny-danger shrink-0" onClick={() => onQueuedFilesChange(queuedFiles.filter((_, i) => i !== index))}>حذف</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {loading && <p className="text-xs text-ink-500">در حال دریافت پیوست‌ها…</p>}
+      {message && <p role="status" aria-live="polite" className="text-xs text-ink-600">{message}</p>}
+      {attachments.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-bold">اسناد ثبت‌شده ({attachments.length})</p>
+          {attachments.map(item => (
+            <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink-100 p-2">
+              <div className="flex min-w-0 items-center gap-2 text-xs">
+                {item.mime_type === 'application/pdf' ? <FileText size={17} /> : <ImageIcon size={17} />}
+                <span className="truncate">{item.file_name}</span>
+                <span className="shrink-0 rounded bg-ink-100 px-2 py-0.5">{documentTypeLabel(item.document_type)}</span>
+                <span className="shrink-0 text-ink-500">{(item.file_size / 1024 / 1024).toFixed(1)} MB</span>
+              </div>
+              {item.signedUrl ? (
+                <div className="flex gap-2">
+                  <a className="btn-tiny" href={item.signedUrl} target="_blank" rel="noreferrer">مشاهده / چاپ</a>
+                  <a className="btn-tiny" href={item.signedUrl} download={item.file_name}>
+                    <Download size={13} />
+                    دریافت
+                  </a>
+                </div>
+              ) : <span className="text-xs text-error-500">دسترسی فایل ممکن نیست</span>}
+            </div>
+          ))}
+        </div>
+      )}
+      {!loading && attachments.length === 0 && letterId && <p className="text-xs text-ink-500">برای این نامه هنوز سندی ثبت نشده است.</p>}
+    </section>
+  );
+}

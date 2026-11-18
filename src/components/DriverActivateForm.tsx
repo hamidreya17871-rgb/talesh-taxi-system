@@ -9,6 +9,7 @@ type Props = { onBack: () => void };
 export default function DriverActivateForm({ onBack }: Props) {
   const [phone, setPhone] = useState('');
   const [activationCode, setActivationCode] = useState('');
+  const [nationalCode, setNationalCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +36,7 @@ export default function DriverActivateForm({ onBack }: Props) {
       await callStaffApi('activate-imported-driver', {
         phone: normalizedPhone,
         activation_code: activationCode.trim(),
+        national_code: nationalCode.replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit))).replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit))),
         password,
       });
       const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -53,12 +55,16 @@ export default function DriverActivateForm({ onBack }: Props) {
   return (
     <form onSubmit={submit} className="flex flex-col gap-[13px]">
       <p className="text-xs leading-[1.7] text-ink-600">
-        این بخش مخصوص راننده‌هایی است که اطلاعاتشان با فایل گروهی وارد شده است.
-        کد فعال‌سازی را از واحد تاکسیرانی دریافت کنید.
+        برای بازیابی حساب رانندگان قبلی یا فعال‌سازی حساب، شماره موبایل و کد ملی ثبت‌شده را وارد کنید.
+        کد موقت یک‌بارمصرف را محرمانه از واحد تاکسیرانی دریافت کنید؛ سپس رمز شخصی جدید بسازید.
       </p>
       <label className="flex flex-col gap-[7px] text-xs text-ink-600">
         شماره موبایل ثبت‌شده
         <input required type="tel" inputMode="tel" dir="ltr" value={phone} onChange={e => setPhone(e.target.value)} className="field-input" />
+      </label>
+      <label className="flex flex-col gap-[7px] text-xs text-ink-600">
+        کد ملی ثبت‌شده
+        <input required inputMode="numeric" maxLength={10} dir="ltr" autoComplete="off" value={nationalCode} onChange={e => setNationalCode(e.target.value)} className="field-input" />
       </label>
       <label className="flex flex-col gap-[7px] text-xs text-ink-600">
         کد فعال‌سازی
