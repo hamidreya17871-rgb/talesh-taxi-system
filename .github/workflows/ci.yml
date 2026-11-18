@@ -43,12 +43,17 @@ jobs:
           SERVER_PID=$!
           trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 20); do
-            if curl --fail --silent http://127.0.0.1:3000/healthz; then
+            if curl --fail --silent --show-error http://127.0.0.1:3000/healthz; then
               echo
-              curl --fail --silent http://127.0.0.1:3000/ >/dev/null
-              exit 0
+              break
             fi
             sleep 1
           done
+          curl --fail --silent --show-error -D /tmp/talesh-headers.txt http://127.0.0.1:3000/ -o /tmp/talesh-index.html
+          grep -qi '^content-type: text/html' /tmp/talesh-headers.txt
+          grep -q '<div id="root"></div>' /tmp/talesh-index.html
+          ASSET=$(grep -oE '/assets/[^"]+\\.js' /tmp/talesh-index.html | head -n 1)
+          test -n "$ASSET"
+          curl --fail --silent --show-error "http://127.0.0.1:3000$ASSET" >/dev/null
           cat /tmp/talesh-taxi-server.log
           exit 1
