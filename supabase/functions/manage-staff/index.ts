@@ -597,6 +597,15 @@ async function handleIssueExistingDriverCodes(req: Request): Promise<Response> {
         continue;
       }
       userId = existing.user_id;
+      if (!existing.driver_id) {
+        const { error: linkError } = await admin.from("profiles")
+          .update({ driver_id: driver.id, full_name: fullName })
+          .eq("user_id", userId);
+        if (linkError) {
+          skipped.push({ name: fullName, phone, reason: "اتصال حساب به پرونده راننده انجام نشد." });
+          continue;
+        }
+      }
     } else {
       const email = phoneToAccountEmail(phone);
       const created = await admin.auth.admin.createUser({
