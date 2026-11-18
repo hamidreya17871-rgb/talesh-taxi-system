@@ -14,10 +14,13 @@
 
 ## متغیرهای محیطی Production
 
-این دو متغیر را در تنظیمات Pages وارد کنید:
+مقادیر عمومی پیش‌فرض Supabase و دامنه‌های مجاز PWA در سورس تعریف شده‌اند؛ بنابراین خالی بودن Environment Variables باعث توقف build یا صفحه سفید نمی‌شود. در صورت نیاز به override، این متغیرها را در تنظیمات Production پروژه Pages تعریف کنید:
 
 - `VITE_SUPABASE_URL=https://xrhzsafezpwdztjytkob.supabase.co`
-- `VITE_SUPABASE_ANON_KEY=<Supabase publishable key beginning with sb_publishable_>`
+- `VITE_SUPABASE_PUBLISHABLE_KEY=<Supabase publishable key beginning with sb_publishable_>`
+- `VITE_PWA_HOSTS=talesh-taxi-system.pages.dev,web-application-deve-0r9y.bolt.host`
+
+`VITE_PWA_HOSTS` فهرست hostnameهای دقیق و جداشده با ویرگول است که اجازه ثبت Service Worker دارند. فقط دامنه‌های production را وارد کنید؛ دامنه‌های preview را اضافه نکنید. برای دامنه اختصاصی جدید، hostname آن را به این فهرست اضافه کنید.
 
 کلید publishable/anon برای استفاده در مرورگر طراحی شده است و باید همراه با RLS و policyهای درست استفاده شود. هرگز کلید `service_role` یا `STAFF_REGISTRATION_CODE` را در Cloudflare Pages، متغیرهای `VITE_*`، مخزن Git یا کد مرورگر قرار ندهید.
 
@@ -28,7 +31,7 @@
 3. مخزن بالا را متصل کنید و تنظیمات بخش «تنظیمات پروژه Pages» را دقیق وارد کنید.
 4. متغیرهای محیطی Production را اضافه کنید.
 5. Save and Deploy را بزنید و تا پایان build صبر کنید.
-6. پس از انتشار، آدرس `pages.dev` را باز کنید و ورود، ثبت‌نام راننده و کارکرد PWA را آزمایش کنید.
+6. پس از انتشار، آدرس production را باز کنید و ورود، ثبت‌نام راننده و نصب PWA را آزمایش کنید.
 
 با هر push موفق به شاخه `release/standalone-railway`، Cloudflare Pages به‌طور خودکار نسخه جدید را build و منتشر می‌کند.
 

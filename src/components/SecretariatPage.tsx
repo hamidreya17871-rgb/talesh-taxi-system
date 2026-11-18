@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRightLeft, Pencil, Plus, Printer, RefreshCw, Search, Trash2 } from 'lucide-react';
+import { ArrowRightLeft, Pencil, Plus, Printer, RefreshCw, Search, Trash2, RotateCcw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { callStaffApi } from '@/lib/staffApi';
 import LetterFormModal, { letterDateText, type LetterRecord } from '@/components/LetterFormModal';
+import LetterAttachments from '@/components/LetterAttachments';
 import ReferralModal from '@/components/ReferralModal';
 import { printLetter } from '@/lib/letterhead';
 import type { Profile } from '@/lib/staff';
@@ -12,13 +13,14 @@ import DisciplinaryCommitteePanel from '@/components/DisciplinaryCommitteePanel'
 import DisciplinaryManagerApprovalPanel from '@/components/DisciplinaryManagerApprovalPanel';
 import OutgoingLetterWorkflowActions from '@/components/OutgoingLetterWorkflowActions';
 import SecretariatManagementPanel from '@/components/SecretariatManagementPanel';
+import AdministrativeWritingAssistant from '@/components/AdministrativeWritingAssistant';
 
 type Props = {
   profile: Profile;
   onNotify: (message: string, kind?: 'success' | 'error') => void;
 };
 
-type StaffOption = { user_id: string; full_name: string };
+type StaffOption = { user_id: string; full_name: string; signature_data_url?: string | null };
 
 type WorkflowEvent = { id: string; letter_id: string; event_type: string; details: Record<string, unknown>; created_at: string; actor_id: string | null; actor: { full_name: string | null } | { full_name: string | null }[] | null };
 
@@ -62,6 +64,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [paperSize, setPaperSize] = useState<'A4' | 'A5'>('A4');
+  const [showArchived, setShowArchived] = useState(false);
 
   const isManager = profile.role === 'manager';
   const isCommitteeOnly = profile.role === 'expert' && Boolean(profile.is_disciplinary_committee);
@@ -71,7 +74,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
     setLoadError(null);
     try {
       const [lettersResult, referralsResult, eventsResult, staffResult] = await Promise.all([
-        supabase.from('letters').select('*').is('deleted_at', null).order('created_at', { ascending: false }),
+        (showArchived ? supabase.from('letters').select('*').not('deleted_at', 'is', null) : supabase.from('letters').select('*').is('deleted_at', null)).order('created_at', { ascending: false }),
         supabase
           .from('letter_referrals')
           .select('id, letter_id, referred_to, action, note, status, created_at, due_at, reviewer:referred_to(full_name)')
@@ -104,7 +107,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
     } catch {
       setLoadError(LOAD_ERROR);
     }
-  }, [isCommitteeOnly]);
+  }, [isCommitteeOnly, showArchived]);
 
   useEffect(() => {
     void load();
@@ -119,7 +122,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
   }
 
   async function remove(letter: LetterRecord) {
-    if (!window.confirm('این نامه از فهرست فعال خارج و به بایگانی منتقل شود؟ سابقه و ارجاع‌ها حفظ می‌شوند.')) return;
+    if (!window.confirm('این نامه از فهرست فعال حذف و به سطل بازیافت منتقل شود؟ نامه، گردش کار و پیوست‌ها تا زمان حذف غیرقابل‌بازگشت حفظ می‌شوند و امکان بازیابی وجود دارد.')) return;
     setBusyId(letter.id);
     const { error } = await supabase.from('letters').update({ deleted_at: new Date().toISOString(), deleted_by: profile.user_id }).eq('id', letter.id);
     setBusyId(null);
@@ -127,8 +130,42 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
       onNotify(ACTION_ERROR, 'error');
       return;
     }
-    onNotify('نامه به بایگانی منتقل شد؛ سوابق و ارجاع‌ها محفوظ است');
+    onNotify('نامه به سطل بازیافت منتقل شد؛ سوابق و پیوست‌ها محفوظ‌اند و امکان بازیابی وجود دارد.');
     void load();
+  }
+
+  async function restore(letter: LetterRecord) {
+    if (!window.confirm('این نامه بازیابی و دوباره در فهرست فعال دبیرخانه نمایش داده شود؟')) return;
+    setBusyId(letter.id);
+    const { error } = await supabase.from('letters').update({ deleted_at: null, deleted_by: null }).eq('id', letter.id);
+    setBusyId(null);
+    if (error) {
+      onNotify('بازیابی نامه انجام نشد. لطفاً دوباره تلاش کنید.', 'error');
+      return;
+    }
+    onNotify('نامه با موفقیت بازیابی شد.');
+    void load();
+  }
+
+  async function permanentlyDelete(letter: LetterRecord) {
+    if (profile.role !== 'manager' || !showArchived) return;
+    if (!window.confirm(`هشدار: نامه شماره ${letter.letter_no}، سوابق وابسته و فایل‌های پیوست آن برای همیشه حذف می‌شود. سابقه ممیزی حذف برای پیگیری اداری باقی می‌ماند. ادامه می‌دهید؟`)) return;
+    const confirmation = window.prompt(`برای تأیید حذف دائمی، شماره نامه ${letter.letter_no} را وارد کنید:`);
+    const normalized = (confirmation ?? '').replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit))).replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit))).trim();
+    if (normalized !== String(letter.letter_no)) {
+      onNotify('شماره واردشده مطابقت نداشت؛ حذف انجام نشد.', 'error');
+      return;
+    }
+    setBusyId(letter.id);
+    try {
+      const result = await callStaffApi<{ deleted: boolean; files_cleaned: boolean; cleanup_warning?: string | null }>('permanently-delete-archived-letter', { letter_id: letter.id });
+      onNotify(result.files_cleaned ? 'نامه و پیوست‌های آن برای همیشه حذف شدند؛ سابقه ممیزی محفوظ است.' : (result.cleanup_warning ?? 'نامه حذف شد؛ پاک‌سازی فایل‌های پیوست نیازمند بررسی است.'), result.files_cleaned ? 'success' : 'error');
+      void load();
+    } catch (cause) {
+      onNotify(cause instanceof Error ? cause.message : 'حذف دائمی انجام نشد.', 'error');
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function completeReferral(referral: ReferralRow) {
@@ -172,34 +209,36 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
       {profile.is_disciplinary_committee && <DisciplinaryCommitteePanel profile={profile} />}
       {profile.role === 'manager' && <DisciplinaryManagerApprovalPanel profile={profile} />}
       {isManager && <SecretariatManagementPanel profile={profile} onNotify={onNotify} />}
+      <AdministrativeWritingAssistant />
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold">دبیرخانه</h2>
-          <p className="mt-1 text-sm text-ink-600">مدیریت نامه‌های ورودی و خروجی با سربرگ سازمان</p>
+          <p className="mt-1 text-sm text-ink-600">{showArchived ? "نامه‌های حذف‌شده؛ قابل بازیابی" : "مدیریت نامه‌های ورودی و خروجی با سربرگ سازمان"}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {profile.role !== 'driver' && <button type="button" className="btn btn-secondary" onClick={() => { setSearch(''); setStatusFilter('all'); setShowArchived(value => !value); }}>{showArchived ? "بازگشت به نامه‌های فعال" : "سطل بازیافت"}</button>}
           <button type="button" className="btn btn-secondary" onClick={() => void load()}>
             <RefreshCw size={16} />
             به‌روزرسانی
           </button>
-          <button type="button" className="btn" onClick={() => setEditor(null)}>
+          {!showArchived && <button type="button" className="btn" onClick={() => setEditor(null)}>
             <Plus size={16} />
             نامه جدید
-          </button>
+          </button>}
         </div>
       </header>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="panel">
-          <p className="text-xs text-ink-600">کل مکاتبات</p>
+          <p className="text-xs text-ink-600">{showArchived ? 'نامه‌های حذف‌شده' : 'کل مکاتبات فعال'}</p>
           <p className="mt-1 text-2xl font-bold">{letters?.length ?? '—'}</p>
         </div>
         <div className="panel">
-          <p className="text-xs text-ink-600">نامه‌های وارده</p>
+          <p className="text-xs text-ink-600">{showArchived ? 'وارده حذف‌شده' : 'نامه‌های وارده'}</p>
           <p className="mt-1 text-2xl font-bold">{(letters ?? []).filter(l => l.direction === 'incoming').length}</p>
         </div>
         <div className="panel">
-          <p className="text-xs text-ink-600">در جریان اقدام</p>
+          <p className="text-xs text-ink-600">{showArchived ? 'خروجی حذف‌شده' : 'در جریان اقدام'}</p>
           <p className="mt-1 text-2xl font-bold">{pendingCount}</p>
         </div>
       </div>
@@ -283,6 +322,12 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
 
                 <div className="flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-ink-100 px-2.5 py-1">فوریت: {PRIORITY_LABELS[letter.priority ?? 'normal'] ?? 'عادی'}</span>{letter.response_due_at && <span className="rounded-full bg-gold-50 px-2.5 py-1 text-gold-700">مهلت پاسخ: {formatTehranDateTime(letter.response_due_at)}</span>}</div>
                 {letter.body && <p className="line-clamp-2 text-sm text-ink-600">{letter.body}</p>}
+                <LetterAttachments
+                  letterId={letter.id}
+                  queuedFiles={[]}
+                  onQueuedFilesChange={() => undefined}
+                  canUpload={!showArchived && profile.role !== 'driver' && !letter.manager_signed_at && !['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status)}
+                />
 
                 {(letter.expert_reviewed_at || letter.manager_signed_at || letter.manager_order_note || letter.sent_at || letter.delivery_receipt_path) && (
                   <div className="rounded-lg border border-ink-100 p-3 text-xs text-ink-600 flex flex-col gap-1">
@@ -294,7 +339,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                   </div>
                 )}
 
-                <OutgoingLetterWorkflowActions letter={letter} profile={profile} onSaved={() => void load()} onNotify={onNotify} />
+                {!showArchived && <OutgoingLetterWorkflowActions letter={letter} profile={profile} onSaved={() => void load()} onNotify={onNotify} />}
 
                 {(workflowEvents.get(letter.id) ?? []).length > 0 && (
                   <details className="border-t border-ink-100 pt-2">
@@ -334,7 +379,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                             <span className={ref.status === 'done' ? 'text-brand-600' : 'text-gold-700'}>
                               {ref.status === 'done' ? 'انجام شد' : 'در انتظار'}
                             </span>
-                            {ref.status === 'pending' && (isManager || ref.referred_to === profile.user_id) && (
+                            {!showArchived && ref.status === 'pending' && (isManager || ref.referred_to === profile.user_id) && (
                               <button type="button" className="btn-tiny" disabled={busyId === ref.id} onClick={() => void completeReferral(ref)}>
                                 ثبت انجام
                               </button>
@@ -347,7 +392,7 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                 )}
 
                 <div className="flex flex-wrap gap-2">
-                  {!(letter.direction === 'outgoing' && ['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status)) && <button type="button" className="btn-tiny" onClick={() => setEditor(letter)}>
+                  {!showArchived && !(letter.direction === 'outgoing' && ['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status)) && <button type="button" className="btn-tiny" onClick={() => setEditor(letter)}>
                     <Pencil size={13} />
                     ویرایش
                   </button>}
@@ -365,6 +410,9 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                         direction: letter.direction,
                         includeLetterhead: true,
                         paperSize,
+                        managerApproved: Boolean(letter.manager_signed_at),
+                        managerName: staff.find(member => member.user_id === letter.manager_signed_by)?.full_name ?? 'مدیر سازمان',
+                        managerSignature: staff.find(member => member.user_id === letter.manager_signed_by)?.signature_data_url ?? null,
                       })
                     }
                   >
@@ -385,22 +433,36 @@ export default function SecretariatPage({ profile, onNotify }: Props) {
                         direction: letter.direction,
                         includeLetterhead: false,
                         paperSize,
+                        managerApproved: Boolean(letter.manager_signed_at),
+                        managerName: staff.find(member => member.user_id === letter.manager_signed_by)?.full_name ?? 'مدیر سازمان',
                       })
                     }
                   >
                     <Printer size={13} />
                     بدون سربرگ
                   </button>
-                  {!(letter.direction === 'outgoing' && ['امضا شده', 'مختومه'].includes(letter.status)) && (
+                  {!showArchived && !(letter.direction === 'outgoing' && ['امضا شده', 'مختومه'].includes(letter.status)) && (
                     <button type="button" className="btn-tiny" onClick={() => setReferralLetter(letter)}>
                       <ArrowRightLeft size={13} />
                       ارجاع
                     </button>
                   )}
-                  {isManager && (
+                  {showArchived && profile.role !== 'driver' && (
+                    <button type="button" className="btn-tiny" disabled={busyId === letter.id} onClick={() => void restore(letter)}>
+                      <RotateCcw size={13} />
+                      بازیابی نامه
+                    </button>
+                  )}
+                  {showArchived && isManager && (
+                    <button type="button" className="btn-tiny btn-tiny-danger" disabled={busyId === letter.id} onClick={() => void permanentlyDelete(letter)}>
+                      <Trash2 size={13} />
+                      حذف دائمی
+                    </button>
+                  )}
+                  {!showArchived && profile.role !== 'driver' && !letter.manager_signed_at && !['امضا شده', 'صادر شده', 'در انتظار پاسخ', 'مختومه'].includes(letter.status) && (
                     <button type="button" className="btn-tiny btn-tiny-danger" disabled={busyId === letter.id} onClick={() => void remove(letter)}>
                       <Trash2 size={13} />
-                      بایگانی نامه
+                      حذف از فهرست
                     </button>
                   )}
                 </div>
