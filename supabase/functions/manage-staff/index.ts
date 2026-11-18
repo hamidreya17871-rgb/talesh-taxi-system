@@ -566,7 +566,7 @@ async function handleIssueExistingDriverCodes(req: Request): Promise<Response> {
   await requireStaff(req, ["manager"]);
   const { data: drivers, error: driversError } = await admin
     .from("drivers")
-    .select("id, name, phone")
+    .select("id, name, phone, status")
     .not("phone", "is", null)
     .order("name", { ascending: true });
   if (driversError) throw driversError;
@@ -576,6 +576,10 @@ async function handleIssueExistingDriverCodes(req: Request): Promise<Response> {
   for (const driver of drivers ?? []) {
     const phone = typeof driver.phone === "string" ? normalizeDigits(driver.phone).trim() : "";
     const fullName = typeof driver.name === "string" && driver.name.trim() ? driver.name.trim() : "راننده";
+    if (driver.status !== ACTIVE_DRIVER_STATUS) {
+      skipped.push({ name: fullName, phone, reason: "وضعیت پرونده راننده فعال نیست؛ کد بازیابی صادر نشد." });
+      continue;
+    }
     if (!PHONE_PATTERN.test(phone)) {
       skipped.push({ name: fullName, reason: "شماره موبایل معتبر ثبت نشده است." });
       continue;
