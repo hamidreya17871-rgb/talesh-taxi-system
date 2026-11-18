@@ -22,7 +22,7 @@ export const ROLE_LABELS: Record<StaffRole, string> = {
   driver: 'راننده',
 };
 
-export const ROLE_OPTIONS: StaffRole[] = ['admin', 'manager', 'expert', 'driver'];
+export const ROLE_OPTIONS: StaffRole[] = ['manager', 'expert', 'driver'];
 
 export type StaffFormValues = {
   email: string;
