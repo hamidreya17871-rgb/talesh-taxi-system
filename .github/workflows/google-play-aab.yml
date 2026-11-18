@@ -1,0 +1,113 @@
+name: Google Play Android App Bundle
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-play-aab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: Check release signing secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64" || (echo "Missing GitHub secret ANDROID_KEYSTORE_BASE64" && exit 1)
+          test -n "$ANDROID_KEYSTORE_PASSWORD" || (echo "Missing GitHub secret ANDROID_KEYSTORE_PASSWORD" && exit 1)
+          test -n "$ANDROID_KEY_ALIAS" || (echo "Missing GitHub secret ANDROID_KEY_ALIAS" && exit 1)
+          test -n "$ANDROID_KEY_PASSWORD" || (echo "Missing GitHub secret ANDROID_KEY_PASSWORD" && exit 1)
+      - name: Install Android API 36
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+      - name: Install web dependencies
+        run: npm ci
+      - name: Install Capacitor Android toolchain
+        run: npm install --no-save --package-lock=false @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
+      - name: Build web assets
+        run: npm run build
+      - name: Generate Android project
+        run: |
+          cat > capacitor.config.json <<'EOF'
+          {
+            "appId": "ir.talesh.taxi",
+            "appName": "تاکسیرانی تالش",
+            "webDir": "dist",
+            "server": { "androidScheme": "https" }
+          }
+          EOF
+          npx cap add android
+          npx cap sync android
+      - name: Configure Android 16 target and release signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/talesh-release.keystore
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/talesh-release.keystore"
+          test -s "$RUNNER_TEMP/talesh-release.keystore"
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          variables = Path("android/variables.gradle")
+          source = variables.read_text()
+          for key in ("compileSdkVersion", "targetSdkVersion"):
+              source, count = re.subn(rf"({key}\s*=\s*)\d+", rf"\g<1>36", source, count=1)
+              if count != 1:
+                  raise SystemExit(f"Could not set {key} to API 36")
+          variables.write_text(source)
+          gradle = Path("android/app/build.gradle")
+          source = gradle.read_text()
+          signing = """
+              signingConfigs {
+                  release {
+                      storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                      storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                      keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                      keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+                  }
+              }
+          """
+          if "signingConfigs {" not in source:
+              source, count = re.subn(r"(android\s*\{)", r"\1\n" + signing, source, count=1)
+              if count != 1:
+                  raise SystemExit("Could not add Android release signing configuration")
+          source, count = re.subn(
+              r"(buildTypes\s*\{\s*release\s*\{)",
+              r"\1\n            signingConfig signingConfigs.release",
+              source,
+              count=1
+          )
+          if count != 1:
+              raise SystemExit("Could not attach release signing configuration")
+          gradle.write_text(source)
+          PY
+      - name: Build signed Google Play AAB
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew --no-daemon bundleRelease
+          test -s app/build/outputs/bundle/release/app-release.aab
+      - uses: actions/upload-artifact@v4
+        with:
+          name: talesh-taxi-google-play-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 14
