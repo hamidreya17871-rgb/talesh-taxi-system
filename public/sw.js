@@ -1,9 +1,10 @@
-const CACHE_NAME = 'talesh-app-v4';
+const CACHE_NAME = 'talesh-app-v5';
 const SHELL_URLS = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
   '/app-icon.svg',
+  '/talesh-taxi-logo.webp',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/apple-touch-icon.png',
@@ -46,7 +47,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  if (url.pathname.startsWith('/assets/')) {
+  if (SHELL_URLS.includes(url.pathname) || url.pathname.startsWith('/assets/')) {
     event.respondWith(cacheFirst(request));
   }
 });

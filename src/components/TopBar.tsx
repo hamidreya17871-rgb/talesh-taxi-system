@@ -1,7 +1,6 @@
-import { Bell, KeyRound, LogOut, Menu, MessageSquare } from 'lucide-react';
+import { Bell, LogOut, Menu, MessageSquare } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import PasswordChangeModal from '@/components/PasswordChangeModal';
 import { ROLE_LABELS, type Profile } from '@/lib/staff';
 
 type StaffNotification = { id: string; title: string; body: string; created_at: string; read_at: string | null };
@@ -16,7 +15,6 @@ type TopBarProps = {
 };
 
 export default function TopBar({ title, profile, onSignOut, onMenuClick, onMessagesClick, onSecretariatClick }: TopBarProps) {
-  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [notifications, setNotifications] = useState<StaffNotification[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -82,10 +80,14 @@ export default function TopBar({ title, profile, onSignOut, onMenuClick, onMessa
   const unreadNotificationCount = notifications.filter(item => !item.read_at).length;
 
   return (
-    <header className="sticky top-0 z-20 flex min-h-[76px] items-center justify-between gap-3 border-b border-ink-200/80 bg-white/95 px-7 shadow-[0_2px_12px_#163c3208] backdrop-blur max-[650px]:h-16 max-[650px]:px-4">
-      <div>
-        <h1 className="text-lg font-bold text-ink-900 max-[650px]:text-sm">{title}</h1>
-        <p className="text-xs text-ink-600 max-[650px]:hidden">سامانه مدیریت حمل‌ونقل و تاکسیرانی تالش</p>
+    <header dir="rtl" className="sticky top-0 z-20 flex min-h-[76px] items-center justify-between gap-3 border-b border-ink-200/80 bg-white/95 px-7 shadow-[0_2px_12px_#163c3208] backdrop-blur max-[650px]:h-16 max-[650px]:px-3">
+      <button type="button" className="btn-tiny shrink-0" onClick={onMenuClick} aria-label="باز کردن منوی اصلی"><Menu size={20}/><span className="max-[650px]:hidden">منو</span></button>
+      <div className="flex min-w-0 items-center gap-3">
+        <img src="/talesh-taxi-logo.webp" alt="نشان رسمی تاکسیرانی تالش" className="h-11 w-11 shrink-0 rounded-xl bg-white object-contain p-0.5 shadow-sm" />
+        <div className="min-w-0">
+          <h1 className="text-lg font-bold text-ink-900 max-[650px]:text-sm">{title}</h1>
+          <p className="text-xs text-ink-600 max-[650px]:hidden">سامانه مدیریت حمل‌ونقل و تاکسیرانی تالش</p>
+        </div>
       </div>
       <div className="flex items-center gap-2.5">
         {profile.role === 'driver' && (
@@ -123,27 +125,16 @@ export default function TopBar({ title, profile, onSignOut, onMenuClick, onMessa
             )}
           </div>
         )}
-        <button type="button" className="btn-tiny" onClick={onMenuClick} aria-label="باز کردن منوی کناری">
-          <Menu size={17} />
-          <span className="max-[650px]:hidden">منو</span>
-        </button>
-        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-brand-100 bg-brand-50 font-bold text-brand-700">
-          {profile.full_name.charAt(0)}
-        </div>
+        <div title="پروفایل کاربری" className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-brand-100 bg-brand-50 font-bold text-brand-700">{profile.full_name.charAt(0)}</div>
         <div className="text-[13px] leading-[1.6] max-[650px]:hidden">
           <p className="font-bold">{profile.full_name}</p>
           <p className="text-xs text-ink-600">{ROLE_LABELS[profile.role]}</p>
         </div>
-        <button type="button" className="btn-tiny" onClick={() => setPasswordModalOpen(true)} aria-label="تغییر رمز عبور">
-          <KeyRound size={13} />
-          <span className="max-[650px]:hidden">رمز</span>
-        </button>
         <button type="button" className="btn-tiny" onClick={onSignOut} aria-label="خروج از حساب">
           <LogOut size={13} />
           <span className="max-[650px]:hidden">خروج</span>
         </button>
       </div>
-      {passwordModalOpen && <PasswordChangeModal onClose={() => setPasswordModalOpen(false)} />}
     </header>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
+import OrganizationContactCard from '@/components/OrganizationContactCard';
 import DashboardStats from '@/components/DashboardStats';
 import Notice from '@/components/Notice';
 import ExpertsPanel from '@/components/ExpertsPanel';
@@ -72,11 +73,14 @@ export default function Dashboard({ data, isManager, onNavigate }: DashboardProp
   return (
     <>
       <div className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-brand-100 bg-gradient-to-l from-white via-white to-brand-50 p-5 shadow-[0_3px_16px_#163c3208] max-[650px]:items-start max-[650px]:p-4">
-        <div>
+        <div className="flex min-w-0 items-center gap-3">
+          <img src="/talesh-taxi-logo.webp" alt="نشان سازمان تاکسیرانی تالش" className="h-20 w-20 shrink-0 object-contain max-[650px]:h-14 max-[650px]:w-14" />
+          <div className="min-w-0">
           <h2 className="mb-1 text-[22px] font-extrabold text-brand-900 max-[650px]:text-lg">داشبورد مدیریت</h2>
           <p className="text-ink-600 max-[650px]:text-xs max-[650px]:leading-[1.8]">
             نمای یکپارچه وضعیت ناوگان، درخواست‌ها و امور اداری تاکسیرانی تالش
           </p>
+          </div>
         </div>
         <button type="button" className="btn max-[650px]:hidden" onClick={() => onNavigate('drivers')}>
           <Plus size={18} />
@@ -173,6 +177,7 @@ export default function Dashboard({ data, isManager, onNavigate }: DashboardProp
             )}
             <p className="mt-3 text-xs text-ink-600">اطلاعات روی سرور ذخیره می‌شوند و از هر دستگاهی در دسترس هستند.</p>
           </section>
+          <OrganizationContactCard />
           {isManager && <ExpertsPanel onNavigate={onNavigate} />}
         </div>
       </div>
