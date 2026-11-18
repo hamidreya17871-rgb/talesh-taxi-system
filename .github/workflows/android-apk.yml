@@ -59,6 +59,11 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon assembleDebug
           test -s app/build/outputs/apk/debug/app-debug.apk
+      - name: Build Android release APK (unsigned until release key is configured)
+        run: |
+          cd android
+          ./gradlew --no-daemon assembleRelease
+          test -s app/build/outputs/apk/release/app-release-unsigned.apk
       - name: Build Google Play Android App Bundle
         run: |
           cd android
@@ -69,6 +74,7 @@ jobs:
           name: talesh-taxi-android-package
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/outputs/apk/release/app-release-unsigned.apk
             android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 14
