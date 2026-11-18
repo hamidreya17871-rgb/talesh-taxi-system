@@ -46,7 +46,7 @@ const GENERIC_ERROR = 'عملیات انجام نشد. لطفاً دوباره �
 type EditorState = { entity: EntityKey; record: FleetRecord | null };
 
 export default function App() {
-  const { status: sessionStatus, profile, signOut, retry: retrySession } = useSession();
+  const { status: sessionStatus, profile, signOut, retry: retrySession, sessionError } = useSession();
 
   if (!isSupabaseConfigured) {
     return (
@@ -99,7 +99,7 @@ export default function App() {
     return (
       <AccountMessage
         title="اطلاعات دریافت نشد"
-        detail="اتصال به سرور برقرار نشد. لطفاً دوباره تلاش کنید."
+        detail={sessionError ? `خطای فنی: ${sessionError}` : "اتصال به سرور برقرار نشد. لطفاً دوباره تلاش کنید."}
         onSignOut={() => void signOut()}
         onRetry={() => retrySession()}
       />
