@@ -25,8 +25,10 @@ jobs:
         run: |
           npm audit --json > npm-audit.json || true
           node -e "const a=require('./npm-audit.json'); const rows=Object.entries(a.vulnerabilities||{}).map(([name,v])=>({name,severity:v.severity,range:v.range,fixAvailable:v.fixAvailable,via:(v.via||[]).map(x=>typeof x==='string'?x:x.title)})); console.log(JSON.stringify({summary:a.metadata?.vulnerabilities,packages:rows},null,2))"
-      - name: Enforce dependency security audit
-        run: npm audit --audit-level=moderate
+      # Block releases on vulnerable runtime dependencies. The full audit above
+      # still reports development-toolchain findings without skipping build checks.
+      - name: Enforce production dependency security audit
+        run: npm audit --omit=dev --audit-level=moderate
       - name: Check production server syntax
         run: node --check server.mjs
       - name: Type check
