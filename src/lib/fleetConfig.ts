@@ -62,7 +62,7 @@ export const entityConfigs: Record<EntityKey, EntityConfig> = {
       { key: 'license_number', label: 'شماره گواهینامه', type: 'text' },
       { key: 'route', label: 'خط / مسیر', type: 'text' },
       { key: 'address', label: 'آدرس', type: 'textarea' },
-      { key: 'status', label: 'وضعیت', type: 'select', options: ['فعال', 'در انتظار بررسی', 'غیرفعال'] },
+      { key: 'status', label: 'وضعیت', type: 'select', options: ['فعال', 'در انتظار بررسی', 'غیرفعال', 'فروخته‌شده', 'بازنشسته', 'قطع فعالیت'] },
       { key: 'notes', label: 'توضیحات', type: 'textarea' },
     ],
     columns: [
