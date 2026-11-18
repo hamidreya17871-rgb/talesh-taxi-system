@@ -49,7 +49,7 @@ export default function AdministrativeWritingAssistant() {
   function prefixLine(prefix: string) {
     const editor = editorRef.current;
     const start = editor?.selectionStart ?? draft.length;
-    const lineStart = draft.lastIndexOf('\\n', Math.max(0, start - 1)) + 1;
+    const lineStart = draft.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
     setDraft(draft.slice(0, lineStart) + prefix + draft.slice(lineStart));
     requestAnimationFrame(() => {
       editor?.focus();
