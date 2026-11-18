@@ -61,7 +61,12 @@ function parseCsv(text: string): string[][] {
 }
 
 function headerKey(value: string): string {
-  return value.replace(/[\u200c\s_()-]/g, '').toLowerCase();
+  return value
+    .normalize('NFKC')
+    .replace(/[يى]/g, 'ی')
+    .replace(/ك/g, 'ک')
+    .replace(/[\u200c\s_\-–—()[\]{}.,:؛;،/\\]+/g, '')
+    .toLowerCase();
 }
 
 function mapCsvRows(text: string): ImportRow[] {
@@ -69,17 +74,21 @@ function mapCsvRows(text: string): ImportRow[] {
   if (rows.length < 2) throw new Error('فایل باید یک ردیف عنوان و حداقل یک راننده داشته باشد.');
   const headers = rows[0].map(headerKey);
   const aliases: Record<keyof ImportRow, string[]> = {
-    full_name: ['نامونامخانوادگی', 'نام', 'fullname', 'name'],
-    national_code: ['کدملی', 'nationalcode', 'national_code'],
-    phone: ['شمارهموبایل', 'شماره‌موبایل', 'موبایل', 'تلفن', 'phone'],
-    plate: ['شمارهپلاک', 'پلاک', 'plate'],
-    model: ['مدلخودرو', 'نوعخودرو', 'مدل', 'model'],
-    taxi_row_no: ['ردیفتاکسی', 'شمارهردیف', 'taxirowno', 'taxi_row_no'],
+    full_name: ['نامونامخانوادگی', 'نامخانوادگیونام', 'نامراننده', 'نام', 'fullname', 'name'],
+    national_code: ['کدملی', 'شمارهکدملی', 'کدشناساییملی', 'nationalcode'],
+    phone: ['شمارهموبایل', 'موبایل', 'شمارهتماس', 'تلفنهمراه', 'تلفن', 'phone', 'mobile'],
+    plate: ['شمارهپلاک', 'پلاکخودرو', 'پلاک', 'plate'],
+    model: ['مدلخودرو', 'نوعخودرو', 'نوعمدلخودرو', 'مدل', 'model', 'vehiclemodel'],
+    taxi_row_no: ['ردیفتاکسی', 'شمارهردیفتاکسی', 'شمارهردیف', 'ردیفشمارهتاکسی', 'taxirowno'],
   };
   const positions = {} as Record<keyof ImportRow, number>;
   for (const key of Object.keys(aliases) as Array<keyof ImportRow>) {
-    positions[key] = headers.findIndex(header => aliases[key].includes(header));
-    if (positions[key] < 0) throw new Error('ستون‌های فایل با قالب نمونه مطابقت ندارد؛ فایل نمونه را دریافت کنید.');
+    const matches = headers
+      .map((header, index) => aliases[key].includes(header) ? index : -1)
+      .filter(index => index >= 0);
+    if (matches.length === 0) throw new Error('ستون «' + key + '» پیدا نشد. عنوان ستون را بررسی کنید یا از قالب نمونه استفاده کنید.');
+    if (matches.length > 1) throw new Error('برای یکی از فیلدها بیش از یک ستون مشابه پیدا شد؛ عنوان ستون‌های تکراری را اصلاح کنید.');
+    positions[key] = matches[0];
   }
   return rows.slice(1).map(row => ({
     full_name: (row[positions.full_name] ?? '').trim(),
