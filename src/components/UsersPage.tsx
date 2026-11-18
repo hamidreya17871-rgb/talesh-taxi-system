@@ -30,6 +30,8 @@ export default function UsersPage({ onNotify }: Props) {
   const [lifecycleTarget, setLifecycleTarget] = useState<Profile | null>(null);
   const [showInactiveUsers, setShowInactiveUsers] = useState(false);
 
+  const visibleUsers = (users ?? []).filter(user => showInactiveUsers ? !user.is_active : user.is_active);
+
   const load = useCallback(async () => {
     setLoadError(null);
     const [profilesResult, driversResult] = await Promise.all([
