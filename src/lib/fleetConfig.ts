@@ -87,7 +87,7 @@ export const entityConfigs: Record<EntityKey, EntityConfig> = {
       { key: 'year', label: 'سال ساخت', type: 'number' },
       { key: 'insurance_expires', label: 'انقضای بیمه', type: 'date' },
       { key: 'inspection_expires', label: 'معاینه فنی تا', type: 'date' },
-      { key: 'status', label: 'وضعیت', type: 'select', options: ['فعال', 'نیازمند بررسی', 'غیرفعال', 'در حال اسقاط'] },
+      { key: 'status', label: 'وضعیت', type: 'select', options: ['فعال', 'نیازمند بررسی', 'غیرفعال', 'منتقل‌شده', 'در حال اسقاط'] },
       { key: 'notes', label: 'توضیحات', type: 'textarea' },
     ],
     columns: [
