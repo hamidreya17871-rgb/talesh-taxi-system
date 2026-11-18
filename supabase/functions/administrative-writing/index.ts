@@ -1,17 +1,28 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const cors = {
-  "Access-Control-Allow-Origin": "https://talesh-taxi-system.pages.dev",
+const allowedOrigin = (origin: string | null) => {
+  if (!origin) return "https://talesh-taxi-system.pages.dev";
+  try {
+    const url = new URL(origin);
+    if (url.protocol === "https:" &&
+        (url.hostname === "talesh-taxi-system.pages.dev" || url.hostname.endsWith(".talesh-taxi-system.pages.dev"))) {
+      return origin;
+    }
+  } catch { /* invalid origin */ }
+  return "https://talesh-taxi-system.pages.dev";
+};
+const headersFor = (origin: string | null) => ({
+  "Access-Control-Allow-Origin": allowedOrigin(origin),
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Vary": "Origin",
-};
+});
 const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
+  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...headersFor(null) } });
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: headersFor(req.headers.get("Origin")) });
   if (req.method !== "POST") return json({ error: "روش درخواست مجاز نیست." }, 405);
 
   const apiKey = Deno.env.get("OPENAI_API_KEY");
@@ -78,7 +89,15 @@ Deno.serve(async (req) => {
       return json({ error: response.status === 429 ? "سهمیه سرویس هوش مصنوعی موقتاً تمام شده است." : "تولید متن انجام نشد؛ بعداً دوباره تلاش کنید." }, 502);
     }
     const result = await response.json();
-    const output = typeof result.output_text === "string" ? result.output_text.trim() : "";
+    const output = Array.isArray(result.output)
+      ? result.output
+          .filter((item: { type?: string }) => item?.type === "message")
+          .flatMap((item: { content?: { type?: string; text?: string }[] }) => item.content ?? [])
+          .filter((part: { type?: string; text?: string }) => part?.type === "output_text" && typeof part.text === "string")
+          .map((part: { text: string }) => part.text)
+          .join("\\n")
+          .trim()
+      : "";
     if (!output) return json({ error: "پاسخ متنی معتبری دریافت نشد." }, 502);
     return json({ draft: output });
   } catch (error) {
