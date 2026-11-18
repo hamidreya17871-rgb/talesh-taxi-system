@@ -17,6 +17,7 @@ SET search_path = public
 AS $$
 DECLARE
   v_role text;
+  v_manager_count integer;
 BEGIN
   PERFORM pg_advisory_xact_lock(hashtext('talesh-single-system-admin'));
 
@@ -30,6 +31,17 @@ BEGIN
 
   IF NOT FOUND OR v_role <> 'manager' THEN
     RAISE EXCEPTION 'manager_required';
+  END IF;
+
+  SELECT count(*)
+    INTO v_manager_count
+    FROM public.profiles
+   WHERE role = 'manager'
+     AND is_active = true
+     AND approval_status = 'approved';
+
+  IF v_manager_count <> 1 THEN
+    RAISE EXCEPTION 'manager_not_unique';
   END IF;
 
   IF EXISTS (
