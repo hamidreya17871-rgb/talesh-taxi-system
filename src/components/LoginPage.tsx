@@ -172,7 +172,7 @@ export default function LoginPage() {
             )}
             {mode === 'login' && (
               <button type="button" className="text-sm text-brand-700 underline-offset-4 hover:underline" onClick={() => switchMode('activate-driver')}>
-                اطلاعاتتان با اکسل ثبت شده؟ فعال‌سازی و تعیین رمز
+                راننده قبلی هستید؟ بازیابی رمز و فعال‌سازی
               </button>
             )}
             {mode === 'login' && (
