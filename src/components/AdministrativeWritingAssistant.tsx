@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { Clipboard, Wand2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 type DocumentKind = 'letter' | 'reply' | 'minutes' | 'agenda' | 'report' | 'summary' | 'actions';
 
@@ -20,6 +21,8 @@ export default function AdministrativeWritingAssistant() {
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const [context, setContext] = useState('');
   const [copied, setCopied] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState('');
   const prompt = useMemo(() => {
     const selected = KINDS.find(item => item.value === kind)!;
     return [
@@ -55,6 +58,26 @@ export default function AdministrativeWritingAssistant() {
       editor?.focus();
       editor?.setSelectionRange(start + prefix.length, start + prefix.length);
     });
+  }
+
+  async function generateDraft() {
+    if (!notes.trim() || generating) return;
+    setGenerating(true);
+    setGenerationError('');
+    try {
+      const { data, error } = await supabase.functions.invoke('administrative-writing', {
+        body: { kind, notes: notes.trim(), context: context.trim() },
+      });
+      if (error) throw error;
+      if (!data || typeof data.draft !== 'string' || !data.draft.trim()) {
+        throw new Error(data?.error || 'پاسخ معتبری از دستیار دریافت نشد.');
+      }
+      setDraft(data.draft);
+    } catch (error) {
+      setGenerationError(error instanceof Error ? error.message : 'تولید پیش‌نویس ناموفق بود.');
+    } finally {
+      setGenerating(false);
+    }
   }
 
   async function copyDraft() {
@@ -115,12 +138,16 @@ export default function AdministrativeWritingAssistant() {
         <textarea className="field-input min-h-32" value={notes} onChange={event => setNotes(event.target.value)} placeholder="هرچه در اختیار دارید وارد کنید؛ حتی یادداشت‌های کوتاه و نامرتب..." />
       </label>
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" className="btn" disabled={!notes.trim()} onClick={() => void copyPrompt()}>
+        <button type="button" className="btn" disabled={!notes.trim() || generating} onClick={() => void generateDraft()}>
+          <Wand2 size={15} />
+          {generating ? 'در حال تهیه پیش‌نویس…' : 'تولید پیش‌نویس با هوش مصنوعی'}
+        </button>
+        <button type="button" className="btn btn-secondary" disabled={!notes.trim()} onClick={() => void copyPrompt()}>
           <Clipboard size={15} />
           کپی دستور نگارش
         </button>
-        <span className="text-xs text-ink-500">دستور را در ابزار هوش مصنوعی اجرا کنید و پاسخ را در ویرایشگر پایین قرار دهید.</span>
       </div>
+      {generationError && <p role="alert" className="text-sm text-red-700">{generationError}</p>}
       <details className="rounded-lg bg-ink-50 p-3">
         <summary className="cursor-pointer text-xs font-semibold">مشاهده دستور آماده</summary>
         <pre className="mt-2 whitespace-pre-wrap break-words text-xs leading-6 text-ink-700">{prompt}</pre>
@@ -157,7 +184,7 @@ export default function AdministrativeWritingAssistant() {
           <button type="button" className="btn btn-secondary" disabled={!draft} onClick={() => setDraft('')}>پاک‌کردن ویرایشگر</button>
         </div>
       </div>
-      <p className="text-[11px] text-ink-500">تولید خودکار متن با مدل هوش مصنوعی هنوز به اتصال سرویس جداگانه نیاز دارد؛ این ویرایشگر امکان نوشتن، اصلاح و آماده‌سازی خروجی را داخل سامانه فراهم می‌کند.</p>
+      <p className="text-[11px] text-ink-500">متن تولیدشده پیش‌نویس است و پیش از ثبت یا ارسال باید توسط کاربر مسئول بازبینی شود. اطلاعات حساس غیرضروری را در ورودی وارد نکنید.</p>
     </section>
   );
 }
