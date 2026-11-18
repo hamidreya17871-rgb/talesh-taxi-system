@@ -35,6 +35,7 @@ function errorMessage(error: unknown): string {
 export function useSession() {
   const [status, setStatus] = useState<SessionStatus>('loading');
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [retryVersion, setRetryVersion] = useState(0);
   const readyUserIdRef = useRef<string | null>(null);
 
@@ -47,10 +48,12 @@ export function useSession() {
 
     setStatus('loading');
     setProfile(null);
+    setSessionError(null);
     readyUserIdRef.current = null;
 
     if (!isSupabaseConfigured) {
       setStatus('error');
+      setSessionError('تنظیمات اتصال به پایگاه داده کامل نیست.');
       console.error('[useSession] Supabase client is not configured');
       return () => { active = false; };
     }
@@ -112,6 +115,7 @@ export function useSession() {
         if (active && version === requestVersion && currentUserId === userId) {
           readyUserIdRef.current = null;
           setProfile(null);
+          setSessionError(errorMessage(error));
           setStatus('error');
         }
       } finally {
@@ -140,7 +144,10 @@ export function useSession() {
           message: errorMessage(error),
           error,
         });
-        if (active && !authEventSeen) setStatus('error');
+        if (active && !authEventSeen) {
+          setSessionError(errorMessage(error));
+          setStatus('error');
+        }
       });
 
     return () => {
@@ -151,6 +158,7 @@ export function useSession() {
   }, [retryVersion]);
 
   const retry = useCallback(() => {
+    setSessionError(null);
     setStatus('loading');
     setRetryVersion(version => version + 1);
   }, []);
@@ -164,5 +172,5 @@ export function useSession() {
     }
   }, []);
 
-  return { status, profile, signOut, retry };
+  return { status, profile, signOut, retry, sessionError };
 }
