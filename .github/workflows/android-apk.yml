@@ -81,6 +81,7 @@ jobs:
             if [ -z "$KEY_PASSWORD" ]; then
               KEY_PASSWORD="$ANDROID_KEYSTORE_PASSWORD"
             fi
+            export KEY_PASSWORD
             APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
             test -x "$APKSIGNER"
             "$APKSIGNER" sign \
@@ -90,7 +91,8 @@ jobs:
               --key-pass env:KEY_PASSWORD \
               --out "$SIGNED" "$UNSIGNED"
             "$APKSIGNER" verify --verbose --print-certs "$SIGNED" | tee "$RUNNER_TEMP/apk-certificate.txt"
-            grep -Fqi "36cd8c0a7a1bf269d33d2c3f031d1be7b5d75cfe52db1bdfab2e8b72efa3f172" "$RUNNER_TEMP/apk-certificate.txt"
+            CERT_SHA256="$(sed -n 's/.*SHA-256 digest: //p' "$RUNNER_TEMP/apk-certificate.txt" | tr -d ':' | tr '[:upper:]' '[:lower:]' | head -n 1)"
+            test "$CERT_SHA256" = "36cd8c0a7a1bf269d33d2c3f031d1be7b5d75cfe52db1bdfab2e8b72efa3f172"
             echo "APK_KIND=signed" >> "$GITHUB_ENV"
             echo "APK_PATH=$SIGNED" >> "$GITHUB_ENV"
           else
