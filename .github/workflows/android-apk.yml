@@ -29,7 +29,7 @@ jobs:
       - name: Install web dependencies
         run: npm ci
       - name: Install Capacitor toolchain
-        run: npm install --no-save --package-lock=false @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
+        run: npm install --no-save --package-lock=false @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 sharp
       - name: Build production web application
         run: npm run build
       - name: Verify production web bundle
@@ -59,6 +59,47 @@ jobs:
               raise SystemExit("Could not safely locate the generated Android version fields")
           p.write_text(s2)
           PY
+      - name: Install the app launcher icon in Android resources
+        run: |
+          node --input-type=module <<'NODE'
+          import sharp from 'sharp';
+          import { mkdir, writeFile } from 'node:fs/promises';
+          import { join } from 'node:path';
+
+          const source = 'public/icons/icon-512.png';
+          const androidRes = 'android/app/src/main/res';
+          const densities = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
+
+          for (const [density, size] of Object.entries(densities)) {
+            const dir = join(androidRes, `mipmap-${density}`);
+            await mkdir(dir, { recursive: true });
+            await sharp(source).resize(size, size, { fit: 'contain' }).png().toFile(join(dir, 'ic_launcher.png'));
+            await sharp(source).resize(size, size, { fit: 'contain' }).png().toFile(join(dir, 'ic_launcher_round.png'));
+          }
+
+          const adaptiveDir = join(androidRes, 'mipmap-anydpi-v26');
+          await mkdir(adaptiveDir, { recursive: true });
+          const foregroundDir = join(androidRes, 'drawable');
+          await mkdir(foregroundDir, { recursive: true });
+          await sharp(source)
+            .resize(432, 432, { fit: 'contain' })
+            .extend({ top: 40, bottom: 40, left: 40, right: 40, background: { r: 0, g: 0, b: 0, alpha: 0 } })
+            .png()
+            .toFile(join(foregroundDir, 'ic_launcher_foreground.png'));
+
+          const adaptive = `<?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/ic_launcher_background"/>
+              <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+          </adaptive-icon>
+          `;
+          await writeFile(join(adaptiveDir, 'ic_launcher.xml'), adaptive);
+          await writeFile(join(adaptiveDir, 'ic_launcher_round.xml'), adaptive);
+          const valuesDir = join(androidRes, 'values');
+          await mkdir(valuesDir, { recursive: true });
+          await writeFile(join(valuesDir, 'ic_launcher_background.xml'),
+            `<?xml version="1.0" encoding="utf-8"?>\n<resources><color name="ic_launcher_background">#FFFFFF</color></resources>\n`);
+          NODE
       - name: Build release APK
         run: |
           cd android
