@@ -74,18 +74,23 @@ jobs:
           set -euo pipefail
           UNSIGNED="android/app/build/outputs/apk/release/app-release-unsigned.apk"
           SIGNED="android/app/build/outputs/apk/release/talesh-taxi-release-signed.apk"
-          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ANDROID_KEY_ALIAS" ] && [ -n "$ANDROID_KEY_PASSWORD" ]; then
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ANDROID_KEY_ALIAS" ]; then
             echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/talesh-taxi-release.jks"
             test -s "$RUNNER_TEMP/talesh-taxi-release.jks"
+            KEY_PASSWORD="$ANDROID_KEY_PASSWORD"
+            if [ -z "$KEY_PASSWORD" ]; then
+              KEY_PASSWORD="$ANDROID_KEYSTORE_PASSWORD"
+            fi
             APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
             test -x "$APKSIGNER"
             "$APKSIGNER" sign \
               --ks "$RUNNER_TEMP/talesh-taxi-release.jks" \
               --ks-key-alias "$ANDROID_KEY_ALIAS" \
               --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
-              --key-pass env:ANDROID_KEY_PASSWORD \
+              --key-pass env:KEY_PASSWORD \
               --out "$SIGNED" "$UNSIGNED"
-            "$APKSIGNER" verify --verbose --print-certs "$SIGNED"
+            "$APKSIGNER" verify --verbose --print-certs "$SIGNED" | tee "$RUNNER_TEMP/apk-certificate.txt"
+            grep -Fqi "36cd8c0a7a1bf269d33d2c3f031d1be7b5d75cfe52db1bdfab2e8b72efa3f172" "$RUNNER_TEMP/apk-certificate.txt"
             echo "APK_KIND=signed" >> "$GITHUB_ENV"
             echo "APK_PATH=$SIGNED" >> "$GITHUB_ENV"
           else
