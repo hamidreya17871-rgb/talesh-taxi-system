@@ -63,42 +63,28 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import sharp from 'sharp';
-          import { mkdir, writeFile } from 'node:fs/promises';
+          import { mkdir, rm } from 'node:fs/promises';
           import { join } from 'node:path';
 
           const source = 'public/icons/icon-512.png';
           const androidRes = 'android/app/src/main/res';
           const densities = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
 
+          // Keep density-specific PNGs and add a no-density PNG as a universal fallback.
           for (const [density, size] of Object.entries(densities)) {
             const dir = join(androidRes, `mipmap-${density}`);
             await mkdir(dir, { recursive: true });
             await sharp(source).resize(size, size, { fit: 'contain' }).png().toFile(join(dir, 'ic_launcher.png'));
             await sharp(source).resize(size, size, { fit: 'contain' }).png().toFile(join(dir, 'ic_launcher_round.png'));
           }
+          const noDensityDir = join(androidRes, 'mipmap-nodpi');
+          await mkdir(noDensityDir, { recursive: true });
+          await sharp(source).resize(512, 512, { fit: 'contain' }).png().toFile(join(noDensityDir, 'ic_launcher.png'));
+          await sharp(source).resize(512, 512, { fit: 'contain' }).png().toFile(join(noDensityDir, 'ic_launcher_round.png'));
 
-          const adaptiveDir = join(androidRes, 'mipmap-anydpi-v26');
-          await mkdir(adaptiveDir, { recursive: true });
-          const foregroundDir = join(androidRes, 'drawable');
-          await mkdir(foregroundDir, { recursive: true });
-          await sharp(source)
-            .resize(432, 432, { fit: 'contain' })
-            .extend({ top: 40, bottom: 40, left: 40, right: 40, background: { r: 0, g: 0, b: 0, alpha: 0 } })
-            .png()
-            .toFile(join(foregroundDir, 'ic_launcher_foreground.png'));
-
-          const adaptive = `<?xml version="1.0" encoding="utf-8"?>
-          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-              <background android:drawable="@color/ic_launcher_background"/>
-              <foreground android:drawable="@drawable/ic_launcher_foreground"/>
-          </adaptive-icon>
-          `;
-          await writeFile(join(adaptiveDir, 'ic_launcher.xml'), adaptive);
-          await writeFile(join(adaptiveDir, 'ic_launcher_round.xml'), adaptive);
-          const valuesDir = join(androidRes, 'values');
-          await mkdir(valuesDir, { recursive: true });
-          await writeFile(join(valuesDir, 'ic_launcher_background.xml'),
-            `<?xml version="1.0" encoding="utf-8"?>\n<resources><color name="ic_launcher_background">#FFFFFF</color></resources>\n`);
+          // Remove adaptive XML variants so Android/Samsung must resolve the real PNG launcher icon.
+          await rm(join(androidRes, 'mipmap-anydpi-v26/ic_launcher.xml'), { force: true });
+          await rm(join(androidRes, 'mipmap-anydpi-v26/ic_launcher_round.xml'), { force: true });
           NODE
       - name: Bind launcher icons in Android manifest and verify resources
         run: |
@@ -117,7 +103,6 @@ jobs:
           if app is None:
               raise SystemExit("Android manifest has no application element")
 
-          # Explicitly point Android at the launcher resources generated above.
           app.set(f"{{{android_ns}}}icon", "@mipmap/ic_launcher")
           app.set(f"{{{android_ns}}}roundIcon", "@mipmap/ic_launcher_round")
           tree.write(manifest, encoding="utf-8", xml_declaration=True)
@@ -129,19 +114,17 @@ jobs:
               res / "mipmap-xhdpi/ic_launcher.png",
               res / "mipmap-xxhdpi/ic_launcher.png",
               res / "mipmap-xxxhdpi/ic_launcher.png",
-              res / "mipmap-anydpi-v26/ic_launcher.xml",
-              res / "mipmap-anydpi-v26/ic_launcher_round.xml",
-              res / "drawable/ic_launcher_foreground.png",
-              res / "values/ic_launcher_background.xml",
+              res / "mipmap-nodpi/ic_launcher.png",
+              res / "mipmap-nodpi/ic_launcher_round.png",
           ]
           missing = [str(p) for p in required if not p.is_file() or p.stat().st_size == 0]
           if missing:
-              raise SystemExit("Launcher resources missing: " + ", ".join(missing))
+              raise SystemExit("Launcher PNG resources missing: " + ", ".join(missing))
 
           check = ET.parse(manifest).getroot().find("application")
           assert check.get(f"{{{android_ns}}}icon") == "@mipmap/ic_launcher"
           assert check.get(f"{{{android_ns}}}roundIcon") == "@mipmap/ic_launcher_round"
-          print("Launcher manifest references and all icon resources verified.")
+          print("PNG launcher resources and manifest references verified.")
           PY
       - name: Build release APK
         run: |
@@ -161,9 +144,13 @@ jobs:
           "$AAPT" dump resources "$APK" | tee "$RUNNER_TEMP/apk-resources.txt"
           grep -E 'application:.*icon=' "$RUNNER_TEMP/apk-badging.txt"
           grep -q 'ic_launcher' "$RUNNER_TEMP/apk-resources.txt"
-          grep -q 'ic_launcher_foreground' "$RUNNER_TEMP/apk-resources.txt"
-          grep -q 'ic_launcher_background' "$RUNNER_TEMP/apk-resources.txt"
-          echo "Packaged APK launcher references and compiled icon resources verified."
+          # Fail if aapt still selects an XML adaptive icon instead of the PNG fallback.
+          grep -E 'application-icon-[0-9]+:.*\.png' "$RUNNER_TEMP/apk-badging.txt"
+          if grep -E 'application-icon-[0-9]+:.*\.xml' "$RUNNER_TEMP/apk-badging.txt"; then
+            echo "Unexpected adaptive XML launcher icon selected"
+            exit 1
+          fi
+          echo "Packaged APK resolves launcher icons to PNG images."
       - name: Sign release APK when signing secrets are configured
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
