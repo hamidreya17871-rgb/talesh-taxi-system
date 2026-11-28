@@ -2,9 +2,11 @@ name: Android APK
 
 on:
   push:
-    branches: [release/android-pwa-packaging-20261117]
+    branches:
+      - release/android-production-sync-20261128
   pull_request:
-    branches: [release/standalone-railway]
+    branches:
+      - release/standalone-railway
   workflow_dispatch:
 
 permissions:
@@ -25,9 +27,9 @@ jobs:
           java-version: '21'
       - name: Install web dependencies
         run: npm ci
-      - name: Install Capacitor toolchain without changing project lockfile
+      - name: Install Capacitor toolchain
         run: npm install --no-save --package-lock=false @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
-      - name: Build web application
+      - name: Build production web application
         run: npm run build
       - name: Verify production web bundle
         run: |
@@ -45,15 +47,55 @@ jobs:
           EOF
           npx cap add android
           npx cap sync android
-      - name: Build installable debug APK
+      - name: Set Android release version
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("android/app/build.gradle")
+          s = p.read_text()
+          s2 = s.replace("versionCode 1", "versionCode 2", 1).replace('versionName "1.0"', 'versionName "1.0.1"', 1)
+          if s2 == s:
+              raise SystemExit("Could not safely locate the generated Android version fields")
+          p.write_text(s2)
+          PY
+      - name: Build release APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew --no-daemon assembleDebug
-          test -s app/build/outputs/apk/debug/app-debug.apk
+          ./gradlew --no-daemon assembleRelease
+          test -s app/build/outputs/apk/release/app-release-unsigned.apk
+      - name: Sign release APK when signing secrets are configured
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          UNSIGNED="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          SIGNED="android/app/build/outputs/apk/release/talesh-taxi-release-signed.apk"
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ANDROID_KEY_ALIAS" ] && [ -n "$ANDROID_KEY_PASSWORD" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/talesh-taxi-release.jks"
+            test -s "$RUNNER_TEMP/talesh-taxi-release.jks"
+            APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+            test -x "$APKSIGNER"
+            "$APKSIGNER" sign \
+              --ks "$RUNNER_TEMP/talesh-taxi-release.jks" \
+              --ks-key-alias "$ANDROID_KEY_ALIAS" \
+              --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
+              --key-pass env:ANDROID_KEY_PASSWORD \
+              --out "$SIGNED" "$UNSIGNED"
+            "$APKSIGNER" verify --verbose --print-certs "$SIGNED"
+            echo "APK_KIND=signed" >> "$GITHUB_ENV"
+            echo "APK_PATH=$SIGNED" >> "$GITHUB_ENV"
+          else
+            echo "Signing secrets are not configured; publishing an explicitly unsigned test artifact."
+            echo "APK_KIND=unsigned-test-only" >> "$GITHUB_ENV"
+            echo "APK_PATH=$UNSIGNED" >> "$GITHUB_ENV"
+          fi
       - uses: actions/upload-artifact@v4
         with:
-          name: talesh-taxi-android-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: talesh-taxi-android-${{ env.APK_KIND }}
+          path: ${{ env.APK_PATH }}
           if-no-files-found: error
           retention-days: 14
