@@ -1,10 +1,13 @@
 name: Android APK
+# Trigger a fresh release build from the Android preparation branch after signing secrets are configured.
 
 on:
   push:
-    branches: [release/android-pwa-packaging-20261117]
+    branches:
+      - release/android-production-sync-20261128
   pull_request:
-    branches: [release/standalone-railway]
+    branches:
+      - release/standalone-railway
   workflow_dispatch:
 
 permissions:
@@ -25,9 +28,9 @@ jobs:
           java-version: '21'
       - name: Install web dependencies
         run: npm ci
-      - name: Install Capacitor toolchain without changing project lockfile
-        run: npm install --no-save --package-lock=false @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
-      - name: Build web application
+      - name: Install Capacitor toolchain
+        run: npm install --no-save --package-lock=false @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 sharp
+      - name: Build production web application
         run: npm run build
       - name: Verify production web bundle
         run: |
@@ -45,15 +48,148 @@ jobs:
           EOF
           npx cap add android
           npx cap sync android
-      - name: Build installable debug APK
+      - name: Set Android release version
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("android/app/build.gradle")
+          s = p.read_text()
+          s2 = s.replace("versionCode 1", "versionCode 3", 1).replace('versionName "1.0"', 'versionName "1.0.2"', 1)
+          if s2 == s:
+              raise SystemExit("Could not safely locate the generated Android version fields")
+          p.write_text(s2)
+          PY
+      - name: Install the app launcher icon in Android resources
+        run: |
+          node --input-type=module <<'NODE'
+          import sharp from 'sharp';
+          import { mkdir, rm } from 'node:fs/promises';
+          import { join } from 'node:path';
+
+          const source = 'public/icons/icon-512.png';
+          const androidRes = 'android/app/src/main/res';
+          const densities = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
+
+          // Keep density-specific PNGs and add a no-density PNG as a universal fallback.
+          for (const [density, size] of Object.entries(densities)) {
+            const dir = join(androidRes, `mipmap-${density}`);
+            await mkdir(dir, { recursive: true });
+            await sharp(source).resize(size, size, { fit: 'contain' }).png().toFile(join(dir, 'ic_launcher.png'));
+            await sharp(source).resize(size, size, { fit: 'contain' }).png().toFile(join(dir, 'ic_launcher_round.png'));
+          }
+          const noDensityDir = join(androidRes, 'mipmap-nodpi');
+          await mkdir(noDensityDir, { recursive: true });
+          await sharp(source).resize(512, 512, { fit: 'contain' }).png().toFile(join(noDensityDir, 'ic_launcher.png'));
+          await sharp(source).resize(512, 512, { fit: 'contain' }).png().toFile(join(noDensityDir, 'ic_launcher_round.png'));
+
+          // Remove adaptive XML variants so Android/Samsung must resolve the real PNG launcher icon.
+          await rm(join(androidRes, 'mipmap-anydpi-v26/ic_launcher.xml'), { force: true });
+          await rm(join(androidRes, 'mipmap-anydpi-v26/ic_launcher_round.xml'), { force: true });
+          NODE
+      - name: Bind launcher icons in Android manifest and verify resources
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          ET.register_namespace("android", "http://schemas.android.com/apk/res/android")
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          if not manifest.is_file():
+              raise SystemExit("Generated AndroidManifest.xml is missing")
+          tree = ET.parse(manifest)
+          root = tree.getroot()
+          android_ns = "http://schemas.android.com/apk/res/android"
+          app = root.find("application")
+          if app is None:
+              raise SystemExit("Android manifest has no application element")
+
+          app.set(f"{{{android_ns}}}icon", "@mipmap/ic_launcher")
+          app.set(f"{{{android_ns}}}roundIcon", "@mipmap/ic_launcher_round")
+          tree.write(manifest, encoding="utf-8", xml_declaration=True)
+
+          res = Path("android/app/src/main/res")
+          required = [
+              res / "mipmap-mdpi/ic_launcher.png",
+              res / "mipmap-hdpi/ic_launcher.png",
+              res / "mipmap-xhdpi/ic_launcher.png",
+              res / "mipmap-xxhdpi/ic_launcher.png",
+              res / "mipmap-xxxhdpi/ic_launcher.png",
+              res / "mipmap-nodpi/ic_launcher.png",
+              res / "mipmap-nodpi/ic_launcher_round.png",
+          ]
+          missing = [str(p) for p in required if not p.is_file() or p.stat().st_size == 0]
+          if missing:
+              raise SystemExit("Launcher PNG resources missing: " + ", ".join(missing))
+
+          check = ET.parse(manifest).getroot().find("application")
+          assert check.get(f"{{{android_ns}}}icon") == "@mipmap/ic_launcher"
+          assert check.get(f"{{{android_ns}}}roundIcon") == "@mipmap/ic_launcher_round"
+          print("PNG launcher resources and manifest references verified.")
+          PY
+      - name: Build release APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew --no-daemon assembleDebug
-          test -s app/build/outputs/apk/debug/app-debug.apk
+          ./gradlew --no-daemon assembleRelease
+          test -s app/build/outputs/apk/release/app-release-unsigned.apk
+
+      - name: Inspect packaged launcher icon resources
+        run: |
+          set -euo pipefail
+          APK="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$AAPT"
+          "$AAPT" dump badging "$APK" | tee "$RUNNER_TEMP/apk-badging.txt"
+          "$AAPT" dump xmltree "$APK" AndroidManifest.xml | tee "$RUNNER_TEMP/apk-manifest.txt"
+          "$AAPT" dump resources "$APK" | tee "$RUNNER_TEMP/apk-resources.txt"
+          grep -E 'application:.*icon=' "$RUNNER_TEMP/apk-badging.txt"
+          grep -q 'ic_launcher' "$RUNNER_TEMP/apk-resources.txt"
+          # Fail if aapt still selects an XML adaptive icon instead of the PNG fallback.
+          grep -E 'application-icon-[0-9]+:.*\.png' "$RUNNER_TEMP/apk-badging.txt"
+          if grep -E 'application-icon-[0-9]+:.*\.xml' "$RUNNER_TEMP/apk-badging.txt"; then
+            echo "Unexpected adaptive XML launcher icon selected"
+            exit 1
+          fi
+          echo "Packaged APK resolves launcher icons to PNG images."
+      - name: Sign release APK when signing secrets are configured
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          UNSIGNED="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          SIGNED="android/app/build/outputs/apk/release/talesh-taxi-release-signed.apk"
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ANDROID_KEY_ALIAS" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/talesh-taxi-release.jks"
+            test -s "$RUNNER_TEMP/talesh-taxi-release.jks"
+            KEY_PASSWORD="$ANDROID_KEY_PASSWORD"
+            if [ -z "$KEY_PASSWORD" ]; then
+              KEY_PASSWORD="$ANDROID_KEYSTORE_PASSWORD"
+            fi
+            export KEY_PASSWORD
+            APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+            test -x "$APKSIGNER"
+            "$APKSIGNER" sign \
+              --ks "$RUNNER_TEMP/talesh-taxi-release.jks" \
+              --ks-key-alias "$ANDROID_KEY_ALIAS" \
+              --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
+              --key-pass env:KEY_PASSWORD \
+              --out "$SIGNED" "$UNSIGNED"
+            "$APKSIGNER" verify --verbose --print-certs "$SIGNED" | tee "$RUNNER_TEMP/apk-certificate.txt"
+            CERT_SHA256="$(sed -n 's/.*SHA-256 digest: //p' "$RUNNER_TEMP/apk-certificate.txt" | tr -d ':' | tr '[:upper:]' '[:lower:]' | head -n 1)"
+            test "$CERT_SHA256" = "36cdc80a7a1bf269d33d2c3f031d1be7b5d75cfe52db1bdfab2e8b72efa3f172"
+            echo "APK_KIND=signed" >> "$GITHUB_ENV"
+            echo "APK_PATH=$SIGNED" >> "$GITHUB_ENV"
+          else
+            echo "Signing secrets are not configured; publishing an explicitly unsigned test artifact."
+            echo "APK_KIND=unsigned-test-only" >> "$GITHUB_ENV"
+            echo "APK_PATH=$UNSIGNED" >> "$GITHUB_ENV"
+          fi
       - uses: actions/upload-artifact@v4
         with:
-          name: talesh-taxi-android-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: talesh-taxi-android-${{ env.APK_KIND }}
+          path: ${{ env.APK_PATH }}
           if-no-files-found: error
           retention-days: 14
