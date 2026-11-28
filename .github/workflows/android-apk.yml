@@ -149,6 +149,21 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon assembleRelease
           test -s app/build/outputs/apk/release/app-release-unsigned.apk
+
+      - name: Inspect packaged launcher icon resources
+        run: |
+          set -euo pipefail
+          APK="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$AAPT"
+          "$AAPT" dump badging "$APK" | tee "$RUNNER_TEMP/apk-badging.txt"
+          "$AAPT" dump xmltree "$APK" AndroidManifest.xml | tee "$RUNNER_TEMP/apk-manifest.txt"
+          "$AAPT" dump resources "$APK" | tee "$RUNNER_TEMP/apk-resources.txt"
+          grep -E 'application:.*icon=' "$RUNNER_TEMP/apk-badging.txt"
+          grep -q 'ic_launcher' "$RUNNER_TEMP/apk-resources.txt"
+          grep -q 'ic_launcher_foreground' "$RUNNER_TEMP/apk-resources.txt"
+          grep -q 'ic_launcher_background' "$RUNNER_TEMP/apk-resources.txt"
+          echo "Packaged APK launcher references and compiled icon resources verified."
       - name: Sign release APK when signing secrets are configured
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
